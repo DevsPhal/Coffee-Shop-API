@@ -15,12 +15,10 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
-
     private final AuthenticationProvider authenticationProvider;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
@@ -37,11 +35,10 @@ public class SecurityConfig {
                         .hasRole("ADMIN")
                         .requestMatchers("/api/barista/**")
                         .hasAnyRole("ADMIN", "BARISTA")
-                        .requestMatchers("/api/user/**")
-                        .hasAnyRole("ADMIN", "USER")
+                        .requestMatchers("/api/customer/**")
+                        .hasAnyRole("ADMIN", "CUSTOMER")
                         .anyRequest()
                         .authenticated()
-
                 )
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(

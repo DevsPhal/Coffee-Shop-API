@@ -21,12 +21,14 @@ public class User {
     @Column(nullable = false)
     private String fullName;
 
-    @Column(nullable = false)
+    @Column(unique = true, nullable = false)
     private String email;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     private String password;
 
     @Enumerated(EnumType.STRING)
     private Role role;
+
+    private boolean enabled;
 }

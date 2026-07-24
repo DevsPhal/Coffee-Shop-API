@@ -21,31 +21,21 @@ public class OpenAPIConfig {
                 .components(
                         new Components()
                                 .addSecuritySchemes(
-
                                         "Bearer Authentication",
-
                                         new SecurityScheme()
-
                                                 .name("Bearer Authentication")
-
                                                 .type(SecurityScheme.Type.HTTP)
-
                                                 .scheme("bearer")
-
                                                 .bearerFormat("JWT")
                                 )
                 )
                 .info(
                         new Info()
                                 .title("Coffee Shop API")
-
                                 .version("1.0")
-
                                 .description(
-                                        "Coffee Shop Management System API"
+                                        "590st Cafe Shop Management System API"
                                 )
-
                 );
-
     }
 }
