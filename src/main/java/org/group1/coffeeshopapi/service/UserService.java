@@ -19,17 +19,13 @@ public class UserService {
     private final UserRepository userRepository;
 
     public UserResponse getCurrentUser() {
-        String email =
-                SecurityContextHolder
+        String email = SecurityContextHolder
                         .getContext()
                         .getAuthentication()
                         .getName();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found"
-                        )
-                );
+                        new ResourceNotFoundException("User not found"));
         return mapToResponse(user);
     }
 
@@ -37,12 +33,8 @@ public class UserService {
         User user =
                 userRepository.findById(id)
                         .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "User not found"
-                                )
-                        );
+                                new ResourceNotFoundException("User not found"));
         return mapToResponse(user);
-
     }
 
     public List<UserResponse> getAllUsers(){
@@ -53,14 +45,9 @@ public class UserService {
     }
 
     public void deleteUser(UUID id){
-
-        User user =
-                userRepository.findById(id)
+        User user = userRepository.findById(id)
                         .orElseThrow(() ->
-                                new ResourceNotFoundException(
-                                        "User not found"
-                                )
-                        );
+                                new ResourceNotFoundException("User not found"));
         userRepository.delete(user);
     }
 
