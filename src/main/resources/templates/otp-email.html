@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body{
+            margin:0;
+            padding:0;
+            background:#f4f4f4;
+            font-family: "Google Sans Code",sans-serif;
+
+        }
+
+        .container{
+            width:600px;
+            margin:auto;
+            background:white;
+            border-radius:12px;
+            overflow:hidden;
+            box-shadow:0 4px 20px rgba(0,0,0,.08);
+
+        }
+
+        .header{
+            background: #e0b6ac;
+            color: #423434;
+            text-align:center;
+            padding:35px;
+
+        }
+
+        .header h1{
+            margin:10px 0;
+        }
+
+        .logoImage{
+            height: auto;
+            width: 120px;
+        }
+
+        .image{
+            width:100%;
+        }
+
+        .content{
+            padding:40px;
+        }
+
+        .otp{
+            font-size:38px;
+            font-weight:bold;
+            color: #61d413;
+            background:#F5F5F5;
+            text-align:center;
+            letter-spacing:10px;
+            padding:20px;
+            border-radius:8px;
+            margin:30px 0;
+        }
+
+        .footer{
+            background:#FAFAFA;
+            padding:20px;
+            text-align:center;
+            color:#777;
+            font-size:13px;
+        }
+
+        .button{
+            display:inline-block;
+            background:#6F4E37;
+            color:white;
+            padding:12px 28px;
+            border-radius:8px;
+            text-decoration:none;
+
+        }
+
+        .warning{
+            color:yellowgreen;
+            font-weight:bold;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <img  class="logoImage" src="cid:logoImage" alt="590st Cafe Logo">
+        <p>Fresh Coffee • Fresh Day</p>
+
+    </div>
+
+    <img
+            class="image"
+            src="cid:banner"
+            alt="590st Cafe Banner">
+
+    <div class="content">
+        <h2>Hello, <span th:text="${name}"></span></h2>
+        <p>
+            Thank you for choosing
+            <strong>590st Cafe</strong>.
+        </p>
+        <p>
+            Use the following One-Time Password (OTP) to verify your account.
+        </p>
+        <div class="otp" th:text="${otp}"></div>
+        <p class="warning">
+            This OTP will expire in
+            <span th:text="${expired}"></span>.
+        </p>
+        <p>
+            If you didn't request this verification,
+            please ignore this email.
+        </p>
+    </div>
+
+    <div class="footer">
+        <strong>590st Cafe</strong>
+        <br><br>
+        <span th:text="${shopEmail}"></span>
+        <br><br>
+        &copy; 2026 590st Cafe
+    </div>
+</div>
+</body>
+</html>

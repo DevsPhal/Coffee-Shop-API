@@ -12,29 +12,18 @@ import java.time.LocalDateTime;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(ResourceNotFoundException.class)
-    public ResponseEntity<ErrorResponse>
-    handleNotFound(
-            ResourceNotFoundException ex
-    ){
-    ErrorResponse error =
-                ErrorResponse.builder()
+    public ResponseEntity<ErrorResponse> handleNotFound(ResourceNotFoundException ex){
+    ErrorResponse error = ErrorResponse.builder()
                         .status(HttpStatus.NOT_FOUND.value())
                         .message(ex.getMessage())
                         .timestamp(LocalDateTime.now())
                         .build();
-        return ResponseEntity
-                .status(HttpStatus.NOT_FOUND)
-                .body(error);
-
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse>
-    handleValidation(
-            MethodArgumentNotValidException ex
-    ){
-        ErrorResponse error =
-                ErrorResponse.builder()
+    public ResponseEntity<ErrorResponse> handleValidation(MethodArgumentNotValidException ex){
+        ErrorResponse error = ErrorResponse.builder()
                         .status(400)
                         .message(
                                 ex.getBindingResult()
@@ -44,24 +33,16 @@ public class GlobalExceptionHandler {
                         )
                         .timestamp(LocalDateTime.now())
                         .build();
-        return ResponseEntity
-                .badRequest()
-                .body(error);
-
+        return ResponseEntity.badRequest().body(error);
     }
 
     @ExceptionHandler(Exception.class)
-    public ResponseEntity<ErrorResponse>
-    handleGeneral(Exception ex){
-        ErrorResponse error =
-                ErrorResponse.builder()
+    public ResponseEntity<ErrorResponse> handleGeneral(Exception ex){
+        ErrorResponse error = ErrorResponse.builder()
                         .status(500)
                         .message("Internal Server Error")
                         .timestamp(LocalDateTime.now())
                         .build();
-        return ResponseEntity
-                .status(500)
-                .body(error);
-
+        return ResponseEntity.status(500).body(error);
     }
 }
