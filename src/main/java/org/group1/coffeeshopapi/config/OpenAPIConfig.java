@@ -33,9 +33,7 @@ public class OpenAPIConfig {
                         new Info()
                                 .title("Coffee Shop API")
                                 .version("1.0")
-                                .description(
-                                        "590st Cafe Shop Management System API"
-                                )
+                                .description("590st Cafe Shop Management System API")
                 );
     }
 }
