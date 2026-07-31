@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.dto.response.ApiResponse;
 import org.group1.coffeeshopapi.dto.response.UserResponse;
 import org.group1.coffeeshopapi.entity.User;
 import org.group1.coffeeshopapi.exception.ResourceNotFoundException;
@@ -53,9 +54,13 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public void deleteUser(UUID uid) {
+    public ApiResponse deleteUserById(UUID uid) {
         User user = userRepository.findById(uid)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         userRepository.delete(user);
+
+        return ApiResponse.<Void>builder()
+                .message("User deleted successfully")
+                .build();
     }
 }

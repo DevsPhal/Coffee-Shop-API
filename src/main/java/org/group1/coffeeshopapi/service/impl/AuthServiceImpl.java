@@ -3,16 +3,19 @@ package org.group1.coffeeshopapi.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.dto.request.LoginRequest;
 import org.group1.coffeeshopapi.dto.request.RegisterRequest;
-import org.group1.coffeeshopapi.dto.response.AuthenticationResponse;
+import org.group1.coffeeshopapi.dto.response.*;
 import org.group1.coffeeshopapi.entity.Role;
 import org.group1.coffeeshopapi.entity.User;
+import org.group1.coffeeshopapi.exception.DuplicateResourceException;
+import org.group1.coffeeshopapi.exception.InvalidOtpException;
 import org.group1.coffeeshopapi.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.repository.UserRepository;
 import org.group1.coffeeshopapi.security.JwtService;
-import org.group1.coffeeshopapi.service.AuthenticationService;
+import org.group1.coffeeshopapi.service.AuthService;
 import org.group1.coffeeshopapi.service.EmailService;
 import org.group1.coffeeshopapi.service.OtpService;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,17 +25,18 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class AuthenticationServiceImpl implements AuthenticationService {
+public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final OtpService otpService;
+
     @Override
-    public AuthenticationResponse register(RegisterRequest registerRequest) {
+    public RegisterResponse register(RegisterRequest registerRequest) {
         if (userRepository.existsByEmail(registerRequest.getEmail())){
-            throw new RuntimeException("Email already exists");
+            throw new DuplicateResourceException("Email already registered");
         }
 
         User user = User.builder()
@@ -44,20 +48,23 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .build();
         userRepository.save(user);
 
-        String otp = otpService.generateOtp();
+        String otp = otpService.generateOtp(user.getEmail());
 
         emailService.sendOtpEmail(
                 user.getEmail(),
                 user.getFullName(),
                 otp
         );
-        return AuthenticationResponse.builder()
-                .message("Register success, please check your email for OTP.")
+        return RegisterResponse.builder()
+                .userId(user.getId())
+                .email(user.getEmail())
+                .verificationRequired(true)
                 .build();
     }
 
+
     @Override
-    public AuthenticationResponse login(LoginRequest loginRequest) {
+    public LoginResponse login(LoginRequest loginRequest) {
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         loginRequest.getEmail(),
@@ -68,12 +75,42 @@ public class AuthenticationServiceImpl implements AuthenticationService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         if(!user.isEnabled()){
-            throw new RuntimeException("Account not verified");
+            throw new DisabledException("Account not verified, Please check your email for OTP.");
         }
 
-        String token = jwtService.generateToken(createUserDetails(user));
-        return AuthenticationResponse.builder()
-                .token(token)
+        String accessToken = jwtService.generateToken(createUserDetails(user));
+        String refreshToken = jwtService.generateToken(createUserDetails(user));
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .user(
+                        UserResponse.builder()
+                                .id(user.getId())
+                                .fullName(user.getFullName())
+                                .email(user.getEmail())
+                                .role(user.getRole())
+                                .build()
+                )
+                .build();
+    }
+
+    @Override
+    public VerifyOtpResponse verifyOtp(String email, String otp) {
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
+        if (!otpService.isValid(email, otp)){
+            throw new InvalidOtpException("Invalid or expired OTP.");
+        }
+
+        user.setEnabled(true);
+        userRepository.save(user);
+
+        otpService.clearOtp(email);
+
+        return VerifyOtpResponse.builder()
+                .verified(true)
+                .email(user.getEmail())
                 .build();
     }
 

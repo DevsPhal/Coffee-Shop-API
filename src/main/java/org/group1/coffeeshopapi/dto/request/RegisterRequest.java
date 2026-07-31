@@ -10,7 +10,7 @@ import lombok.Data;
 @Schema(description = "Payload")
 public class RegisterRequest {
    @NotBlank(message = "Username is required")
-   @Size(min = 4, max = 20)
+   @Size(min = 4, max = 20, message = "Full name must be between 4 and 20 characters")
    @Schema(example = "your name")
    private String fullName;
 

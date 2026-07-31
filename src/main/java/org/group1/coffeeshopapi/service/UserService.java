@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.service;
 
 
+import org.group1.coffeeshopapi.dto.response.ApiResponse;
 import org.group1.coffeeshopapi.dto.response.UserResponse;
 
 import java.util.List;
@@ -14,5 +15,5 @@ public interface UserService {
 
     List<UserResponse> getAllUsers();
 
-    void deleteUser(UUID uid);
+    ApiResponse deleteUserById(UUID uid);
 }

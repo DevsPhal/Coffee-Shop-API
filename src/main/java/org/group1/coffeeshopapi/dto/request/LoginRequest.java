@@ -16,6 +16,6 @@ public class LoginRequest {
 
     @NotBlank(message = "Password is required")
     @Size(min = 8, message = "Password must be at least 8 character")
-    @Schema(example = "Qwert!@")
+    @Schema(example = "Qwert12!@")
     private String password;
 }
