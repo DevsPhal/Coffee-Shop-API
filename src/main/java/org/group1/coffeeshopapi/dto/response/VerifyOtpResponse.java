@@ -5,7 +5,7 @@ import lombok.Data;
 
 @Data
 @Builder
-public class AuthenticationResponse {
-    private String token;
-    private String message;
+public class VerifyOtpResponse {
+    private boolean verified;
+    private String email;
 }
