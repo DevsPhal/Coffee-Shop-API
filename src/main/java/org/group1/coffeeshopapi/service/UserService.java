@@ -1,7 +1,7 @@
 package org.group1.coffeeshopapi.service;
 
 
-import org.group1.coffeeshopapi.dto.response.ApiResponse;
+import org.group1.coffeeshopapi.dto.common.ApiResponse;
 import org.group1.coffeeshopapi.dto.response.UserResponse;
 
 import java.util.List;
