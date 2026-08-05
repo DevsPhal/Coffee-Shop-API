@@ -10,6 +10,7 @@ import org.group1.coffeeshopapi.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.repository.UserRepository;
 import org.group1.coffeeshopapi.service.UserService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
