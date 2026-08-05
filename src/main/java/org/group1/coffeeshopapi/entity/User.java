@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.group1.coffeeshopapi.entity.enums.Role;
 
 import java.util.UUID;
 

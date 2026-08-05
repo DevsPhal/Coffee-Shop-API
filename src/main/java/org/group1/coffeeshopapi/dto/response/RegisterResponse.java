@@ -2,15 +2,13 @@ package org.group1.coffeeshopapi.dto.response;
 
 import lombok.Builder;
 import lombok.Data;
-import org.group1.coffeeshopapi.entity.enums.Role;
 
 import java.util.UUID;
 
 @Data
 @Builder
-public class UserResponse {
-    private UUID id;
-    private String fullName;
+public class RegisterResponse {
+    private UUID userId;
     private String email;
-    private Role role;
+    private boolean verificationRequired;
 }

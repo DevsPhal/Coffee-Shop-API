@@ -7,8 +7,6 @@
             margin:0;
             padding:0;
             background:#f4f4f4;
-            font-family: "Google Sans Code",sans-serif;
-
         }
 
         .container{
@@ -22,7 +20,7 @@
         }
 
         .header{
-            background: #e0b6ac;
+            background: #c7b0ab;
             color: #423434;
             text-align:center;
             padding:35px;
@@ -43,11 +41,12 @@
         }
 
         .content{
-            padding:40px;
+            padding:30px;
+            text-transform: capitalize;
         }
 
         .otp{
-            font-size:38px;
+            font-size:25px;
             font-weight:bold;
             color: #61d413;
             background:#F5F5F5;
@@ -68,26 +67,23 @@
 
         .button{
             display:inline-block;
-            background:#6F4E37;
-            color:white;
+            background: #c5b5a6;
+            color:#777;
             padding:12px 28px;
             border-radius:8px;
             text-decoration:none;
-
         }
 
         .warning{
-            color:yellowgreen;
+            color: #eebe45;
             font-weight:bold;
         }
     </style>
 </head>
-<body>
+<body style="font-family: 'Courier New', Courier, monospace">
 <div class="container">
     <div class="header">
         <img  class="logoImage" src="cid:logoImage" alt="590st Cafe Logo">
-        <p>Fresh Coffee • Fresh Day</p>
-
     </div>
 
     <img
@@ -116,7 +112,9 @@
     </div>
 
     <div class="footer">
-        <strong>590st Cafe</strong>
+        <a class="button" href="https://www.browncoffee.com.kh/">
+            <strong>590st Cafe</strong>
+        </a>
         <br><br>
         <span th:text="${shopEmail}"></span>
         <br><br>

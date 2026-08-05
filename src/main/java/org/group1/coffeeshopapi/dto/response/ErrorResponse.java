@@ -1,10 +1,11 @@
-package org.group1.coffeeshopapi.exception;
+package org.group1.coffeeshopapi.dto.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Data
 @Builder
@@ -12,5 +13,6 @@ import java.time.LocalDateTime;
 public class ErrorResponse {
     private int status;
     private String message;
+    private Map<String, String> error;
     private LocalDateTime timestamp;
 }
