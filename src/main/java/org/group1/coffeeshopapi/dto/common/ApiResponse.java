@@ -1,4 +1,4 @@
-package org.group1.coffeeshopapi.dto.response;
+package org.group1.coffeeshopapi.dto.common;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

@@ -4,17 +4,16 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.dto.request.LoginRequest;
 import org.group1.coffeeshopapi.dto.request.RegisterRequest;
 import org.group1.coffeeshopapi.dto.response.*;
-import org.group1.coffeeshopapi.entity.Role;
+import org.group1.coffeeshopapi.entity.enums.Role;
 import org.group1.coffeeshopapi.entity.User;
-import org.group1.coffeeshopapi.exception.DuplicateResourceException;
-import org.group1.coffeeshopapi.exception.InvalidOtpException;
-import org.group1.coffeeshopapi.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.exception.*;
 import org.group1.coffeeshopapi.repository.UserRepository;
 import org.group1.coffeeshopapi.security.JwtService;
 import org.group1.coffeeshopapi.service.AuthService;
 import org.group1.coffeeshopapi.service.EmailService;
 import org.group1.coffeeshopapi.service.OtpService;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -65,14 +64,18 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(LoginRequest loginRequest) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getEmail(),
-                        loginRequest.getPassword()
-                )
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getEmail(),
+                            loginRequest.getPassword()
+                    )
+            );
+        }catch (BadCredentialsException ex){
+            throw new UnauthorizedException("Invalid email or password.");
+        }
         User user = userRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
 
         if(!user.isEnabled()){
             throw new DisabledException("Account not verified, Please check your email for OTP.");

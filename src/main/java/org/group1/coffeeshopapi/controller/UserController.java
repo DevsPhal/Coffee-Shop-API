@@ -1,7 +1,7 @@
 package org.group1.coffeeshopapi.controller;
 
 import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.dto.response.ApiResponse;
+import org.group1.coffeeshopapi.dto.common.ApiResponse;
 import org.group1.coffeeshopapi.dto.response.UserResponse;
 import org.group1.coffeeshopapi.service.UserService;
 import org.springframework.http.HttpStatus;

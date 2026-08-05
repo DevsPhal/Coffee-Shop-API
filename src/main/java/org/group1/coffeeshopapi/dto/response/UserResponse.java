@@ -2,7 +2,7 @@ package org.group1.coffeeshopapi.dto.response;
 
 import lombok.Builder;
 import lombok.Data;
-import org.group1.coffeeshopapi.entity.Role;
+import org.group1.coffeeshopapi.entity.enums.Role;
 
 import java.util.UUID;
 

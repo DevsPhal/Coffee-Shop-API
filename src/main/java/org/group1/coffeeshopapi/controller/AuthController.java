@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.dto.common.ApiResponse;
 import org.group1.coffeeshopapi.dto.request.*;
 import org.group1.coffeeshopapi.dto.response.*;
 import org.group1.coffeeshopapi.service.AuthService;
