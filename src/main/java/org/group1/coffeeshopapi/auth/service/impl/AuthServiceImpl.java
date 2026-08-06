@@ -7,11 +7,15 @@ import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
 import org.group1.coffeeshopapi.auth.dto.response.RegisterResponse;
 import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
 import org.group1.coffeeshopapi.auth.dto.response.VerifyOtpResponse;
-import org.group1.coffeeshopapi.enums.Role;
+import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.admin.entity.User;
-import org.group1.coffeeshopapi.exception.*;
+import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
+import org.group1.coffeeshopapi.common.exception.InvalidOtpException;
+import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.exception.UnauthorizedException;
 import org.group1.coffeeshopapi.admin.repository.UserRepository;
-import org.group1.coffeeshopapi.security.JwtService;
+import org.group1.coffeeshopapi.common.security.CustomUserDetails;
+import org.group1.coffeeshopapi.common.security.JwtService;
 import org.group1.coffeeshopapi.auth.service.AuthService;
 import org.group1.coffeeshopapi.auth.service.EmailService;
 import org.group1.coffeeshopapi.auth.service.OtpService;
@@ -19,11 +23,8 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -84,8 +85,10 @@ public class AuthServiceImpl implements AuthService {
             throw new DisabledException("Account not verified, Please check your email for OTP.");
         }
 
-        String accessToken = jwtService.generateToken(createUserDetails(user));
-        String refreshToken = jwtService.generateToken(createUserDetails(user));
+        CustomUserDetails userDetails = new CustomUserDetails(user);
+
+        String accessToken = jwtService.generateToken(userDetails);
+        String refreshToken = jwtService.generateToken(userDetails);
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -118,15 +121,5 @@ public class AuthServiceImpl implements AuthService {
                 .verified(true)
                 .email(user.getEmail())
                 .build();
-    }
-
-    private org.springframework.security.core.userdetails.User createUserDetails(User user) {
-        return new org.springframework.security.core.userdetails.User(
-                user.getEmail(),
-                user.getPassword(),
-                List.of(new SimpleGrantedAuthority(
-                        "ROLE_" + user.getRole().name()
-                ))
-        );
     }
 }

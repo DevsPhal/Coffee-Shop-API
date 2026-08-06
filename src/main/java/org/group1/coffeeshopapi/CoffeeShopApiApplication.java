@@ -1,6 +1,6 @@
 package org.group1.coffeeshopapi;
 
-import org.group1.coffeeshopapi.config.TelegramBotConfig;
+import org.group1.coffeeshopapi.common.config.TelegramBotConfig;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
