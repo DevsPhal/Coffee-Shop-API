@@ -3,7 +3,7 @@ package org.group1.coffeeshopapi.auth.service.impl;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.config.EmailConfig;
+import org.group1.coffeeshopapi.common.config.EmailConfig;
 import org.group1.coffeeshopapi.auth.service.EmailService;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;

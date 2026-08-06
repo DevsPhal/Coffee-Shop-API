@@ -8,7 +8,7 @@ import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
 import org.group1.coffeeshopapi.auth.dto.response.RegisterResponse;
 import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
 import org.group1.coffeeshopapi.auth.dto.response.VerifyOtpResponse;
-import org.group1.coffeeshopapi.responses.ApiResponse;
+import org.group1.coffeeshopapi.common.responses.ApiResponse;
 import org.group1.coffeeshopapi.auth.service.AuthService;
 import org.group1.coffeeshopapi.admin.service.UserService;
 import org.springframework.http.HttpStatus;
