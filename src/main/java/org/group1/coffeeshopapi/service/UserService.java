@@ -15,5 +15,5 @@ public interface UserService {
 
     List<UserResponse> getAllUsers();
 
-    ApiResponse deleteUserById(UUID uid);
+    ApiResponse<Void> deleteUserById(UUID uid);
 }
