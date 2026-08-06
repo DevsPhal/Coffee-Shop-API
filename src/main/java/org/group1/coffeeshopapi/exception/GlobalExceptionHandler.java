@@ -1,6 +1,6 @@
 package org.group1.coffeeshopapi.exception;
 
-import org.group1.coffeeshopapi.dto.response.ErrorResponse;
+import org.group1.coffeeshopapi.auth.dto.response.ErrorResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
