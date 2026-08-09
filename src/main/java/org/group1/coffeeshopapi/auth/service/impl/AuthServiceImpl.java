@@ -1,9 +1,11 @@
 package org.group1.coffeeshopapi.auth.service.impl;
 
+import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.auth.dto.request.LoginRequest;
 import org.group1.coffeeshopapi.auth.dto.request.RegisterRequest;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
+import org.group1.coffeeshopapi.auth.dto.response.RefreshTokenResponse;
 import org.group1.coffeeshopapi.auth.dto.response.RegisterResponse;
 import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
 import org.group1.coffeeshopapi.auth.dto.response.VerifyOtpResponse;
@@ -23,6 +25,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -75,20 +78,18 @@ public class AuthServiceImpl implements AuthService {
                             loginRequest.getPassword()
                     )
             );
-        }catch (BadCredentialsException ex){
+        } catch (BadCredentialsException ex) {
             throw new UnauthorizedException("Invalid email or password.");
+        } catch (DisabledException ex) {
+            throw new DisabledException("Account not verified, Please check your email for OTP.");
         }
         User user = userRepository.findByEmail(loginRequest.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found."));
 
-        if(!user.isEnabled()){
-            throw new DisabledException("Account not verified, Please check your email for OTP.");
-        }
-
         CustomUserDetails userDetails = new CustomUserDetails(user);
 
-        String accessToken = jwtService.generateToken(userDetails);
-        String refreshToken = jwtService.generateToken(userDetails);
+        String accessToken = jwtService.generateAccessToken(userDetails);
+        String refreshToken = jwtService.generateRefreshToken(userDetails);
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -121,5 +122,92 @@ public class AuthServiceImpl implements AuthService {
                 .verified(true)
                 .email(user.getEmail())
                 .build();
+    }
+
+    @Override
+    public void resendOtp(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
+
+        if (user.isEnabled()) {
+            throw new DuplicateResourceException("Account is already verified, please login.");
+        }
+
+        String otp = otpService.generateOtp(user.getEmail());
+        emailService.sendOtpEmail(user.getEmail(), user.getFullName(), otp);
+    }
+
+    @Override
+    public RefreshTokenResponse refreshToken(String refreshToken) {
+        try {
+            String email = jwtService.extractUsername(refreshToken);
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new UnauthorizedException("Invalid or expired refresh token."));
+            CustomUserDetails userDetails = new CustomUserDetails(user);
+
+            if (!jwtService.isRefreshTokenValid(refreshToken, userDetails)) {
+                throw new UnauthorizedException("Invalid or expired refresh token.");
+            }
+
+            String accessToken = jwtService.generateAccessToken(userDetails);
+            return RefreshTokenResponse.builder()
+                    .accessToken(accessToken)
+                    .build();
+        } catch (JwtException | IllegalArgumentException ex) {
+            throw new UnauthorizedException("Invalid or expired refresh token.");
+        }
+    }
+
+    @Override
+    public void forgotPassword(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
+
+        String otp = otpService.generateOtp(user.getEmail());
+        emailService.sendOtpEmail(user.getEmail(), user.getFullName(), otp);
+    }
+
+    @Override
+    public VerifyOtpResponse verifyResetOtp(String email, String otp) {
+        userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
+
+        if (!otpService.isValid(email, otp)) {
+            throw new InvalidOtpException("Invalid or expired OTP.");
+        }
+
+        return VerifyOtpResponse.builder()
+                .verified(true)
+                .email(email)
+                .build();
+    }
+
+    @Override
+    public void resetPassword(String email, String otp, String newPassword) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
+
+        if (!otpService.isValid(email, otp)) {
+            throw new InvalidOtpException("Invalid or expired OTP.");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+
+        otpService.clearOtp(email);
+    }
+
+    @Override
+    public void changePassword(String oldPassword, String newPassword) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new UnauthorizedException("Old password is incorrect.");
+        }
+
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
     }
 }

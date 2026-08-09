@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.admin.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.admin.dto.request.CategoryPatchRequest;
 import org.group1.coffeeshopapi.admin.dto.request.CategoryRequest;
 import org.group1.coffeeshopapi.admin.dto.response.CategoryResponse;
 import org.group1.coffeeshopapi.admin.mapper.CategoryMapper;
@@ -9,10 +10,11 @@ import org.group1.coffeeshopapi.admin.service.CategoryService;
 import org.group1.coffeeshopapi.admin.entity.Category;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -45,6 +47,16 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     @Transactional
+    public CategoryResponse patch(UUID id, CategoryPatchRequest request) {
+        Category category = categoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + id));
+        categoryMapper.patch(category, request);
+        Category updated = categoryRepository.save(category);
+        return categoryMapper.toResponse(updated);
+    }
+
+    @Override
+    @Transactional
     public void delete(UUID id) {
         Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Category not found: " + id));
@@ -59,10 +71,8 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
-    public List<CategoryResponse> getAll() {
-        return categoryRepository.findAll()
-                .stream()
-                .map(categoryMapper::toResponse)
-                .toList();
+    public Page<CategoryResponse> getAll(Pageable pageable) {
+        return categoryRepository.findAll(pageable)
+                .map(categoryMapper::toResponse);
     }
 }

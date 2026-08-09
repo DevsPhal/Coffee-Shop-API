@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.admin.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.admin.entity.Inventory;
 import org.group1.coffeeshopapi.admin.entity.Product;
+import org.group1.coffeeshopapi.admin.dto.request.InventoryPatchRequest;
 import org.group1.coffeeshopapi.admin.dto.request.InventoryRequest;
 import org.group1.coffeeshopapi.admin.dto.response.InventoryResponse;
 import org.group1.coffeeshopapi.admin.mapper.InventoryMapper;
@@ -11,10 +12,11 @@ import org.group1.coffeeshopapi.admin.service.InventoryService;
 import org.group1.coffeeshopapi.admin.repository.ProductRepository;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -50,6 +52,16 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional
+    public InventoryResponse patch(UUID id, InventoryPatchRequest request) {
+        Inventory inventory = inventoryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Inventory not found: " + id));
+        inventoryMapper.patch(inventory, request);
+        Inventory updated = inventoryRepository.save(inventory);
+        return inventoryMapper.toResponse(updated);
+    }
+
+    @Override
+    @Transactional
     public void delete(UUID id) {
         Inventory inventory = inventoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found: " + id));
@@ -71,10 +83,8 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
-    public List<InventoryResponse> getAll() {
-        return inventoryRepository.findAll()
-                .stream()
-                .map(inventoryMapper::toResponse)
-                .toList();
+    public Page<InventoryResponse> getAll(Pageable pageable) {
+        return inventoryRepository.findAll(pageable)
+                .map(inventoryMapper::toResponse);
     }
 }

@@ -1,9 +1,11 @@
 package org.group1.coffeeshopapi.admin.service;
 
+import org.group1.coffeeshopapi.admin.dto.request.InventoryPatchRequest;
 import org.group1.coffeeshopapi.admin.dto.request.InventoryRequest;
 import org.group1.coffeeshopapi.admin.dto.response.InventoryResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.UUID;
 
 public interface InventoryService {
@@ -12,11 +14,13 @@ public interface InventoryService {
 
     InventoryResponse update(UUID id, InventoryRequest request);
 
+    InventoryResponse patch(UUID id, InventoryPatchRequest request);
+
     void delete(UUID id);
 
     InventoryResponse getById(UUID id);
 
     InventoryResponse getByProductId(UUID productId);
 
-    List<InventoryResponse> getAll();
+    Page<InventoryResponse> getAll(Pageable pageable);
 }
