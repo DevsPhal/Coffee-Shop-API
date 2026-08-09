@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.admin.mapper;
 
 import org.group1.coffeeshopapi.admin.entity.Category;
 import org.group1.coffeeshopapi.admin.entity.Product;
+import org.group1.coffeeshopapi.admin.dto.request.ProductPatchRequest;
 import org.group1.coffeeshopapi.admin.dto.request.ProductRequest;
 import org.group1.coffeeshopapi.admin.dto.response.ProductResponse;
 import org.springframework.stereotype.Component;
@@ -28,6 +29,27 @@ public class ProductMapper {
         product.setCategory(category);
         if (request.getActive() != null) {
             product.setActive(request.getActive());
+        }
+    }
+
+    public void patch(Product product, ProductPatchRequest request, Category category) {
+        if (request.getName() != null) {
+            product.setName(request.getName());
+        }
+        if (request.getDescription() != null) {
+            product.setDescription(request.getDescription());
+        }
+        if (request.getPrice() != null) {
+            product.setPrice(request.getPrice());
+        }
+        if (request.getImageUrl() != null) {
+            product.setImageUrl(request.getImageUrl());
+        }
+        if (request.getActive() != null) {
+            product.setActive(request.getActive());
+        }
+        if (category != null) {
+            product.setCategory(category);
         }
     }
 

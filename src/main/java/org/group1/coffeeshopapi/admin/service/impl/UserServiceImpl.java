@@ -6,7 +6,10 @@ import org.group1.coffeeshopapi.admin.mapper.UserMapper;
 import org.group1.coffeeshopapi.admin.repository.UserRepository;
 import org.group1.coffeeshopapi.admin.service.UserService;
 import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
+import org.group1.coffeeshopapi.common.enums.Role;
+import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -30,6 +33,13 @@ public class UserServiceImpl implements UserService {
         return userMapper.toResponse(user);
     }
 
+    private UUID getCurrentUserId() {
+        CustomUserDetails principal = (CustomUserDetails) SecurityContextHolder.getContext()
+                .getAuthentication()
+                .getPrincipal();
+        return principal.getId();
+    }
+
     @Override
     public List<UserResponse> getAllUsers() {
         return userRepository.findAll()
@@ -49,6 +59,25 @@ public class UserServiceImpl implements UserService {
     public void delete(UUID id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
+
+        if (user.getId().equals(getCurrentUserId())) {
+            throw new InvalidOperationException("Admins cannot delete their own account.");
+        }
+
         userRepository.delete(user);
+    }
+
+    @Override
+    public UserResponse updateRole(UUID id, Role role) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
+
+        if (user.getId().equals(getCurrentUserId())) {
+            throw new InvalidOperationException("Admins cannot change their own role.");
+        }
+
+        user.setRole(role);
+        userRepository.save(user);
+        return userMapper.toResponse(user);
     }
 }
