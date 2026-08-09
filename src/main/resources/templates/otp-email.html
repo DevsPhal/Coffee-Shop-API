@@ -1,125 +1,181 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
 <head>
-    <meta charset="UTF-8">
-    <style>
-        body{
-            margin:0;
-            padding:0;
-            background:#f4f4f4;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="color-scheme" content="light" />
+  <meta name="supported-color-schemes" content="light" />
+  <title>590st Cafe Verification Code</title>
 
-        .container{
-            width:600px;
-            margin:auto;
-            background:white;
-            border-radius:12px;
-            overflow:hidden;
-            box-shadow:0 4px 20px rgba(0,0,0,.08);
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
 
-        }
+  <style>
+    body, table, td {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+    body { margin: 0; padding: 0; width: 100% !important; background-color: #e7ddca; -webkit-text-size-adjust: 100%; }
+    table { border-collapse: collapse; }
+    img { border: 0; display: block; }
+    a { text-decoration: none; }
 
-        .header{
-            background: #c7b0ab;
-            color: #423434;
-            text-align:center;
-            padding:35px;
+    .ticket-code {
+      font-family: 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    }
 
-        }
+    .stub-label { white-space: nowrap; }
 
-        .header h1{
-            margin:10px 0;
-        }
+    /*Responsive*/
+    @media only screen and (max-width: 620px) {
+      .email-wrapper { width: 100% !important; }
+      .content-padding { padding: 28px 22px !important; }
+      .otp-code { font-size: 30px !important; letter-spacing: 4px !important; }
+    }
 
-        .logoImage{
-            height: auto;
-            width: 120px;
-        }
+    @media only screen and (max-width: 380px) {
+      .otp-code { font-size: 25px !important; letter-spacing: 2px !important; }
+    }
 
-        .image{
-            width:100%;
-        }
-
-        .content{
-            padding:30px;
-            text-transform: capitalize;
-        }
-
-        .otp{
-            font-size:25px;
-            font-weight:bold;
-            color: #61d413;
-            background:#F5F5F5;
-            text-align:center;
-            letter-spacing:10px;
-            padding:20px;
-            border-radius:8px;
-            margin:30px 0;
-        }
-
-        .footer{
-            background:#FAFAFA;
-            padding:20px;
-            text-align:center;
-            color:#777;
-            font-size:13px;
-        }
-
-        .button{
-            display:inline-block;
-            background: #c5b5a6;
-            color:#777;
-            padding:12px 28px;
-            border-radius:8px;
-            text-decoration:none;
-        }
-
-        .warning{
-            color: #eebe45;
-            font-weight:bold;
-        }
-    </style>
+    @media only screen and (min-width: 1200px) {
+      .stub-col {
+        display: inline-block !important;
+        width: 46% !important;
+        vertical-align: top !important;
+        border-bottom: none !important;
+      }
+      .stub-col-first {
+        margin-right: 2% !important;
+      }
+    }
+  </style>
 </head>
-<body style="font-family: 'Courier New', Courier, monospace">
-<div class="container">
-    <div class="header">
-        <img  class="logoImage" src="cid:logoImage" alt="590st Cafe Logo">
-    </div>
+<body style="margin:0;padding:0;background-color:#e7ddca;">
 
-    <img
-            class="image"
-            src="cid:banner"
-            alt="590st Cafe Banner">
-
-    <div class="content">
-        <h2>Hello, <span th:text="${name}"></span></h2>
-        <p>
-            Thank you for choosing
-            <strong>590st Cafe</strong>.
-        </p>
-        <p>
-            Use the following One-Time Password (OTP) to verify your account.
-        </p>
-        <div class="otp" th:text="${otp}"></div>
-        <p class="warning">
-            This OTP will expire in
-            <span th:text="${expired}"></span>.
-        </p>
-        <p>
-            If you didn't request this verification,
-            please ignore this email.
-        </p>
-    </div>
-
-    <div class="footer">
-        <a class="button" href="https://www.browncoffee.com.kh/">
-            <strong>590st Cafe</strong>
-        </a>
-        <br><br>
-        <span th:text="${shopEmail}"></span>
-        <br><br>
-        &copy; 2026 590st Cafe
-    </div>
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;mso-hide:all;">
+  Your verification ticket for 590st Cafe &mdash; code inside, valid for <span th:text="${expired}">5 minutes</span>.
 </div>
+
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color:#e7ddca;">
+  <tr>
+    <td align="center" style="padding:40px 16px;">
+
+      <table role="presentation" class="email-wrapper" width="600" border="0" cellpadding="0" cellspacing="0" style="width:600px;max-width:600px;">
+
+        <tr>
+          <td align="center" style="background-color:#fbf7ef;border-radius:14px 14px 0 0;padding:30px 24px 22px;">
+            <img src="cid:logoImage" width="64" alt="590st Cafe" style="width:64px;height:auto;margin:0 auto 14px;" />
+            <div style="font-size:11px;font-weight:400;letter-spacing:0.14em;text-transform:capitalize;color:#a9743c;">
+              Specialty Coffee &middot; 590st Cafe
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background-color:#fbf7ef;">
+            <img src="cid:banner" width="600" alt="590st Cafe" style="width:100%;height:auto;display:block;" />
+          </td>
+        </tr>
+
+        <tr>
+          <td class="content-padding" style="background-color:#fbf7ef;padding:36px 40px 8px;">
+            <h1 class="ticket-code" style="margin:0 0 14px;font-size:21px;font-weight:400;color:#241811;">
+              Hi <span style="text-transform: capitalize" th:text="${name}">there</span>,
+            </h1>
+            <p style="margin:0;font-size:13px;line-height:1.8;color:#4a3c31;">
+              Here is your one-time verification ticket for <strong>590st Cafe</strong>.
+              Present the code below to confirm it's really you.
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td class="content-padding" style="background-color:#fbf7ef;padding:28px 40px 8px;">
+            <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background-color:#f3ead9;border:1px dashed #c9a877;border-radius:4px;padding:0;">
+
+                  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding:18px 20px 0;">
+                  <span style="font-size:10px;font-weight:400;letter-spacing:0.16em;text-transform:uppercase;color:#a9743c;">
+                    Verification Ticket
+                  </span>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td align="center" style="padding:14px 20px 20px;">
+                        <span class="ticket-code otp-code" style="font-size:38px;font-weight:400;letter-spacing:6px;color:#241811;" th:text="${otp}">123456</span>
+                      </td>
+                    </tr>
+                  </table>
+
+                  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="border-top:1px dashed #c9a877;font-size:0;line-height:0;">&nbsp;</td>
+                    </tr>
+                  </table>
+
+                  <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:0;">
+                        <table role="presentation" width="100%"><tr>
+                          <td width="47%" valign="top" style="padding:16px 20px 18px;">
+                        <div class="stub-col stub-col-first" style="display:block;width:100%;box-sizing:border-box;padding:16px 20px 16px;border-bottom:1px dashed #c9a877;">
+                          <div class="stub-label" style="font-size:9px;font-weight:400;letter-spacing:0.14em;text-transform:uppercase;color:#a9743c;margin:0 0 4px;">
+                            Issued To
+                          </div>
+                          <div style="font-size:13px;text-transform:capitalize;color:#241811;" th:text="${name}">Guest</div>
+                        </div>
+                        </td><td width="6%">&nbsp;</td><td width="47%" valign="top" style="padding:16px 20px 18px;">
+                        <div class="stub-col" style="display:block;width:100%;box-sizing:border-box;padding:16px 20px 18px;">
+                          <div class="stub-label" style="font-size:9px;font-weight:400;letter-spacing:0.14em;text-transform:uppercase;color:#a9743c;margin:0 0 4px;">
+                            Valid For
+                          </div>
+                          <div style="font-size:13px;text-transform:capitalize;color:#241811;" th:text="${expired}">5 minutes</div>
+                        </div>
+                        </td></tr></table>
+                      </td>
+                    </tr>
+                  </table>
+
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td class="content-padding" style="background-color:#fbf7ef;padding:22px 40px 40px;">
+            <p style="margin:0;font-size:11px;line-height:1.7;color:#8a7864;">
+              Didn't request this? You can safely ignore this email &mdash; your account stays exactly as it was.
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td align="center" style="background-color:#241811;border-radius:0 0 14px 14px;padding:30px 24px;">
+            <a href="https://www.browncoffee.com.kh/" class="ticket-code" style="display:inline-block;border:1px solid #a9743c;color:#f3ead9;font-size:12px;letter-spacing:0.05em;padding:11px 26px;border-radius:2px;">
+              Visit 590st Cafe
+            </a>
+            <p style="margin:20px 0 4px;font-size:11px;color:#a08f7c;" th:text="${shopEmail}">590stcafes@gmail.com</p>
+            <p style="margin:0;font-size:11px;color:#6f6153;">&copy; 2026 590st Cafe. All rights reserved.</p>
+          </td>
+        </tr>
+
+      </table>
+
+    </td>
+  </tr>
+</table>
+
 </body>
 </html>
