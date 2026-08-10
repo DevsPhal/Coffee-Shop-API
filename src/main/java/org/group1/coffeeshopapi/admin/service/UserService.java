@@ -5,17 +5,16 @@ import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
 import org.group1.coffeeshopapi.common.enums.Role;
 
 import java.util.List;
-import java.util.UUID;
 
 public interface UserService {
 
     UserResponse getCurrentUser();
 
-    UserResponse getUserById(UUID uId);
+    UserResponse getUserById(Long uId);
 
     List<UserResponse> getAllUsers();
 
-    void delete(UUID uid);
+    void delete(Long uid);
 
-    UserResponse updateRole(UUID uid, Role role);
+    UserResponse updateRole(Long uid, Role role);
 }

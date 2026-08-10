@@ -15,7 +15,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -33,7 +32,7 @@ public class UserServiceImpl implements UserService {
         return userMapper.toResponse(user);
     }
 
-    private UUID getCurrentUserId() {
+    private Long getCurrentUserId() {
         CustomUserDetails principal = (CustomUserDetails) SecurityContextHolder.getContext()
                 .getAuthentication()
                 .getPrincipal();
@@ -49,14 +48,14 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse getUserById(UUID id) {
+    public UserResponse getUserById(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
         return userMapper.toResponse(user);
     }
 
     @Override
-    public void delete(UUID id) {
+    public void delete(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
 
@@ -68,7 +67,7 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public UserResponse updateRole(UUID id, Role role) {
+    public UserResponse updateRole(Long id, Role role) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
 

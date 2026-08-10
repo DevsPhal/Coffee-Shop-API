@@ -6,6 +6,7 @@ import org.group1.coffeeshopapi.common.security.RestAccessDeniedHandler;
 import org.group1.coffeeshopapi.common.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -46,7 +47,11 @@ public class SecurityConfig {
                                 "/v3/api-docs.yaml"
                         )
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/categories/**", "/api/v1/product/**")
+                        .permitAll()
                         .requestMatchers("/api/admin/**")
+                        .hasRole("ADMIN")
+                        .requestMatchers("/api/v1/inventory/**", "/api/v1/admin/**")
                         .hasRole("ADMIN")
                         .requestMatchers("/api/barista/**")
                         .hasAnyRole("ADMIN", "BARISTA")

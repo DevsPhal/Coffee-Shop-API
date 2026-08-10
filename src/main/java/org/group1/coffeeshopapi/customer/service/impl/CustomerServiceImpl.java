@@ -5,18 +5,13 @@ import java.util.List;
 
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.admin.entity.User;
-import org.group1.coffeeshopapi.admin.mapper.UserMapper;
 import org.group1.coffeeshopapi.admin.repository.UserRepository;
-import org.group1.coffeeshopapi.admin.service.UserService;
-import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.customer.dto.request.CustomerRequest;
 import org.group1.coffeeshopapi.customer.dto.response.CustomerResponse;
 import org.group1.coffeeshopapi.customer.mapper.CustomerMapper;
 import org.group1.coffeeshopapi.customer.service.CustomerService;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -24,14 +19,14 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 @Transactional
-public class CustomerServiceImpl implements CustomerService, UserService {
+
+public class CustomerServiceImpl implements CustomerService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final CustomerMapper customerMapper;
-    private final UserMapper userMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -78,37 +73,6 @@ public class CustomerServiceImpl implements CustomerService, UserService {
         User user = userRepository.findById(id)
                 .filter(candidate -> candidate.getRole() == Role.CUSTOMER)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
-        userRepository.delete(user);
-    }
-
-    @Override
-    public UserResponse getCurrentUser() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String email = authentication.getName();
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
-        return userMapper.toResponse(user);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<UserResponse> getAllUsers() {
-        return userRepository.findAll().stream()
-                .map(userMapper::toResponse)
-                .toList();
-    }
-
-    @Override
-    public UserResponse getUserById(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
-        return userMapper.toResponse(user);
-    }
-
-    @Override
-    public void delete(Long id) {
-        User user = userRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
         userRepository.delete(user);
     }
 
