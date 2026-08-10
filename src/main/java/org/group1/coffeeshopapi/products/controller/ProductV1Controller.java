@@ -1,13 +1,18 @@
 package org.group1.coffeeshopapi.products.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
 import org.group1.coffeeshopapi.common.responses.ApiResponse;
+import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.group1.coffeeshopapi.common.utils.PageUtil;
 import org.group1.coffeeshopapi.products.dto.request.ProductCreateRequest;
 import org.group1.coffeeshopapi.products.dto.request.ProductUpdateRequest;
 import org.group1.coffeeshopapi.products.dto.response.ProductResponse;
 import org.group1.coffeeshopapi.products.service.ProductService;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -45,9 +50,14 @@ public class ProductV1Controller {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ProductResponse>>> getAllProducts() {
-        List<ProductResponse> responses = productService.getAllProducts();
-        return ResponseEntity.ok(ApiResponse.<List<ProductResponse>>builder()
+    public ResponseEntity<ApiResponse<PageResponse<ProductResponse>>> getAllProducts(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false) String direction) {
+        Pageable pageable = PageUtil.buildPageable(page, size, sortBy, direction);
+        PageResponse<ProductResponse> responses = productService.getAllProducts(pageable);
+        return ResponseEntity.ok(ApiResponse.<PageResponse<ProductResponse>>builder()
                 .status(HttpStatus.OK.value())
                 .message("Products retrieved successfully")
                 .data(responses)
@@ -67,7 +77,7 @@ public class ProductV1Controller {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ProductResponse>> getProductById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<ProductResponse>> getProductById(@PathVariable UUID id) {
         ProductResponse response = productService.getProductById(id);
         return ResponseEntity.ok(ApiResponse.<ProductResponse>builder()
                 .status(HttpStatus.OK.value())
@@ -113,7 +123,7 @@ public class ProductV1Controller {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<ProductResponse>> updateProduct(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody ProductUpdateRequest request) {
         ProductResponse response = productService.updateProduct(id, request);
         return ResponseEntity.ok(ApiResponse.<ProductResponse>builder()
@@ -126,7 +136,7 @@ public class ProductV1Controller {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<?>> deleteProduct(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<?>> deleteProduct(@PathVariable UUID id) {
         productService.deleteProduct(id);
         return ResponseEntity.ok(ApiResponse.builder()
                 .status(HttpStatus.OK.value())

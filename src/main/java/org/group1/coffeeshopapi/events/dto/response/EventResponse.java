@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.events.dto.response;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.common.enums.EventStatus;
 import org.group1.coffeeshopapi.common.enums.EventType;
@@ -18,7 +19,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class EventResponse {
-    private Long id;
+    private UUID id;
     private String title;
     private EventType type;
     private LocalDate date;

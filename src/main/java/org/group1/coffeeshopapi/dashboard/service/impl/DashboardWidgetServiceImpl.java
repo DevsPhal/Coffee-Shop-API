@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.dashboard.service.impl;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
@@ -30,7 +32,7 @@ public class DashboardWidgetServiceImpl implements DashboardWidgetService {
 
     @Override
     @Transactional(readOnly = true)
-    public DashboardWidgetResponse getById(Long id) {
+    public DashboardWidgetResponse getById(UUID id) {
         DashboardWidget w = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Widget not found: " + id));
         return mapper.toResponse(w);
     }
@@ -43,14 +45,14 @@ public class DashboardWidgetServiceImpl implements DashboardWidgetService {
     }
 
     @Override
-    public DashboardWidgetResponse update(Long id, DashboardWidgetRequest request) {
+    public DashboardWidgetResponse update(UUID id, DashboardWidgetRequest request) {
         DashboardWidget w = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Widget not found: " + id));
         mapper.updateEntity(request, w);
         return mapper.toResponse(repository.save(w));
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(UUID id) {
         DashboardWidget w = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Widget not found: " + id));
         repository.delete(w);
     }

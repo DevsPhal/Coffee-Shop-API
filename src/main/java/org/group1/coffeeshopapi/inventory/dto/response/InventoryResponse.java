@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.inventory.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -13,9 +14,9 @@ import lombok.Setter;
 @NoArgsConstructor
 public class InventoryResponse {
 
-    private Long id;
+    private UUID id;
 
-    private Long productId;
+    private UUID productId;
 
     private String productCode;
 

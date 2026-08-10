@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.admin.entity.User;
 import org.group1.coffeeshopapi.admin.repository.UserRepository;
@@ -53,7 +54,7 @@ class BaristaServiceImplTest {
                 .build();
 
         BaristaResponse response = BaristaResponse.builder()
-                .id(1L)
+                .id(UUID.randomUUID())
                 .name("Alice")
                 .email("alice@example.com")
                 .build();

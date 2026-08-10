@@ -6,9 +6,10 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface FileRecordRepository extends JpaRepository<FileRecord, Long> {
+public interface FileRecordRepository extends JpaRepository<FileRecord, UUID> {
 
     Optional<FileRecord> findByObjectName(String objectName);
 

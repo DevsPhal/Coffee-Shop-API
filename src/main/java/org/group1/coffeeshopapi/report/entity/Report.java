@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.report.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import lombok.AllArgsConstructor;
@@ -20,8 +21,8 @@ import lombok.Setter;
 public class Report {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(nullable = false, length = 128)
     private String name;

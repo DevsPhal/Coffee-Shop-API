@@ -21,6 +21,7 @@ import lombok.Setter;
 import lombok.Builder;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,8 +35,8 @@ import java.util.List;
 public class Order {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "order_number", nullable = false, unique = true, length = 50)
     private String orderNumber;
@@ -45,7 +46,7 @@ public class Order {
 
     // Null for staff/POS walk-in orders that aren't tied to a customer account.
     @Column(name = "user_id")
-    private Long userId;
+    private UUID userId;
 
     @Column(name = "order_type", length = 64)
     private String orderType;

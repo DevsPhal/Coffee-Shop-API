@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.payments.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -45,29 +47,29 @@ public class PaymentController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<PaymentResponse>> getById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<PaymentResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder().status(HttpStatus.OK.value()).message("Payment retrieved successfully").data(paymentService.getById(id)).timeStamp(LocalDateTime.now()).build());
     }
 
     @GetMapping("/order/{orderId}")
-    public ResponseEntity<ApiResponse<PaymentResponse>> getByOrder(@PathVariable Long orderId) {
+    public ResponseEntity<ApiResponse<PaymentResponse>> getByOrder(@PathVariable UUID orderId) {
         return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder().status(HttpStatus.OK.value()).message("Payment retrieved successfully").data(paymentService.getByOrderId(orderId)).timeStamp(LocalDateTime.now()).build());
     }
 
     @PostMapping("/{id}/check-status")
-    public ResponseEntity<ApiResponse<PaymentResponse>> checkStatus(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<PaymentResponse>> checkStatus(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder().status(HttpStatus.OK.value()).message("Payment status checked").data(paymentService.checkStatus(id)).timeStamp(LocalDateTime.now()).build());
     }
 
     @PostMapping("/{id}/verify")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<PaymentResponse>> verify(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<PaymentResponse>> verify(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder().status(HttpStatus.OK.value()).message("Payment verified successfully").data(paymentService.verify(id)).timeStamp(LocalDateTime.now()).build());
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<?>> deletePayment(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<?>> deletePayment(@PathVariable UUID id) {
         paymentService.deletePayment(id);
         return ResponseEntity.ok(ApiResponse.builder().status(HttpStatus.OK.value()).message("Payment deleted successfully").timeStamp(LocalDateTime.now()).build());
     }

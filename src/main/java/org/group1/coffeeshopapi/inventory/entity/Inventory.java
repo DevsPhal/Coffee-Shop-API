@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.inventory.entity;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.products.entity.Product;
 
@@ -28,8 +29,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Inventory {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "product_id", nullable = false, unique = true)

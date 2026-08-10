@@ -13,6 +13,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.UUID;
+
 @Entity
 @Table(name = "order_items")
 @Getter
@@ -22,15 +24,15 @@ import lombok.Setter;
 public class OrderItem {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
     @Column(name = "product_id")
-    private Long productId;
+    private UUID productId;
 
     @Column(name = "product_name", length = 128)
     private String productName;

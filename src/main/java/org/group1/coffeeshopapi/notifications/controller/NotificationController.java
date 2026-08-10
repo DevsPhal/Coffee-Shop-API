@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.notifications.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -50,7 +52,7 @@ public class NotificationController {
     }
 
     @PostMapping("/{id}/read")
-    public ResponseEntity<ApiResponse<Void>> markRead(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> markRead(@PathVariable UUID id) {
         notificationService.markRead(id);
         return ResponseEntity.ok(ApiResponse.<Void>builder().status(HttpStatus.OK.value()).message("Notification marked as read").timeStamp(LocalDateTime.now()).build());
     }
@@ -63,7 +65,7 @@ public class NotificationController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         notificationService.delete(id);
         return ResponseEntity.ok(ApiResponse.<Void>builder().status(HttpStatus.OK.value()).message("Notification deleted successfully").timeStamp(LocalDateTime.now()).build());
     }

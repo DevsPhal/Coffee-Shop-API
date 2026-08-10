@@ -22,11 +22,8 @@ import org.group1.coffeeshopapi.common.enums.Role;
 @NoArgsConstructor
 public class User {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false, unique = true)
-    private String uuid;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "full_name", nullable = false, length = 256)
     private String fullName;
@@ -98,9 +95,6 @@ public class User {
 
     @PrePersist
     private void onCreate() {
-        if (uuid == null || uuid.isBlank()) {
-            uuid = UUID.randomUUID().toString();
-        }
         if (fullName == null || fullName.isBlank()) {
             fullName = ((givenName == null ? "" : givenName) + " " + (familyName == null ? "" : familyName)).trim();
         }

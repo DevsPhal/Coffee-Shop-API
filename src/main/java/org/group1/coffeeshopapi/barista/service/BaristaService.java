@@ -1,14 +1,16 @@
 package org.group1.coffeeshopapi.barista.service;
 
-import java.util.List;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.barista.dto.request.BaristaRequest;
 import org.group1.coffeeshopapi.barista.dto.response.BaristaResponse;
+import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 public interface BaristaService {
-    List<BaristaResponse> getAllBaristas();
-    BaristaResponse getBaristaById(Long id);
+    PageResponse<BaristaResponse> getAllBaristas(Pageable pageable);
+    BaristaResponse getBaristaById(UUID id);
     BaristaResponse createBarista(BaristaRequest request);
-    BaristaResponse updateBarista(Long id, BaristaRequest request);
-    void deleteBarista(Long id);
+    BaristaResponse updateBarista(UUID id, BaristaRequest request);
+    void deleteBarista(UUID id);
 }
