@@ -19,6 +19,9 @@ public class RegisterRequest {
    @Schema(example = "you@gmail.com")
    private String email;
 
+   @Schema(example = "+85512345678")
+   private String phone;
+
    @NotBlank(message = "Password is required")
    @Size(min = 8, message = "Password must be at least 8 character")
    @Schema(example = "Qwert12!@")

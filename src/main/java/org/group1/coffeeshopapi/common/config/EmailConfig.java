@@ -7,6 +7,6 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @Getter
 public class EmailConfig {
-    @Value("${MAIL_USERNAME}")
+    @Value("${mail.shop.email:${spring.mail.username:}}")
     private String shopEmail;
 }
