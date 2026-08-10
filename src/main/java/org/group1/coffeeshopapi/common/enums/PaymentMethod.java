@@ -1,5 +1,10 @@
 package org.group1.coffeeshopapi.common.enums;
 
 public enum PaymentMethod {
-    CASH, BAKONG_KHQR
+    CASH,
+    KHQR,
+    BAKONG_KHQR,
+    CARD,
+    BANK_TRANSFER,
+    WALLET
 }
