@@ -50,7 +50,12 @@ public class AuthController {
 
     @PostMapping("/resend-otp")
     public ResponseEntity<ApiResponse<?>> resendOtp(@Valid @RequestBody EmailRequest emailRequest){
-        return null;
+        authService.resendOtp(emailRequest.getEmail());
+        return ResponseEntity.ok(ApiResponse.builder()
+                .status(HttpStatus.OK.value())
+                .message("OTP resent. Please check your email.")
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @PostMapping("/login")
@@ -66,33 +71,66 @@ public class AuthController {
     }
 
     @PostMapping("/refresh-token")
-    public ResponseEntity<ApiResponse<?>> refreshToken(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest){
-        return null;
+    public ResponseEntity<ApiResponse<LoginResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest){
+        LoginResponse response = authService.refreshToken(refreshTokenRequest.getToken());
+        return ResponseEntity.ok(ApiResponse.<LoginResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("Token refreshed successfully")
+                .data(response)
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<?>> logout(HttpServletRequest request){
-        return null;
+        // Stateless JWT: there is no server-side session or token store to clear here - the
+        // client is responsible for discarding its access/refresh tokens on logout.
+        return ResponseEntity.ok(ApiResponse.builder()
+                .status(HttpStatus.OK.value())
+                .message("Logged out successfully")
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @PostMapping("/forgot-password")
     public ResponseEntity<ApiResponse<?>> forgotPassword(@Valid @RequestBody EmailRequest emailRequest){
-        return null;
+        authService.forgotPassword(emailRequest.getEmail());
+        return ResponseEntity.ok(ApiResponse.builder()
+                .status(HttpStatus.OK.value())
+                .message("Password reset OTP sent. Please check your email.")
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @PostMapping("/verify-reset-otp")
-    public ResponseEntity<ApiResponse<?>> verifyResetOtp(@Valid @RequestBody VerifyOtpRequest request){
-        return null;
+    public ResponseEntity<ApiResponse<VerifyOtpResponse>> verifyResetOtp(@Valid @RequestBody VerifyOtpRequest request){
+        VerifyOtpResponse response = authService.verifyResetOtp(request.getEmail(), request.getOtp());
+        return ResponseEntity.ok(ApiResponse.<VerifyOtpResponse>builder()
+                .status(HttpStatus.OK.value())
+                .message("OTP verified")
+                .data(response)
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @PostMapping("/reset-password")
     public ResponseEntity<ApiResponse<?>> resetPassword(@Valid @RequestBody ResetPasswordRequest request){
-        return null;
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.builder()
+                .status(HttpStatus.OK.value())
+                .message("Password reset successfully. Please login.")
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @PostMapping("/change-password")
     public ResponseEntity<ApiResponse<?>> changePassword(@Valid @RequestBody ChangePasswordRequest request){
-        return null;
+        authService.changePassword(request);
+        return ResponseEntity.ok(ApiResponse.builder()
+                .status(HttpStatus.OK.value())
+                .message("Password changed successfully")
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @GetMapping("/me")

@@ -1,18 +1,16 @@
 package org.group1.coffeeshopapi.admin.service;
 
+import java.util.List;
 
 import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
-
-import java.util.List;
-import java.util.UUID;
 
 public interface UserService {
 
     UserResponse getCurrentUser();
 
-    UserResponse getUserById(UUID uId);
+    UserResponse getUserById(Long uId);
 
     List<UserResponse> getAllUsers();
 
-    void delete(UUID uid);
+    void delete(Long uid);
 }
