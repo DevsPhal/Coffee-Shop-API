@@ -48,9 +48,24 @@ jwt:
 
 mail:
   shop:
-    email: ${EMAIL.USERNAME}
+    email: ${MAIL_USERNAME}
 
 telegram:
   bot:
     token: ${TELEGRAM_BOT_TOKEN}
     user-name: ${TELEGRAM_BOT_USERNAME}
+
+bakong:
+  base-url: ${BAKONG_BASE_URL:}
+  token: ${BAKONG_TOKEN:}
+  account-id: ${BAKONG_ACCOUNT_ID:}
+  merchant-name: ${BAKONG_MERCHANT_NAME:}
+  merchant-city: ${BAKONG_MERCHANT_CITY:}
+  merchant-category-code: ${BAKONG_MERCHANT_CATEGORY_CODE:}
+
+minio:
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  public-endpoint: ${MINIO_PUBLIC_ENDPOINT:${minio.endpoint}}
+  access-key: ${MINIO_ACCESS_KEY:minioadmin}
+  secret-key: ${MINIO_SECRET_KEY:minioadmin}
+  bucket-name: ${MINIO_BUCKET_NAME:590st-public}

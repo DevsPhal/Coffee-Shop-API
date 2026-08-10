@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin/user")
@@ -47,7 +46,7 @@ public class UserAdminController {
 
     @GetMapping("/{uId}")
     @PreAuthorize("hasRole('ADMIN') or #uId == authentication.principal.id")
-    public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable UUID uId){
+    public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable Long uId){
         UserResponse response = userService.getUserById(uId);
         return ResponseEntity.ok(ApiResponse.<UserResponse>builder()
                 .status(HttpStatus.OK.value())
@@ -59,7 +58,7 @@ public class UserAdminController {
 
     @PatchMapping("/{id}/role")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<UserResponse>> updateRole(@PathVariable UUID id,
+    public ResponseEntity<ApiResponse<UserResponse>> updateRole(@PathVariable Long id,
                                                                   @Valid @RequestBody UpdateUserRoleRequest request){
         UserResponse response = userService.updateRole(id, request.getRole());
         return ResponseEntity.ok(ApiResponse.<UserResponse>builder()
@@ -72,7 +71,7 @@ public class UserAdminController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> deleteById(@PathVariable UUID id){
+    public ResponseEntity<ApiResponse<Void>> deleteById(@PathVariable Long id){
         userService.delete(id);
         ApiResponse<Void> response = ApiResponse.<Void>builder()
                 .status(HttpStatus.OK.value())
