@@ -1,16 +1,20 @@
 package org.group1.coffeeshopapi.staff.service.impl;
 
 import java.time.format.DateTimeFormatter;
-import java.util.List;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.admin.entity.User;
 import org.group1.coffeeshopapi.admin.repository.UserRepository;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.exception.InvalidRequestException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.group1.coffeeshopapi.common.utils.PageUtil;
 import org.group1.coffeeshopapi.staff.dto.request.StaffRequest;
 import org.group1.coffeeshopapi.staff.dto.response.StaffResponse;
 import org.group1.coffeeshopapi.staff.service.StaffService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,16 +33,14 @@ public class StaffServiceImpl implements StaffService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<StaffResponse> getAllStaff() {
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRole() != Role.CUSTOMER)
-                .map(this::toResponse)
-                .toList();
+    public PageResponse<StaffResponse> getAllStaff(Pageable pageable) {
+        Page<StaffResponse> page = userRepository.findByRoleNot(Role.CUSTOMER, pageable).map(this::toResponse);
+        return PageUtil.toPageResponse(page);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public StaffResponse getStaffById(Long id) {
+    public StaffResponse getStaffById(UUID id) {
         User user = userRepository.findById(id)
                 .filter(candidate -> candidate.getRole() != Role.CUSTOMER)
                 .orElseThrow(() -> new ResourceNotFoundException("Staff not found: " + id));
@@ -64,7 +66,7 @@ public class StaffServiceImpl implements StaffService {
     }
 
     @Override
-    public StaffResponse updateStaff(Long id, StaffRequest request) {
+    public StaffResponse updateStaff(UUID id, StaffRequest request) {
         User user = userRepository.findById(id)
                 .filter(candidate -> candidate.getRole() != Role.CUSTOMER)
                 .orElseThrow(() -> new ResourceNotFoundException("Staff not found: " + id));
@@ -96,7 +98,7 @@ public class StaffServiceImpl implements StaffService {
     }
 
     @Override
-    public void deleteStaff(Long id) {
+    public void deleteStaff(UUID id) {
         User user = userRepository.findById(id)
                 .filter(candidate -> candidate.getRole() != Role.CUSTOMER)
                 .orElseThrow(() -> new ResourceNotFoundException("Staff not found: " + id));

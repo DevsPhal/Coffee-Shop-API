@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.dashboard.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -35,7 +37,7 @@ public class DashboardWidgetController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<DashboardWidgetResponse>> getById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<DashboardWidgetResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<DashboardWidgetResponse>builder().status(HttpStatus.OK.value()).message("Widget retrieved").data(service.getById(id)).timeStamp(LocalDateTime.now()).build());
     }
 
@@ -45,12 +47,12 @@ public class DashboardWidgetController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<DashboardWidgetResponse>> update(@PathVariable Long id, @RequestBody DashboardWidgetRequest request) {
+    public ResponseEntity<ApiResponse<DashboardWidgetResponse>> update(@PathVariable UUID id, @RequestBody DashboardWidgetRequest request) {
         return ResponseEntity.ok(ApiResponse.<DashboardWidgetResponse>builder().status(HttpStatus.OK.value()).message("Widget updated").data(service.update(id, request)).timeStamp(LocalDateTime.now()).build());
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         service.delete(id);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(ApiResponse.<Void>builder().status(HttpStatus.NO_CONTENT.value()).message("Widget deleted").timeStamp(LocalDateTime.now()).build());
     }

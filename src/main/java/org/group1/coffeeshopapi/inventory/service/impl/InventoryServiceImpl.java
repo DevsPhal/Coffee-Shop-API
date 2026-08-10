@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.inventory.service.impl;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -45,7 +47,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public InventoryResponse getInventoryByProductId(Long productId) {
+    public InventoryResponse getInventoryByProductId(UUID productId) {
         return inventoryMapper.toResponse(findByProductId(productId));
     }
 
@@ -58,7 +60,7 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
-    public InventoryResponse adjustStock(Long productId, InventoryAdjustRequest request) {
+    public InventoryResponse adjustStock(UUID productId, InventoryAdjustRequest request) {
         Inventory inventory = findByProductId(productId);
 
         int newQuantity = inventory.getQuantityOnHand() + request.getQuantityChange();
@@ -77,7 +79,7 @@ public class InventoryServiceImpl implements InventoryService {
     }
 
     @Override
-    public InventoryResponse updateInventory(Long productId, InventoryUpdateRequest request) {
+    public InventoryResponse updateInventory(UUID productId, InventoryUpdateRequest request) {
         Inventory inventory = findByProductId(productId);
 
         if (request.getQuantityOnHand() != null) {
@@ -91,7 +93,7 @@ public class InventoryServiceImpl implements InventoryService {
         return inventoryMapper.toResponse(saved);
     }
 
-    private Inventory findByProductId(Long productId) {
+    private Inventory findByProductId(UUID productId) {
         return inventoryRepository.findByProduct_Id(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found for product ID: " + productId));
     }

@@ -3,18 +3,20 @@ package org.group1.coffeeshopapi.admin.service;
 
 import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
 import org.group1.coffeeshopapi.common.enums.Role;
+import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
+import java.util.UUID;
 
 public interface UserService {
 
     UserResponse getCurrentUser();
 
-    UserResponse getUserById(Long uId);
+    UserResponse getUserById(UUID uId);
 
-    List<UserResponse> getAllUsers();
+    PageResponse<UserResponse> getAllUsers(Pageable pageable);
 
-    void delete(Long uid);
+    void delete(UUID uid);
 
-    UserResponse updateRole(Long uid, Role role);
+    UserResponse updateRole(UUID uid, Role role);
 }

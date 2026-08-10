@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.audittrail.repository;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.audittrail.entity.AuditLog;
 import org.springframework.data.domain.Page;
@@ -9,7 +10,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+public interface AuditLogRepository extends JpaRepository<AuditLog, UUID> {
     Page<AuditLog> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
     @Query("SELECT a FROM AuditLog a WHERE (LOWER(a.actorId) LIKE LOWER(CONCAT('%', :actor, '%')) OR LOWER(a.actorName) LIKE LOWER(CONCAT('%', :actor, '%'))) ORDER BY a.createdAt DESC")

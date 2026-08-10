@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.setting.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -35,7 +37,7 @@ public class SettingController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<SettingResponse>> getById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<SettingResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<SettingResponse>builder().status(HttpStatus.OK.value()).message("Setting retrieved successfully").data(settingService.getById(id)).timeStamp(LocalDateTime.now()).build());
     }
 
@@ -45,12 +47,12 @@ public class SettingController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<SettingResponse>> update(@PathVariable Long id, @RequestBody SettingRequest request) {
+    public ResponseEntity<ApiResponse<SettingResponse>> update(@PathVariable UUID id, @RequestBody SettingRequest request) {
         return ResponseEntity.ok(ApiResponse.<SettingResponse>builder().status(HttpStatus.OK.value()).message("Setting updated successfully").data(settingService.update(id, request)).timeStamp(LocalDateTime.now()).build());
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         settingService.delete(id);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(ApiResponse.<Void>builder().status(HttpStatus.NO_CONTENT.value()).message("Setting deleted successfully").timeStamp(LocalDateTime.now()).build());
     }

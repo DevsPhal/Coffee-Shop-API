@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.products.dto.response;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,13 +15,13 @@ import lombok.Setter;
 @NoArgsConstructor
 public class ProductResponse {
 
-    private Long id;
+    private UUID id;
 
     private String productId;
 
     private String name;
 
-    private Long categoryId;
+    private UUID categoryId;
 
     private String categoryCode;
 

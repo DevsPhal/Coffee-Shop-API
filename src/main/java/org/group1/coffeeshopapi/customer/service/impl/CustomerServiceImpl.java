@@ -1,17 +1,21 @@
 package org.group1.coffeeshopapi.customer.service.impl;
 
 import java.time.format.DateTimeFormatter;
-import java.util.List;
+import java.util.UUID;
 
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.admin.entity.User;
 import org.group1.coffeeshopapi.admin.repository.UserRepository;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.group1.coffeeshopapi.common.utils.PageUtil;
 import org.group1.coffeeshopapi.customer.dto.request.CustomerRequest;
 import org.group1.coffeeshopapi.customer.dto.response.CustomerResponse;
 import org.group1.coffeeshopapi.customer.mapper.CustomerMapper;
 import org.group1.coffeeshopapi.customer.service.CustomerService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,16 +34,14 @@ public class CustomerServiceImpl implements CustomerService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<CustomerResponse> getAllCustomers() {
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRole() == Role.CUSTOMER)
-                .map(this::toResponse)
-                .toList();
+    public PageResponse<CustomerResponse> getAllCustomers(Pageable pageable) {
+        Page<CustomerResponse> page = userRepository.findByRole(Role.CUSTOMER, pageable).map(this::toResponse);
+        return PageUtil.toPageResponse(page);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public CustomerResponse getCustomerById(Long id) {
+    public CustomerResponse getCustomerById(UUID id) {
         User user = userRepository.findById(id)
                 .filter(candidate -> candidate.getRole() == Role.CUSTOMER)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
@@ -56,7 +58,7 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public CustomerResponse updateCustomer(Long id, CustomerRequest request) {
+    public CustomerResponse updateCustomer(UUID id, CustomerRequest request) {
         User user = userRepository.findById(id)
                 .filter(candidate -> candidate.getRole() == Role.CUSTOMER)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));
@@ -69,7 +71,7 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public void deleteCustomer(Long id) {
+    public void deleteCustomer(UUID id) {
         User user = userRepository.findById(id)
                 .filter(candidate -> candidate.getRole() == Role.CUSTOMER)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer not found: " + id));

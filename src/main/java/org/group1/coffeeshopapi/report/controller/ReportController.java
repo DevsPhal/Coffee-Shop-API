@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.report.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -52,7 +54,7 @@ public class ReportController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<ReportResponse>> getReportById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<ReportResponse>> getReportById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<ReportResponse>builder()
                 .status(HttpStatus.OK.value())
                 .message("Report retrieved successfully")
@@ -62,7 +64,7 @@ public class ReportController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<ReportResponse>> updateReport(@PathVariable Long id, @RequestBody ReportRequest request) {
+    public ResponseEntity<ApiResponse<ReportResponse>> updateReport(@PathVariable UUID id, @RequestBody ReportRequest request) {
         return ResponseEntity.ok(ApiResponse.<ReportResponse>builder()
                 .status(HttpStatus.OK.value())
                 .message("Report updated successfully")
@@ -72,7 +74,7 @@ public class ReportController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> deleteReport(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteReport(@PathVariable UUID id) {
         reportService.deleteReport(id);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(ApiResponse.<Void>builder()
                 .status(HttpStatus.NO_CONTENT.value())

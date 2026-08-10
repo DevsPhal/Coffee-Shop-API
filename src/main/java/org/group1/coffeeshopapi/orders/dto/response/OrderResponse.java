@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.orders.dto.response;
 
 import java.util.List;
+import java.util.UUID;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -13,9 +14,9 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class OrderResponse {
-    private Long id;
+    private UUID id;
     private String orderNumber;
-    private Long userId;
+    private UUID userId;
     private String customerName;
     private String orderType;
     private String status;

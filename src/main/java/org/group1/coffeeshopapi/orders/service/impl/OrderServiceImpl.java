@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.orders.service.impl;
 
+import java.util.UUID;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -58,7 +60,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional(readOnly = true)
     public List<OrderResponse> getMyOrders() {
-        Long userId = SecurityUtils.currentUserId();
+        UUID userId = SecurityUtils.currentUserId();
         if (userId == null) {
             throw new UnauthorizedException("No authenticated customer");
         }
@@ -67,14 +69,14 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional(readOnly = true)
-    public OrderResponse getOrderById(Long id) {
+    public OrderResponse getOrderById(UUID id) {
         Order order = findOrderById(id);
         assertOwnerOrStaff(order);
         return orderMapper.toResponse(order);
     }
 
     @Override
-    public OrderResponse updateOrder(Long id, OrderRequest request) {
+    public OrderResponse updateOrder(UUID id, OrderRequest request) {
         Order existing = findOrderById(id);
 
         orderMapper.updateEntity(request, existing);
@@ -86,14 +88,14 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public OrderResponse updateStatus(Long id, OrderStatus status) {
+    public OrderResponse updateStatus(UUID id, OrderStatus status) {
         Order existing = findOrderById(id);
         existing.setStatus(status);
         return orderMapper.toResponse(orderRepository.save(existing));
     }
 
     @Override
-    public void cancel(Long id) {
+    public void cancel(UUID id) {
         Order existing = findOrderById(id);
         assertOwnerOrStaff(existing);
         existing.setStatus(OrderStatus.CANCELLED);
@@ -101,14 +103,14 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public void deleteOrder(Long id) {
+    public void deleteOrder(UUID id) {
         if (!orderRepository.existsById(id)) {
             throw new ResourceNotFoundException("Order not found: " + id);
         }
         orderRepository.deleteById(id);
     }
 
-    private Order findOrderById(Long id) {
+    private Order findOrderById(UUID id) {
         return orderRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
     }

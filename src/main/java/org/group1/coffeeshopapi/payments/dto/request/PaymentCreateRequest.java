@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.payments.dto.request;
 
+import java.util.UUID;
+
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 
 import jakarta.validation.constraints.NotNull;
@@ -15,7 +17,7 @@ import lombok.Setter;
 public class PaymentCreateRequest {
 
     @NotNull(message = "Order ID is required")
-    private Long orderId;
+    private UUID orderId;
 
     @NotNull(message = "Payment method is required")
     private PaymentMethod method;

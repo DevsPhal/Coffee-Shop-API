@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.pos.service.impl;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -25,7 +26,7 @@ public class PosImpl implements PosService {
     @Override
     @Transactional(readOnly = true)
     public List<PosCatalogItemResponse> getProducts() {
-        Map<Long, Inventory> stockByProductId = inventoryRepository.findAll().stream()
+        Map<UUID, Inventory> stockByProductId = inventoryRepository.findAll().stream()
                 .collect(Collectors.toMap(inv -> inv.getProduct().getId(), Function.identity()));
 
         return productRepository.findAllActive().stream().map(p -> {

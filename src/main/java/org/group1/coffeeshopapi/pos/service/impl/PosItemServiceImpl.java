@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.pos.service.impl;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
@@ -36,7 +38,7 @@ public class PosItemServiceImpl implements PosItemService {
 
     @Override
     @Transactional(readOnly = true)
-    public PosItemResponse getById(Long id) {
+    public PosItemResponse getById(UUID id) {
         PosItem item = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("POS item not found: " + id));
         return mapper.toResponse(item);
     }
@@ -49,14 +51,14 @@ public class PosItemServiceImpl implements PosItemService {
     }
 
     @Override
-    public PosItemResponse update(Long id, PosItemRequest request) {
+    public PosItemResponse update(UUID id, PosItemRequest request) {
         PosItem item = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("POS item not found: " + id));
         mapper.updateEntity(request, item);
         return mapper.toResponse(repository.save(item));
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(UUID id) {
         PosItem item = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("POS item not found: " + id));
         repository.delete(item);
     }

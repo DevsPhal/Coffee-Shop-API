@@ -1,12 +1,15 @@
 package org.group1.coffeeshopapi.products.service.impl;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.group1.coffeeshopapi.categories.entity.Category;
 import org.group1.coffeeshopapi.categories.repository.CategoryRepository;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.group1.coffeeshopapi.common.utils.PageUtil;
 import org.group1.coffeeshopapi.products.dto.request.ProductCreateRequest;
 import org.group1.coffeeshopapi.products.dto.request.ProductUpdateRequest;
 import org.group1.coffeeshopapi.products.dto.response.ProductResponse;
@@ -14,6 +17,8 @@ import org.group1.coffeeshopapi.products.entity.Product;
 import org.group1.coffeeshopapi.products.mapper.ProductMapper;
 import org.group1.coffeeshopapi.products.repository.ProductRepository;
 import org.group1.coffeeshopapi.products.service.ProductService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,7 +47,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductResponse getProductById(Long id) {
+    public ProductResponse getProductById(UUID id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
         return productMapper.toResponse(product);
@@ -57,11 +62,9 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProductResponse> getAllProducts() {
-        return productRepository.findAll()
-                .stream()
-                .map(productMapper::toResponse)
-                .collect(Collectors.toList());
+    public PageResponse<ProductResponse> getAllProducts(Pageable pageable) {
+        Page<ProductResponse> page = productRepository.findAll(pageable).map(productMapper::toResponse);
+        return PageUtil.toPageResponse(page);
     }
 
     @Override
@@ -92,7 +95,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductResponse updateProduct(Long id, ProductUpdateRequest request) {
+    public ProductResponse updateProduct(UUID id, ProductUpdateRequest request) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
 
@@ -105,7 +108,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public void deleteProduct(Long id) {
+    public void deleteProduct(UUID id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
         productRepository.delete(product);

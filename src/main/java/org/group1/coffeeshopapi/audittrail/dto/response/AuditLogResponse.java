@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.audittrail.dto.response;
 
+import java.util.UUID;
+
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -8,7 +10,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuditLogResponse {
-    private Long id;
+    private UUID id;
     private String auditId;
     private String timestamp;
     private String actorId;
