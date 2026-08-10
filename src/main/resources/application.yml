@@ -1,107 +1,29 @@
-#spring:
-#  config:
-#    import: optional:file:.env[.properties]
-#
-#  application:
-#    name: Coffee-Shop-API
-#
-#  datasource:
-#    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
-#    username: ${DB_USERNAME}
-#    password: ${DB_PASSWORD}
-#    driver-class-name: org.postgresql.Driver
-#
-#  jpa:
-#    hibernate:
-#      ddl-auto: update
-#    show-sql: true
-#    properties:
-#      hibernate:
-#        format_sql: true
-#
-#  mail:
-#    host: ${MAIL_HOST}
-#    port: ${MAIL_PORT}
-#    username: ${MAIL_USERNAME}
-#    password: ${MAIL_PASSWORD}
-#    properties:
-#      mail:
-#        smtp:
-#          auth: true
-#          starttls:
-#            enable: true
-#            required: true
-#          ssl:
-#            enable: false
-#    debug: false
-#
-#  thymeleaf:
-#    prefix: classpath:/templates/
-#    suffix: .html
-#    mode: HTML
-#    cache: false
-#
-#jwt:
-#  secret: ${JWT_SECRET}
-#  expiration: ${JWT_EXPIRATION}
-#
-#mail:
-#  shop:
-#    email: ${EMAIL.USERNAME}
-#
-#telegram:
-#  bot:
-#    token: ${TELEGRAM_BOT_TOKEN}
-#    user-name: ${TELEGRAM_BOT_USERNAME}
-
-
-
-
 spring:
   config:
     import: optional:file:.env[.properties]
 
   application:
-    name: 590st-cafe-api
-
-  profiles:
-    default: local
-
-  jackson:
-    time-zone: Asia/Phnom_Penh
-    serialization:
-      write-dates-as-timestamps: false
-
-  servlet:
-    multipart:
-      enabled: true
-      max-file-size: 10MB
-      max-request-size: 10MB
-      resolve-lazily: false
+    name: Coffee-Shop-API
 
   datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
     driver-class-name: org.postgresql.Driver
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/coffee_shop_db}
-    username: ${SPRING_DATASOURCE_USERNAME:coffeeshop}
-    password: ${SPRING_DATASOURCE_PASSWORD:coffeeshop@168}
 
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: update
-    open-in-view: false
     show-sql: true
     properties:
       hibernate:
         format_sql: true
-        jdbc:
-          time_zone: UTC
 
   mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
-    username: ${MAIL_USERNAME:visalsoeurn9@gmail.com}
-    password: ${MAIL_PASSWORD:}
+    host: ${MAIL_HOST}
+    port: ${MAIL_PORT}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
     properties:
       mail:
         smtp:
@@ -119,136 +41,16 @@ spring:
     mode: HTML
     cache: false
 
-# -----------------------------------------------------------------------------
-# MinIO
-# -----------------------------------------------------------------------------
-minio:
-  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
-  public-endpoint: ${MINIO_PUBLIC_ENDPOINT:http://localhost:9000}
-  access-key: ${MINIO_ACCESS_KEY:minioadmin}
-  secret-key: ${MINIO_SECRET_KEY:minioadmin}
-  bucket-name: ${MINIO_BUCKET_NAME:590st-public}
-  buckets:
-    public: ${MINIO_PUBLIC_BUCKET:590st-public}
-    private: ${MINIO_PRIVATE_BUCKET:590st-private}
-    receipts: ${MINIO_RECEIPTS_BUCKET:590st-receipts}
-    reports: ${MINIO_REPORTS_BUCKET:590st-reports}
-
-# -----------------------------------------------------------------------------
-# JWT
-# -----------------------------------------------------------------------------
 jwt:
-  secret: ${JWT_SECRET:coffee-shop-local-secret-key-change-in-production-1234567890}
-  expiration: ${JWT_EXPIRATION:86400000}
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+  secret: ${JWT_SECRET}
+  expiration: ${JWT_EXPIRATION}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION}
 
-# -----------------------------------------------------------------------------
-# CORS - frontend origins allowed to call this API with credentials
-# -----------------------------------------------------------------------------
-app:
-  cors:
-    allowed-origins: ${APP_CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}
-
-# -----------------------------------------------------------------------------
-# Server
-# -----------------------------------------------------------------------------
-server:
-  port: ${PORT:8080}
-
-# -----------------------------------------------------------------------------
-# Swagger / OpenAPI
-# -----------------------------------------------------------------------------
-springdoc:
-  swagger-ui:
-    enabled: true
-    path: /swagger-ui.html
-    urls-primary-name: Coffee Shop API
-  api-docs:
-    enabled: true
-    path: /v1/api-docs
-  show-actuator: false
-
-
-# -----------------------------------------------------------------------------
-# Logging
-# -----------------------------------------------------------------------------
-logging:
-  level:
-    com.coffee.app: DEBUG
-    org.springframework.security: DEBUG
-    org.hibernate.SQL: DEBUG
-    org.hibernate.orm.jdbc.bind: TRACE
-
-# -----------------------------------------------------------------------------
-# Stripe
-# -----------------------------------------------------------------------------
-stripe:
-  api-key: ${STRIPE_API_KEY:}
-  webhook-secret: ${STRIPE_WEBHOOK_SECRET:}
-
-# -----------------------------------------------------------------------------
-# Bakong
-# -----------------------------------------------------------------------------
-bakong:
-  base-url: https://api-bakong.nbc.gov.kh
-  email: ${MAIL_USERNAME}
-  account-id: visal_soeurn@bkrt
-  token: ${BAKONG_TOKEN:}
-  merchant-name: ${BAKONG_MERCHANT_NAME:590st Coffee}
-  merchant-city: ${BAKONG_MERCHANT_CITY:Phnom Penh}
-  merchant-category-code: ${BAKONG_MCC:5814}
-
-# -----------------------------------------------------------------------------
-# Mail
-# -----------------------------------------------------------------------------
 mail:
   shop:
-    email: ${MAIL_USERNAME:${spring.mail.username:}}
+    email: ${EMAIL.USERNAME}
 
-# -----------------------------------------------------------------------------
-# Telegram
-# -----------------------------------------------------------------------------
 telegram:
   bot:
     token: ${TELEGRAM_BOT_TOKEN}
     user-name: ${TELEGRAM_BOT_USERNAME}
-    chat-id: ${TELEGRAM_CHAT_ID}
-
-# -----------------------------------------------------------------------------
-# Local Profile
-# -----------------------------------------------------------------------------
----
-spring:
-  config:
-    activate:
-      on-profile: local
-
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5433/coffee_shop_db}
-    username: ${SPRING_DATASOURCE_USERNAME:coffeeshop}
-    password: ${SPRING_DATASOURCE_PASSWORD:coffeeshop@168}
-
-  mail:
-    username: ${MAIL_USERNAME:visalsoeurn9@gmail.com}
-    password: ${MAIL_PASSWORD:}
-
-server:
-  port: ${PORT:8081}
-
-# -----------------------------------------------------------------------------
-# Docker Profile
-# -----------------------------------------------------------------------------
----
-spring:
-  config:
-    activate:
-      on-profile: docker
-
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://postgres:5432/590stcoffee}
-    username: ${SPRING_DATASOURCE_USERNAME:590stcoffee}
-    password: ${SPRING_DATASOURCE_PASSWORD:590stcoffee}
-
-  mail:
-    username: ${MAIL_USERNAME:}
-    password: ${MAIL_PASSWORD:}

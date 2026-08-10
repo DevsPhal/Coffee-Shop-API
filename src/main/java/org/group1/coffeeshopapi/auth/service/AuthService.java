@@ -1,10 +1,9 @@
 package org.group1.coffeeshopapi.auth.service;
 
-import org.group1.coffeeshopapi.auth.dto.request.ChangePasswordRequest;
 import org.group1.coffeeshopapi.auth.dto.request.LoginRequest;
 import org.group1.coffeeshopapi.auth.dto.request.RegisterRequest;
-import org.group1.coffeeshopapi.auth.dto.request.ResetPasswordRequest;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
+import org.group1.coffeeshopapi.auth.dto.response.RefreshTokenResponse;
 import org.group1.coffeeshopapi.auth.dto.response.RegisterResponse;
 import org.group1.coffeeshopapi.auth.dto.response.VerifyOtpResponse;
 
@@ -18,13 +17,13 @@ public interface AuthService {
 
     void resendOtp(String email);
 
-    LoginResponse refreshToken(String refreshToken);
+    RefreshTokenResponse refreshToken(String refreshToken);
 
     void forgotPassword(String email);
 
     VerifyOtpResponse verifyResetOtp(String email, String otp);
 
-    void resetPassword(ResetPasswordRequest request);
+    void resetPassword(String email, String otp, String newPassword);
 
-    void changePassword(ChangePasswordRequest request);
+    void changePassword(String oldPassword, String newPassword);
 }
