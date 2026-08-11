@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.inventory.service;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.group1.coffeeshopapi.inventory.dto.request.InventoryAdjustRequest;
@@ -12,11 +14,11 @@ public interface InventoryService {
 
     List<InventoryResponse> getLowStockInventory();
 
-    InventoryResponse getInventoryByProductId(Long productId);
+    InventoryResponse getInventoryByProductId(UUID productId);
 
     InventoryResponse getInventoryByProductCode(String productCode);
 
-    InventoryResponse adjustStock(Long productId, InventoryAdjustRequest request);
+    InventoryResponse adjustStock(UUID productId, InventoryAdjustRequest request);
 
-    InventoryResponse updateInventory(Long productId, InventoryUpdateRequest request);
+    InventoryResponse updateInventory(UUID productId, InventoryUpdateRequest request);
 }

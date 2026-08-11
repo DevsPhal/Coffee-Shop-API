@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.events.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -83,7 +85,7 @@ public class EventController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<EventResponse>> getEventById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<EventResponse>> getEventById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<EventResponse>builder()
                 .status(HttpStatus.OK.value())
                 .message("Event retrieved successfully")
@@ -95,7 +97,7 @@ public class EventController {
     @PutMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<EventResponse>> updateEvent(
-            @PathVariable Long id,
+            @PathVariable UUID id,
             @Valid @RequestBody EventRequest request) {
         return ResponseEntity.ok(ApiResponse.<EventResponse>builder()
                 .status(HttpStatus.OK.value())
@@ -107,7 +109,7 @@ public class EventController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<?>> deleteEvent(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<?>> deleteEvent(@PathVariable UUID id) {
         eventService.deleteEvent(id);
         return ResponseEntity.ok(ApiResponse.builder()
                 .status(HttpStatus.OK.value())

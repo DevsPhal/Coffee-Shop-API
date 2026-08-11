@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.events.entity;
 
 import java.time.LocalDate;
+import java.util.UUID;
 import java.time.LocalDateTime;
 
 import org.group1.coffeeshopapi.common.enums.EventStatus;
@@ -23,8 +24,8 @@ import lombok.Setter;
 public class Event {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(nullable = false, length = 128)
     private String title;

@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.pos.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -50,7 +52,7 @@ public class PosItemController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<PosItemResponse>> getById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<PosItemResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<PosItemResponse>builder()
                 .status(HttpStatus.OK.value())
                 .message("POS item retrieved successfully")
@@ -70,7 +72,7 @@ public class PosItemController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ApiResponse<PosItemResponse>> update(@PathVariable Long id, @RequestBody PosItemRequest request) {
+    public ResponseEntity<ApiResponse<PosItemResponse>> update(@PathVariable UUID id, @RequestBody PosItemRequest request) {
         return ResponseEntity.ok(ApiResponse.<PosItemResponse>builder()
                 .status(HttpStatus.OK.value())
                 .message("POS item updated successfully")
@@ -80,7 +82,7 @@ public class PosItemController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
         service.delete(id);
         return ResponseEntity.status(HttpStatus.NO_CONTENT).body(ApiResponse.<Void>builder()
                 .status(HttpStatus.NO_CONTENT.value())

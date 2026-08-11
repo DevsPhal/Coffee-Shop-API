@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.notifications.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -14,7 +15,7 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class NotificationResponse {
-    private Long id;
+    private UUID id;
     private String title;
     private String message;
     private boolean read;

@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.inventory.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -53,7 +55,7 @@ public class InventoryController {
     }
 
     @GetMapping("/product/{productId}")
-    public ResponseEntity<ApiResponse<InventoryResponse>> getInventoryByProductId(@PathVariable Long productId) {
+    public ResponseEntity<ApiResponse<InventoryResponse>> getInventoryByProductId(@PathVariable UUID productId) {
         InventoryResponse response = inventoryService.getInventoryByProductId(productId);
         return ResponseEntity.ok(ApiResponse.<InventoryResponse>builder()
                 .status(HttpStatus.OK.value())
@@ -76,7 +78,7 @@ public class InventoryController {
 
     @PostMapping("/product/{productId}/adjust")
     public ResponseEntity<ApiResponse<InventoryResponse>> adjustStock(
-            @PathVariable Long productId,
+            @PathVariable UUID productId,
             @Valid @RequestBody InventoryAdjustRequest request) {
         InventoryResponse response = inventoryService.adjustStock(productId, request);
         return ResponseEntity.ok(ApiResponse.<InventoryResponse>builder()
@@ -89,7 +91,7 @@ public class InventoryController {
 
     @PutMapping("/product/{productId}")
     public ResponseEntity<ApiResponse<InventoryResponse>> updateInventory(
-            @PathVariable Long productId,
+            @PathVariable UUID productId,
             @Valid @RequestBody InventoryUpdateRequest request) {
         InventoryResponse response = inventoryService.updateInventory(productId, request);
         return ResponseEntity.ok(ApiResponse.<InventoryResponse>builder()

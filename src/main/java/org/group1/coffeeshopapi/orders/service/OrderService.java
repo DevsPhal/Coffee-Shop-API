@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.orders.service;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
@@ -10,9 +12,9 @@ public interface OrderService {
     OrderResponse createOrder(OrderRequest request);
     List<OrderResponse> getAllOrders();
     List<OrderResponse> getMyOrders();
-    OrderResponse getOrderById(Long id);
-    OrderResponse updateOrder(Long id, OrderRequest request);
-    OrderResponse updateStatus(Long id, OrderStatus status);
-    void cancel(Long id);
-    void deleteOrder(Long id);
+    OrderResponse getOrderById(UUID id);
+    OrderResponse updateOrder(UUID id, OrderRequest request);
+    OrderResponse updateStatus(UUID id, OrderStatus status);
+    void cancel(UUID id);
+    void deleteOrder(UUID id);
 }

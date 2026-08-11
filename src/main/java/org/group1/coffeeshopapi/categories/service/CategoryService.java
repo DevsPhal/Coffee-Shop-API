@@ -1,24 +1,27 @@
 package org.group1.coffeeshopapi.categories.service;
 
 import java.util.List;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.categories.dto.request.CategoryCreateRequest;
 import org.group1.coffeeshopapi.categories.dto.request.CategoryUpdateRequest;
 import org.group1.coffeeshopapi.categories.dto.response.CategoryResponse;
+import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.springframework.data.domain.Pageable;
 
 public interface CategoryService {
 
     CategoryResponse createCategory(CategoryCreateRequest request);
 
-    CategoryResponse getCategoryById(Long id);
+    CategoryResponse getCategoryById(UUID id);
 
     CategoryResponse getCategoryByCode(String code);
 
-    List<CategoryResponse> getAllCategories();
+    PageResponse<CategoryResponse> getAllCategories(Pageable pageable);
 
     List<CategoryResponse> getAllActiveCategories();
 
-    CategoryResponse updateCategory(Long id, CategoryUpdateRequest request);
+    CategoryResponse updateCategory(UUID id, CategoryUpdateRequest request);
 
-    void deleteCategory(Long id);
+    void deleteCategory(UUID id);
 }

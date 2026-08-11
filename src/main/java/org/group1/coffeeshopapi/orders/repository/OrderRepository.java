@@ -7,13 +7,14 @@ import org.springframework.stereotype.Repository;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface OrderRepository extends JpaRepository<Order, Long> {
+public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     Optional<Order> findByOrderNumber(String orderNumber);
 
     List<Order> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
 
-    List<Order> findByUserIdOrderByCreatedAtDesc(Long userId);
+    List<Order> findByUserIdOrderByCreatedAtDesc(UUID userId);
 }

@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.audittrail.service;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -23,9 +25,9 @@ public interface AuditService {
 
 	Page<AuditLogResponse> query(String actorId, String entity, LocalDateTime from, LocalDateTime to, Pageable pageable);
 
-	Optional<AuditLogResponse> getById(Long id);
+	Optional<AuditLogResponse> getById(UUID id);
 
 	long getTotalCount();
 
-	void delete(Long id);
+	void delete(UUID id);
 }

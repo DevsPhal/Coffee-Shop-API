@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.payments.service.impl;
 
+import java.util.UUID;
+
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Objects;
@@ -91,20 +93,20 @@ public class PaymentServiceImpl implements PaymentService {
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentResponse getById(Long id) {
+    public PaymentResponse getById(UUID id) {
         return paymentMapper.toResponse(findById(id));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public PaymentResponse getByOrderId(Long orderId) {
+    public PaymentResponse getByOrderId(UUID orderId) {
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found for order: " + orderId));
         return paymentMapper.toResponse(payment);
     }
 
     @Override
-    public PaymentResponse checkStatus(Long id) {
+    public PaymentResponse checkStatus(UUID id) {
         Payment payment = findById(id);
 
         if (payment.getMethod() != PaymentMethod.BAKONG_KHQR) {
@@ -126,7 +128,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public PaymentResponse verify(Long id) {
+    public PaymentResponse verify(UUID id) {
         Payment payment = findById(id);
         payment.setVerified(true);
         payment.setStatus(PaymentStatus.SUCCESS);
@@ -134,7 +136,7 @@ public class PaymentServiceImpl implements PaymentService {
     }
 
     @Override
-    public void deletePayment(Long id) {
+    public void deletePayment(UUID id) {
         Payment payment = findById(id);
         if (payment.getStatus() == PaymentStatus.SUCCESS) {
             throw new InvalidPaymentException("Cannot delete a payment that has already succeeded");
@@ -142,7 +144,7 @@ public class PaymentServiceImpl implements PaymentService {
         paymentRepository.delete(payment);
     }
 
-    private Payment findById(Long id) {
+    private Payment findById(UUID id) {
         return paymentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + id));
     }

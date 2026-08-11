@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.orders.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -64,7 +66,7 @@ public class OrderController {
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','BARISTA','CUSTOMER')")
-    public ResponseEntity<ApiResponse<OrderResponse>> getById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<OrderResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .status(HttpStatus.OK.value())
                 .message("Order retrieved successfully")
@@ -75,7 +77,7 @@ public class OrderController {
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('ADMIN','BARISTA')")
-    public ResponseEntity<ApiResponse<OrderResponse>> updateOrder(@PathVariable Long id, @RequestBody OrderRequest request) {
+    public ResponseEntity<ApiResponse<OrderResponse>> updateOrder(@PathVariable UUID id, @RequestBody OrderRequest request) {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .status(HttpStatus.OK.value())
                 .message("Order updated successfully")
@@ -86,7 +88,7 @@ public class OrderController {
 
     @PutMapping("/{id}/status")
     @PreAuthorize("hasAnyRole('ADMIN','BARISTA')")
-    public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(@PathVariable Long id, @RequestBody StatusRequest request) {
+    public ResponseEntity<ApiResponse<OrderResponse>> updateStatus(@PathVariable UUID id, @RequestBody StatusRequest request) {
         return ResponseEntity.ok(ApiResponse.<OrderResponse>builder()
                 .status(HttpStatus.OK.value())
                 .message("Order status updated successfully")
@@ -97,7 +99,7 @@ public class OrderController {
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> deleteOrder(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> deleteOrder(@PathVariable UUID id) {
         orderService.deleteOrder(id);
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .status(HttpStatus.OK.value())
@@ -108,7 +110,7 @@ public class OrderController {
 
     @DeleteMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('ADMIN','BARISTA','CUSTOMER')")
-    public ResponseEntity<ApiResponse<Void>> cancel(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> cancel(@PathVariable UUID id) {
         orderService.cancel(id);
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .status(HttpStatus.OK.value())

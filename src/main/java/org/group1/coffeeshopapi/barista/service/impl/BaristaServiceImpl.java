@@ -1,6 +1,6 @@
 package org.group1.coffeeshopapi.barista.service.impl;
 
-import java.util.List;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.admin.entity.User;
 import org.group1.coffeeshopapi.admin.repository.UserRepository;
@@ -10,6 +10,10 @@ import org.group1.coffeeshopapi.barista.mapper.BaristaMapper;
 import org.group1.coffeeshopapi.barista.service.BaristaService;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.group1.coffeeshopapi.common.utils.PageUtil;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,16 +31,14 @@ public class BaristaServiceImpl implements BaristaService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<BaristaResponse> getAllBaristas() {
-        return userRepository.findAll().stream()
-                .filter(user -> user.getRole() == Role.BARISTA)
-                .map(baristaMapper::toResponse)
-                .toList();
+    public PageResponse<BaristaResponse> getAllBaristas(Pageable pageable) {
+        Page<BaristaResponse> page = userRepository.findByRole(Role.BARISTA, pageable).map(baristaMapper::toResponse);
+        return PageUtil.toPageResponse(page);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public BaristaResponse getBaristaById(Long id) {
+    public BaristaResponse getBaristaById(UUID id) {
         User user = findBarista(id);
         return baristaMapper.toResponse(user);
     }
@@ -51,7 +53,7 @@ public class BaristaServiceImpl implements BaristaService {
     }
 
     @Override
-    public BaristaResponse updateBarista(Long id, BaristaRequest request) {
+    public BaristaResponse updateBarista(UUID id, BaristaRequest request) {
         User user = findBarista(id);
         baristaMapper.updateEntity(request, user);
 
@@ -66,11 +68,11 @@ public class BaristaServiceImpl implements BaristaService {
     }
 
     @Override
-    public void deleteBarista(Long id) {
+    public void deleteBarista(UUID id) {
         userRepository.delete(findBarista(id));
     }
 
-    private User findBarista(Long id) {
+    private User findBarista(UUID id) {
         return userRepository.findById(id)
                 .filter(candidate -> candidate.getRole() == Role.BARISTA)
                 .orElseThrow(() -> new ResourceNotFoundException("Barista not found: " + id));

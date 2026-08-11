@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.audittrail.controller;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -51,7 +53,7 @@ public class AuditController {
 	}
 
 	@GetMapping("/{id}")
-	public ResponseEntity<ApiResponse<AuditLogResponse>> getById(@PathVariable Long id) {
+	public ResponseEntity<ApiResponse<AuditLogResponse>> getById(@PathVariable UUID id) {
 		return auditService.getById(id)
 				.map(response -> ResponseEntity.ok(ApiResponse.<AuditLogResponse>builder()
 						.status(HttpStatus.OK.value())
@@ -80,7 +82,7 @@ public class AuditController {
 	}
 
 	@DeleteMapping("/{id}")
-	public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+	public ResponseEntity<ApiResponse<Void>> delete(@PathVariable UUID id) {
 		auditService.delete(id);
 		return ResponseEntity.ok(ApiResponse.<Void>builder()
 				.status(HttpStatus.OK.value())

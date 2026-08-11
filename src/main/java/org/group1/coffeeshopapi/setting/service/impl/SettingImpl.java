@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.setting.service.impl;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
@@ -31,7 +33,7 @@ public class SettingImpl implements SettingService {
 
     @Override
     @Transactional(readOnly = true)
-    public SettingResponse getById(Long id) {
+    public SettingResponse getById(UUID id) {
         Setting s = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Setting not found: " + id));
         return mapper.toResponse(s);
     }
@@ -47,7 +49,7 @@ public class SettingImpl implements SettingService {
     }
 
     @Override
-    public SettingResponse update(Long id, SettingRequest request) {
+    public SettingResponse update(UUID id, SettingRequest request) {
         Setting s = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Setting not found: " + id));
         repository.findByKey(request.getKey())
                 .filter(other -> !other.getId().equals(id))
@@ -60,7 +62,7 @@ public class SettingImpl implements SettingService {
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(UUID id) {
         Setting s = repository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Setting not found: " + id));
         repository.delete(s);
     }

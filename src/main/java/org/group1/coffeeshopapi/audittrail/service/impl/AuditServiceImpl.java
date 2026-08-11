@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.audittrail.service.impl;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -68,7 +70,7 @@ public class AuditServiceImpl implements AuditService {
 	}
 
 	@Override
-	public Optional<AuditLogResponse> getById(Long id) {
+	public Optional<AuditLogResponse> getById(UUID id) {
 		return auditLogRepository.findById(id).map(auditLogMapper::toResponse);
 	}
 
@@ -79,7 +81,7 @@ public class AuditServiceImpl implements AuditService {
 
 	@Override
 	@Transactional
-	public void delete(Long id) {
+	public void delete(UUID id) {
 		if (!auditLogRepository.existsById(id)) {
 			throw new ResourceNotFoundException("Audit log not found: " + id);
 		}

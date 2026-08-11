@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.setting.entity;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -26,8 +27,8 @@ import lombok.Setter;
 public class Setting {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(name = "setting_key", nullable = false, unique = true, length = 128)
     private String key;

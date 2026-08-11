@@ -2,9 +2,11 @@ package org.group1.coffeeshopapi.pos.dto.response;
 
 import lombok.Data;
 
+import java.util.UUID;
+
 @Data
 public class PosCatalogItemResponse {
-    private Long id;
+    private UUID id;
     private String name;
     private String category;
     private Double price;
