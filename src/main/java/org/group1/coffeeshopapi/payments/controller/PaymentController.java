@@ -31,6 +31,7 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('CUSTOMER','BARISTA')")
     public ResponseEntity<ApiResponse<PaymentResponse>> createPayment(@Valid @RequestBody PaymentCreateRequest request) {
         PaymentResponse response = paymentService.createPayment(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.<PaymentResponse>builder()
@@ -42,27 +43,31 @@ public class PaymentController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN','BARISTA')")
     public ResponseEntity<ApiResponse<List<PaymentResponse>>> getAllPayments() {
         return ResponseEntity.ok(ApiResponse.<List<PaymentResponse>>builder().status(HttpStatus.OK.value()).message("Payments retrieved successfully").data(paymentService.getAllPayments()).timeStamp(LocalDateTime.now()).build());
     }
 
     @GetMapping("/{id}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<PaymentResponse>> getById(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder().status(HttpStatus.OK.value()).message("Payment retrieved successfully").data(paymentService.getById(id)).timeStamp(LocalDateTime.now()).build());
     }
 
     @GetMapping("/order/{orderId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<PaymentResponse>> getByOrder(@PathVariable UUID orderId) {
         return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder().status(HttpStatus.OK.value()).message("Payment retrieved successfully").data(paymentService.getByOrderId(orderId)).timeStamp(LocalDateTime.now()).build());
     }
 
     @PostMapping("/{id}/check-status")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<PaymentResponse>> checkStatus(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder().status(HttpStatus.OK.value()).message("Payment status checked").data(paymentService.checkStatus(id)).timeStamp(LocalDateTime.now()).build());
     }
 
     @PostMapping("/{id}/verify")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('BARISTA')")
     public ResponseEntity<ApiResponse<PaymentResponse>> verify(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.<PaymentResponse>builder().status(HttpStatus.OK.value()).message("Payment verified successfully").data(paymentService.verify(id)).timeStamp(LocalDateTime.now()).build());
     }

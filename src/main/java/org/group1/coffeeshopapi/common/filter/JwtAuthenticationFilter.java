@@ -1,4 +1,4 @@
-package org.group1.coffeeshopapi.common.security;
+package org.group1.coffeeshopapi.common.filter;
 
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -6,6 +6,9 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.common.security.CustomUserDetailsService;
+import org.group1.coffeeshopapi.common.security.JwtService;
+import org.group1.coffeeshopapi.common.security.TokenDenylistService;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -22,6 +25,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final CustomUserDetailsService userDetailsService;
+    private final TokenDenylistService tokenDenylistService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
@@ -39,6 +43,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String email = jwtService.extractUsername(token);
 
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                if (tokenDenylistService.isDenylisted(jwtService.extractJti(token))) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
                 if (jwtService.isAccessTokenValid(token, userDetails)) {
                     UsernamePasswordAuthenticationToken authToken =

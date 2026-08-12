@@ -41,6 +41,20 @@ spring:
     mode: HTML
     cache: false
 
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      connect-timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+          max-wait: 1000ms
+
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION}
@@ -50,10 +64,17 @@ mail:
   shop:
     email: ${MAIL_USERNAME}
 
+app:
+  auth:
+    log-otp: ${APP_AUTH_LOG_OTP:false}
+    email-required: ${APP_AUTH_EMAIL_REQUIRED:true}
+    otp-expiry-minutes: ${APP_AUTH_OTP_EXPIRY_MINUTES:5}
+
 telegram:
   bot:
-    token: ${TELEGRAM_BOT_TOKEN}
-    user-name: ${TELEGRAM_BOT_USERNAME}
+    token: ${TELEGRAM_BOT_TOKEN:}
+    user-name: ${TELEGRAM_BOT_USERNAME:}
+    chat-id: ${TELEGRAM_CHAT_ID:}
 
 bakong:
   base-url: ${BAKONG_BASE_URL:}

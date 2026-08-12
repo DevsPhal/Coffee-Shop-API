@@ -1,7 +1,7 @@
 package org.group1.coffeeshopapi.common.config;
 
 import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.common.security.JwtAuthenticationFilter;
+import org.group1.coffeeshopapi.common.filter.JwtAuthenticationFilter;
 import org.group1.coffeeshopapi.common.security.RestAccessDeniedHandler;
 import org.group1.coffeeshopapi.common.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
@@ -44,7 +44,9 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/v3/api-docs.yaml"
+                                "/v3/api-docs.yaml",
+                                "/v1/api-docs/**",
+                                "/v1/api-docs.yaml"
                         )
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**", "/api/v1/product/**")

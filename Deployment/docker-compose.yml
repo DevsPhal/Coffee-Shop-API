@@ -4,20 +4,31 @@ services:
     image: postgres:17
     container_name: 590stcoffee-postgres
     restart: unless-stopped
-
     environment:
       POSTGRES_DB: 590stcoffee
       POSTGRES_USER: 590stcoffee
       POSTGRES_PASSWORD: 590stcoffee@168
-
     ports:
       - "5433:5432"
-
     volumes:
       - postgres_data:/var/lib/postgresql/data
-
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U 590stcoffee"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: 590stcoffee-redis
+    restart: unless-stopped
+    command: redis-server --requirepass 590stcoffee@168 --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "590stcoffee@168", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -26,59 +37,52 @@ services:
     image: minio/minio
     container_name: 590stcoffee-minio
     restart: unless-stopped
-
     command: server /data --console-address ":9001"
-
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
-
     ports:
       - "9000:9000"
       - "9001:9001"
-
     volumes:
       - minio_data:/data
 
   backend:
     build:
-      context: ../Coffee-Shop-API
+      context: ..
       dockerfile: Dockerfile
       args:
         BUILDKIT_INLINE_CACHE: "1"
-
     container_name: 590stcoffee-api
-
     restart: unless-stopped
-
     depends_on:
       postgres:
         condition: service_healthy
-
+      redis:
+        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: docker
       PORT: 8080
-
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/590stcoffee
       SPRING_DATASOURCE_USERNAME: 590stcoffee
       SPRING_DATASOURCE_PASSWORD: 590stcoffee@168
-
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: 590stcoffee@168
       JWT_SECRET: ${JWT_SECRET:-590st-cafe-local-development-jwt-secret-change-before-production}
       JWT_EXPIRATION: 86400000
+      JWT_REFRESH_EXPIRATION: 604800000
       APP_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003
-
       MAIL_HOST: smtp.gmail.com
       MAIL_PORT: 587
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       APP_AUTH_LOG_OTP: ${APP_AUTH_LOG_OTP:-false}
       APP_AUTH_EMAIL_REQUIRED: ${APP_AUTH_EMAIL_REQUIRED:-true}
-
       SPRINGDOC_SWAGGER_UI_ENABLED: "true"
       SPRINGDOC_API_DOCS_ENABLED: "true"
       SPRINGDOC_SWAGGER_UI_PATH: /swagger-ui.html
       SPRINGDOC_API_DOCS_PATH: /v1/api-docs
-
       MINIO_ENDPOINT: http://minio:9000
       MINIO_PUBLIC_ENDPOINT: http://localhost:9000
       MINIO_ACCESS_KEY: minioadmin
@@ -88,63 +92,15 @@ services:
       MINIO_PRIVATE_BUCKET: 590st-private
       MINIO_RECEIPTS_BUCKET: 590st-receipts
       MINIO_REPORTS_BUCKET: 590st-reports
-
-      TELEGRAM_BOT_TOKEN:
-      TELEGRAM_BOT_USERNAME:
-      TELEGRAM_CHAT_ID:
-
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_BOT_USERNAME: ${TELEGRAM_BOT_USERNAME:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       STRIPE_API_KEY:
       STRIPE_WEBHOOK_SECRET:
-
     ports:
       - "8080:8080"
-
-  customer-ui:
-    build:
-      context: ../Coffee-Shop-UI
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:8080
-
-    container_name: 590stcoffee-customer-ui
-
-    restart: unless-stopped
-
-    depends_on:
-      - backend
-
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-      HOSTNAME: 0.0.0.0
-      NEXT_PUBLIC_API_URL: http://localhost:8080
-
-    ports:
-      - "${CUSTOMER_UI_PORT:-3000}:3000"
-
-  admin-ui:
-    build:
-      context: ../590st-cafe-admin
-      dockerfile: Dockerfile
-      args:
-        NEXT_PUBLIC_API_URL: http://localhost:8080
-
-    container_name: 590stcoffee-admin-ui
-
-    restart: unless-stopped
-
-    depends_on:
-      - backend
-
-    environment:
-      NODE_ENV: production
-      PORT: 3001
-      HOSTNAME: 0.0.0.0
-      NEXT_PUBLIC_API_URL: http://localhost:8080
-
-    ports:
-      - "${ADMIN_UI_PORT:-3001}:3001"
 
 volumes:
   postgres_data:
   minio_data:
+  redis_data:

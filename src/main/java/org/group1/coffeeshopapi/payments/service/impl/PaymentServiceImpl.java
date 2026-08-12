@@ -94,7 +94,9 @@ public class PaymentServiceImpl implements PaymentService {
     @Override
     @Transactional(readOnly = true)
     public PaymentResponse getById(UUID id) {
-        return paymentMapper.toResponse(findById(id));
+        Payment payment = findById(id);
+        assertAccess(payment.getOrderId());
+        return paymentMapper.toResponse(payment);
     }
 
     @Override
@@ -102,12 +104,14 @@ public class PaymentServiceImpl implements PaymentService {
     public PaymentResponse getByOrderId(UUID orderId) {
         Payment payment = paymentRepository.findByOrderId(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found for order: " + orderId));
+        assertAccess(orderId);
         return paymentMapper.toResponse(payment);
     }
 
     @Override
     public PaymentResponse checkStatus(UUID id) {
         Payment payment = findById(id);
+        assertAccess(payment.getOrderId());
 
         if (payment.getMethod() != PaymentMethod.BAKONG_KHQR) {
             throw new InvalidPaymentException("Only Bakong KHQR payments can be checked against Bakong");
@@ -147,5 +151,16 @@ public class PaymentServiceImpl implements PaymentService {
     private Payment findById(UUID id) {
         return paymentRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Payment not found: " + id));
+    }
+
+    private void assertAccess(UUID orderId) {
+        if (SecurityUtils.isStaff()) {
+            return;
+        }
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+        if (!Objects.equals(order.getUserId(), SecurityUtils.currentUserId())) {
+            throw new UnauthorizedException("You do not have access to this payment");
+        }
     }
 }

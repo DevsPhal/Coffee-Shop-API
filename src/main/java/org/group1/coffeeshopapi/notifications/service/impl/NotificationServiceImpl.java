@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.notifications.entity.Notification;
 import org.group1.coffeeshopapi.notifications.mapper.NotificationMapper;
 import org.group1.coffeeshopapi.notifications.repository.NotificationRepository;
 import org.group1.coffeeshopapi.notifications.service.NotificationService;
+import org.group1.coffeeshopapi.notifications.service.TelegramNotificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +24,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final NotificationMapper notificationMapper;
+    private final TelegramNotificationService telegramNotificationService;
 
     @Override
     public NotificationResponse create(NotificationCreateRequest request) {
@@ -31,7 +33,9 @@ public class NotificationServiceImpl implements NotificationService {
                 .message(request.getMessage())
                 .read(false)
                 .build();
-        return notificationMapper.toResponse(notificationRepository.save(notification));
+        NotificationResponse response = notificationMapper.toResponse(notificationRepository.save(notification));
+        telegramNotificationService.notifyAdmin(request.getTitle(), request.getMessage());
+        return response;
     }
 
     @Override

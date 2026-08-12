@@ -18,6 +18,7 @@ import org.group1.coffeeshopapi.common.exception.UnauthorizedException;
 import org.group1.coffeeshopapi.admin.repository.UserRepository;
 import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.security.JwtService;
+import org.group1.coffeeshopapi.common.security.TokenDenylistService;
 import org.group1.coffeeshopapi.auth.service.AuthService;
 import org.group1.coffeeshopapi.auth.service.EmailService;
 import org.group1.coffeeshopapi.auth.service.OtpService;
@@ -28,6 +29,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -38,17 +40,23 @@ public class AuthServiceImpl implements AuthService {
     private final AuthenticationManager authenticationManager;
     private final EmailService emailService;
     private final OtpService otpService;
+    private final TokenDenylistService tokenDenylistService;
 
     @Override
+    @Transactional
     public RegisterResponse register(RegisterRequest registerRequest) {
         String email = normalizeEmail(registerRequest.getEmail());
         if (userRepository.existsByEmail(email)){
             throw new DuplicateResourceException("Email already registered");
         }
+        if (userRepository.existsByPhoneNumber(registerRequest.getPhone())){
+            throw new DuplicateResourceException("Phone number already registered");
+        }
 
         User user = User.builder()
                 .fullName(registerRequest.getFullName())
                 .email(email)
+                .phoneNumber(registerRequest.getPhone())
                 .password(passwordEncoder.encode(registerRequest.getPassword()))
                 .role(Role.CUSTOMER)
                 .enabled(false)
@@ -143,6 +151,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public RefreshTokenResponse refreshToken(String refreshToken) {
         try {
+            if (tokenDenylistService.isDenylisted(jwtService.extractJti(refreshToken))) {
+                throw new UnauthorizedException("Invalid or expired refresh token.");
+            }
+
             String email = jwtService.extractUsername(refreshToken);
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new UnauthorizedException("Invalid or expired refresh token."));
@@ -158,6 +170,23 @@ public class AuthServiceImpl implements AuthService {
                     .build();
         } catch (JwtException | IllegalArgumentException ex) {
             throw new UnauthorizedException("Invalid or expired refresh token.");
+        }
+    }
+
+    @Override
+    public void logout(String accessToken, String refreshToken) {
+        denylistIfPresent(accessToken);
+        denylistIfPresent(refreshToken);
+    }
+
+    private void denylistIfPresent(String token) {
+        if (token == null || token.isBlank()) {
+            return;
+        }
+        try {
+            tokenDenylistService.denylist(jwtService.extractJti(token), jwtService.extractExpiration(token));
+        } catch (JwtException | IllegalArgumentException ex) {
+            // Token is already malformed/expired — nothing left to revoke.
         }
     }
 
