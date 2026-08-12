@@ -19,6 +19,7 @@ public class RegisterRequest {
    @Schema(example = "you@gmail.com")
    private String email;
 
+   @NotBlank(message = "Phone number is required")
    @Schema(example = "+85512345678")
    private String phone;
 

@@ -19,6 +19,8 @@ public interface AuthService {
 
     RefreshTokenResponse refreshToken(String refreshToken);
 
+    void logout(String accessToken, String refreshToken);
+
     void forgotPassword(String email);
 
     VerifyOtpResponse verifyResetOtp(String email, String otp);

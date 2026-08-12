@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.auth.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.auth.dto.request.*;
@@ -82,7 +83,14 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<ApiResponse<Void>> logout(){
+    public ResponseEntity<ApiResponse<Void>> logout(
+            HttpServletRequest httpRequest,
+            @RequestBody(required = false) RefreshTokenRequest refreshTokenRequest){
+        String authHeader = httpRequest.getHeader("Authorization");
+        String accessToken = (authHeader != null && authHeader.startsWith("Bearer "))
+                ? authHeader.substring(7) : null;
+        String refreshToken = refreshTokenRequest != null ? refreshTokenRequest.getToken() : null;
+        authService.logout(accessToken, refreshToken);
         return ResponseEntity.ok(ApiResponse.<Void>builder()
                 .status(HttpStatus.OK.value())
                 .message("Logged out successfully.")
