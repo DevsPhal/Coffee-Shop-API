@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.auth.service.impl;
 
 import io.jsonwebtoken.JwtException;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.auth.dto.request.LoginRequest;
 import org.group1.coffeeshopapi.auth.dto.request.RegisterRequest;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
@@ -22,6 +23,7 @@ import org.group1.coffeeshopapi.common.security.TokenDenylistService;
 import org.group1.coffeeshopapi.auth.service.AuthService;
 import org.group1.coffeeshopapi.auth.service.EmailService;
 import org.group1.coffeeshopapi.auth.service.OtpService;
+import org.group1.coffeeshopapi.telegram.service.TelegramNotificationService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.DisabledException;
@@ -30,7 +32,12 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.context.request.RequestContextHolder;
+import org.springframework.web.context.request.ServletRequestAttributes;
 
+import jakarta.servlet.http.HttpServletRequest;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
@@ -41,6 +48,7 @@ public class AuthServiceImpl implements AuthService {
     private final EmailService emailService;
     private final OtpService otpService;
     private final TokenDenylistService tokenDenylistService;
+    private final TelegramNotificationService telegramNotificationService;
 
     @Override
     @Transactional
@@ -100,6 +108,9 @@ public class AuthServiceImpl implements AuthService {
 
         String accessToken = jwtService.generateAccessToken(userDetails);
         String refreshToken = jwtService.generateRefreshToken(userDetails);
+
+        notifyLoginViaTelegram(user);
+
         return LoginResponse.builder()
                 .accessToken(accessToken)
                 .refreshToken(refreshToken)
@@ -112,6 +123,37 @@ public class AuthServiceImpl implements AuthService {
                                 .build()
                 )
                 .build();
+    }
+
+    /**
+     * Fire-and-forget Telegram login alert. Never allowed to break or slow down
+     * login — any failure here (unlinked account, Telegram API down, etc.) is
+     * swallowed and logged only.
+     */
+    private void notifyLoginViaTelegram(User user) {
+        try {
+            String clientInfo = extractClientIp();
+            telegramNotificationService.sendLoginAlert(user.getId(), clientInfo);
+        } catch (Exception ex) {
+            log.warn("Failed to send Telegram login alert for userId={}", user.getId(), ex);
+        }
+    }
+
+    private String extractClientIp() {
+        try {
+            ServletRequestAttributes attrs =
+                    (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
+            if (attrs == null) {
+                return null;
+            }
+            HttpServletRequest request = attrs.getRequest();
+            String forwardedFor = request.getHeader("X-Forwarded-For");
+            return (forwardedFor != null && !forwardedFor.isBlank())
+                    ? forwardedFor.split(",")[0].trim()
+                    : request.getRemoteAddr();
+        } catch (Exception ex) {
+            return null;
+        }
     }
 
     @Override

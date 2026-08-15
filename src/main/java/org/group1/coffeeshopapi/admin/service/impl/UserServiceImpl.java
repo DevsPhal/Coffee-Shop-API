@@ -36,11 +36,14 @@ public class UserServiceImpl implements UserService {
         return userMapper.toResponse(user);
     }
 
-    private UUID getCurrentUserId() {
-        CustomUserDetails principal = (CustomUserDetails) SecurityContextHolder.getContext()
+    private CustomUserDetails getCurrentUserDetails() {
+        return (CustomUserDetails) SecurityContextHolder.getContext()
                 .getAuthentication()
                 .getPrincipal();
-        return principal.getId();
+    }
+
+    private UUID getCurrentUserId() {
+        return getCurrentUserDetails().getId();
     }
 
     @Override
@@ -75,6 +78,11 @@ public class UserServiceImpl implements UserService {
 
         if (user.getId().equals(getCurrentUserId())) {
             throw new InvalidOperationException("Admins cannot change their own role.");
+        }
+
+        boolean superAdminInvolved = role == Role.SUPER_ADMIN || user.getRole() == Role.SUPER_ADMIN;
+        if (superAdminInvolved && getCurrentUserDetails().user().getRole() != Role.SUPER_ADMIN) {
+            throw new InvalidOperationException("Only a super admin can grant or revoke the super admin role.");
         }
 
         user.setRole(role);
