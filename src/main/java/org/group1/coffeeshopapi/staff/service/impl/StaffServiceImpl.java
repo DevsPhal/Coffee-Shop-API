@@ -127,8 +127,8 @@ public class StaffServiceImpl implements StaffService {
         } catch (IllegalArgumentException e) {
             throw new InvalidRequestException("Invalid staff role: " + value + ". Allowed: ADMIN, BARISTA");
         }
-        if (role == Role.CUSTOMER) {
-            throw new InvalidRequestException("Staff cannot be assigned the CUSTOMER role");
+        if (role != Role.ADMIN && role != Role.BARISTA) {
+            throw new InvalidRequestException("Invalid staff role: " + value + ". Allowed: ADMIN, BARISTA");
         }
         return role;
     }
