@@ -72,9 +72,6 @@ public class User {
     @Builder.Default
     private String notificationPreference = "IN_APP";
 
-    @Column(name = "telegram_chat_id", length = 50)
-    private String telegramChatId;
-
     private Boolean accountNonExpired;
 
     @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")

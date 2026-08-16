@@ -48,7 +48,19 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public void logout(){
+    public ResponseEntity<ApiResponse<Void>> logout(
+            HttpServletRequest httpRequest,
+            @RequestBody(required = false) RefreshTokenRequest refreshTokenRequest){
+        String authHeader = httpRequest.getHeader("Authorization");
+        String accessToken = (authHeader != null && authHeader.startsWith("Bearer "))
+                ? authHeader.substring(7) : null;
+        String refreshToken = refreshTokenRequest != null ? refreshTokenRequest.getToken() : null;
+        authService.logout(accessToken, refreshToken);
+        return ResponseEntity.ok(ApiResponse.<Void>builder()
+                .status(HttpStatus.OK.value())
+                .message("Logged out successfully.")
+                .timeStamp(LocalDateTime.now())
+                .build());
     }
 
     @PostMapping("/forgot-password")

@@ -1,7 +1,6 @@
 package org.group1.coffeeshopapi.audittrail.controller;
 
-import java.util.UUID;
-
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.group1.coffeeshopapi.audittrail.dto.request.AuditLogCreateRequest;

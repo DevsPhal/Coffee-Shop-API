@@ -32,6 +32,9 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-thymeleaf'
 
     implementation 'org.springframework.boot:spring-boot-starter-mail'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+    implementation 'org.apache.commons:commons-pool2'
     runtimeOnly 'org.postgresql:postgresql'
 
     implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
@@ -43,8 +46,6 @@ dependencies {
     implementation 'org.thymeleaf.extras:thymeleaf-extras-springsecurity6'
 
     implementation 'org.springframework.boot:spring-boot-starter'
-    implementation 'org.telegram:telegrambots-longpolling:10.1.1'
-    implementation 'org.telegram:telegrambots-client:10.1.1'
 
     implementation 'org.mapstruct:mapstruct:1.6.3'
     annotationProcessor 'org.mapstruct:mapstruct-processor:1.6.3'

@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.auth.entity.EmailOtp;
 import org.group1.coffeeshopapi.auth.repository.EmailOtpRepository;
 import org.group1.coffeeshopapi.auth.service.OtpService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.security.crypto.password.PasswordEncoder;

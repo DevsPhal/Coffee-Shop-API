@@ -33,7 +33,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .message(request.getMessage())
                 .read(false)
                 .build();
-        return notificationMapper.toResponse(notificationRepository.save(notification));
+        NotificationResponse response = notificationMapper.toResponse(notificationRepository.save(notification));
+        return response;
     }
 
     @Override
