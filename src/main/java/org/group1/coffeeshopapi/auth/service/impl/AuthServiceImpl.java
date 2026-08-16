@@ -1,7 +1,8 @@
 package org.group1.coffeeshopapi.auth.service.impl;
 
 import io.jsonwebtoken.JwtException;
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.auth.dto.request.LoginRequest;
 import org.group1.coffeeshopapi.auth.dto.request.RegisterRequest;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
@@ -10,12 +11,12 @@ import org.group1.coffeeshopapi.auth.dto.response.RegisterResponse;
 import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
 import org.group1.coffeeshopapi.auth.dto.response.VerifyOtpResponse;
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.admin.entity.User;
+import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidOtpException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.exception.UnauthorizedException;
-import org.group1.coffeeshopapi.admin.repository.UserRepository;
+import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.security.JwtService;
 import org.group1.coffeeshopapi.auth.service.AuthService;
@@ -30,7 +31,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;

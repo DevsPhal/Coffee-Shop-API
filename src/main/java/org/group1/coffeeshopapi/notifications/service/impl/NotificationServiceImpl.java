@@ -14,10 +14,12 @@ import org.group1.coffeeshopapi.notifications.service.NotificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 @Transactional
 public class NotificationServiceImpl implements NotificationService {
 
@@ -31,7 +33,8 @@ public class NotificationServiceImpl implements NotificationService {
                 .message(request.getMessage())
                 .read(false)
                 .build();
-        return notificationMapper.toResponse(notificationRepository.save(notification));
+        NotificationResponse response = notificationMapper.toResponse(notificationRepository.save(notification));
+        return response;
     }
 
     @Override

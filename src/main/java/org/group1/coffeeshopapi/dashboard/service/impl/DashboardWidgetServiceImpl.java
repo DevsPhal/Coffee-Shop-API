@@ -14,10 +14,12 @@ import org.group1.coffeeshopapi.dashboard.service.DashboardWidgetService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 @Transactional
 public class DashboardWidgetServiceImpl implements DashboardWidgetService {
 

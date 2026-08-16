@@ -1,7 +1,7 @@
 package org.group1.coffeeshopapi.dashboard.service.impl;
 
-import org.group1.coffeeshopapi.admin.entity.User;
-import org.group1.coffeeshopapi.admin.repository.UserRepository;
+import org.group1.coffeeshopapi.user.entity.User;
+import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.dashboard.dto.response.DashboardSummaryResponse;
 import org.group1.coffeeshopapi.dashboard.service.Dashboard;
@@ -9,10 +9,12 @@ import org.group1.coffeeshopapi.products.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 @Transactional(readOnly = true)
 public class DashboardServiceImpl implements Dashboard {
 

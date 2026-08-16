@@ -1,9 +1,7 @@
 package org.group1.coffeeshopapi.fileStorageService.controller;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
-import org.group1.coffeeshopapi.common.responses.ApiResponse;
 import org.group1.coffeeshopapi.fileStorageService.dto.response.ImageResponse;
 import org.group1.coffeeshopapi.fileStorageService.service.FileStorageService;
 import org.springframework.http.HttpHeaders;
@@ -18,6 +16,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,42 +29,24 @@ public class FileStorageController {
 
     private final FileStorageService fileStorageService;
 
+    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<ImageResponse>> uploadImage(@RequestParam("file") MultipartFile file) throws Exception {
-        ImageResponse response = fileStorageService.uploadImage(file);
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.<ImageResponse>builder()
-                        .status(HttpStatus.CREATED.value())
-                        .message("Image uploaded successfully")
-                        .data(response)
-                        .timeStamp(LocalDateTime.now())
-                        .build());
+    public ImageResponse uploadImage(@RequestParam("file") MultipartFile file) throws Exception {
+        return fileStorageService.uploadImage(file);
     }
 
     @PutMapping(value = "/{objectName}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<ImageResponse>> updateImage(
+    public ImageResponse updateImage(
             @PathVariable String objectName,
             @RequestParam("file") MultipartFile file) throws Exception {
-        ImageResponse response = fileStorageService.updateImage(objectName, file);
-        return ResponseEntity.ok(ApiResponse.<ImageResponse>builder()
-                .status(HttpStatus.OK.value())
-                .message("Image updated successfully")
-                .data(response)
-                .timeStamp(LocalDateTime.now())
-                .build());
+        return fileStorageService.updateImage(objectName, file);
     }
 
     @GetMapping("/{objectName}/metadata")
-    public ResponseEntity<ApiResponse<ImageResponse>> getImageMetadata(@PathVariable String objectName) throws Exception {
-        ImageResponse response = fileStorageService.getImageMetadata(objectName);
-        return ResponseEntity.ok(ApiResponse.<ImageResponse>builder()
-                .status(HttpStatus.OK.value())
-                .message("Image metadata retrieved successfully")
-                .data(response)
-                .timeStamp(LocalDateTime.now())
-                .build());
+    public ImageResponse getImageMetadata(@PathVariable String objectName) throws Exception {
+        return fileStorageService.getImageMetadata(objectName);
     }
 
     @GetMapping("/{objectName}")
@@ -78,24 +59,14 @@ public class FileStorageController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<ImageResponse>>> listImages() throws Exception {
-        List<ImageResponse> images = fileStorageService.listImages();
-        return ResponseEntity.ok(ApiResponse.<List<ImageResponse>>builder()
-                .status(HttpStatus.OK.value())
-                .message("Image list retrieved successfully")
-                .data(images)
-                .timeStamp(LocalDateTime.now())
-                .build());
+    public List<ImageResponse> listImages() throws Exception {
+        return fileStorageService.listImages();
     }
 
+    @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping("/{objectName}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> deleteImage(@PathVariable String objectName) throws Exception {
+    public void deleteImage(@PathVariable String objectName) throws Exception {
         fileStorageService.deleteImage(objectName);
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .status(HttpStatus.OK.value())
-                .message("Image deleted successfully")
-                .timeStamp(LocalDateTime.now())
-                .build());
     }
 }

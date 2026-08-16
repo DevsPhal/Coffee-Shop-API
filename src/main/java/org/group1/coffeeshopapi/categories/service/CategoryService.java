@@ -6,7 +6,7 @@ import java.util.UUID;
 import org.group1.coffeeshopapi.categories.dto.request.CategoryCreateRequest;
 import org.group1.coffeeshopapi.categories.dto.request.CategoryUpdateRequest;
 import org.group1.coffeeshopapi.categories.dto.response.CategoryResponse;
-import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.group1.coffeeshopapi.common.responses.PaginatedResponse;
 import org.springframework.data.domain.Pageable;
 
 public interface CategoryService {
@@ -17,7 +17,7 @@ public interface CategoryService {
 
     CategoryResponse getCategoryByCode(String code);
 
-    PageResponse<CategoryResponse> getAllCategories(Pageable pageable);
+    PaginatedResponse<CategoryResponse> getAllCategories(Pageable pageable);
 
     List<CategoryResponse> getAllActiveCategories();
 

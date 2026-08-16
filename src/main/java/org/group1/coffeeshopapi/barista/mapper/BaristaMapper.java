@@ -1,6 +1,6 @@
 package org.group1.coffeeshopapi.barista.mapper;
 
-import org.group1.coffeeshopapi.admin.entity.User;
+import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.barista.dto.request.BaristaRequest;
 import org.group1.coffeeshopapi.barista.dto.response.BaristaResponse;
 import org.mapstruct.Mapper;
