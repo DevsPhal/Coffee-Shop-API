@@ -5,6 +5,7 @@ import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.common.exception.InvalidFileException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.fileStorageService.dto.response.ImageResponse;
@@ -22,6 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class FileStorageServiceImpl implements FileStorageService {
 

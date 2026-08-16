@@ -24,10 +24,12 @@ import org.group1.coffeeshopapi.report.service.ReportService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 public class ReportImpl implements ReportService {
 
     private final ReportRepository reportRepository;

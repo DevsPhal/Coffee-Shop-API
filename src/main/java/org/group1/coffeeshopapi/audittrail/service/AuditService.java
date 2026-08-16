@@ -12,16 +12,19 @@ import org.springframework.data.domain.Pageable;
 
 public interface AuditService {
 
-	void log(String actorId, String actorName, String role, String entity, String entityId, String action, String description,
+	void log(
+			String actorId,
+			String actorName,
+			String role,
+			String entity,
+			String entityId,
+			String action,
+			String description,
 			String ipAddress);
 
 	AuditLogResponse create(AuditLogCreateRequest request);
 
 	Page<AuditLogResponse> getAll(Pageable pageable);
-
-	Page<AuditLogResponse> getByActor(String actorId, Pageable pageable);
-
-	Page<AuditLogResponse> getByEntity(String entity, Pageable pageable);
 
 	Page<AuditLogResponse> query(String actorId, String entity, LocalDateTime from, LocalDateTime to, Pageable pageable);
 

@@ -12,9 +12,5 @@ import org.springframework.stereotype.Repository;
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
     Optional<Payment> findByOrderId(UUID orderId);
 
-    Optional<Payment> findByMd5Hash(String md5Hash);
-
-    boolean existsByOrderId(UUID orderId);
-
     List<Payment> findAllByOrderByCreatedAtDesc();
 }

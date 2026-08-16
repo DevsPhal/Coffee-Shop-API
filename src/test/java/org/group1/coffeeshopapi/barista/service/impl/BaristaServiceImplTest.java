@@ -8,8 +8,8 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-import org.group1.coffeeshopapi.admin.entity.User;
-import org.group1.coffeeshopapi.admin.repository.UserRepository;
+import org.group1.coffeeshopapi.user.entity.User;
+import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.group1.coffeeshopapi.barista.dto.request.BaristaRequest;
 import org.group1.coffeeshopapi.barista.dto.response.BaristaResponse;
 import org.group1.coffeeshopapi.barista.mapper.BaristaMapper;

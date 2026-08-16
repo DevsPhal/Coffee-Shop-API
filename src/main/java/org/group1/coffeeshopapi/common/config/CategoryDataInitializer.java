@@ -1,4 +1,4 @@
-package org.group1.coffeeshopapi.categories.config;
+package org.group1.coffeeshopapi.common.config;
 
 import org.group1.coffeeshopapi.categories.dto.request.CategoryCreateRequest;
 import org.group1.coffeeshopapi.categories.repository.CategoryRepository;

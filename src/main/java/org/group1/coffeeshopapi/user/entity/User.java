@@ -1,4 +1,4 @@
-package org.group1.coffeeshopapi.admin.entity;
+package org.group1.coffeeshopapi.user.entity;
 
 import jakarta.persistence.*;
 import lombok.Builder;

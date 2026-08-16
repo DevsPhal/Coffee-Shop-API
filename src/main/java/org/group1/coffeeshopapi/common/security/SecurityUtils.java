@@ -1,6 +1,6 @@
 package org.group1.coffeeshopapi.common.security;
 
-import org.group1.coffeeshopapi.admin.entity.User;
+import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

@@ -1,14 +1,12 @@
 package org.group1.coffeeshopapi.common.config;
 
 import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.common.filter.JwtAuthenticationFilter;
+import org.group1.coffeeshopapi.common.security.JwtAuthenticationFilter;
 import org.group1.coffeeshopapi.common.security.RestAccessDeniedHandler;
 import org.group1.coffeeshopapi.common.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
-import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
-import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -25,13 +23,6 @@ public class SecurityConfig {
     private final AuthenticationProvider authenticationProvider;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final RestAccessDeniedHandler restAccessDeniedHandler;
-
-    @Bean
-    static RoleHierarchy roleHierarchy() {
-        return RoleHierarchyImpl.withDefaultRolePrefix()
-                .role("SUPER_ADMIN").implies("ADMIN")
-                .build();
-    }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -53,9 +44,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
                                 "/v3/api-docs/**",
-                                "/v3/api-docs.yaml",
-                                "/v1/api-docs/**",
-                                "/v1/api-docs.yaml"
+                                "/v3/api-docs.yaml"
                         )
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/categories/**", "/api/v1/product/**")

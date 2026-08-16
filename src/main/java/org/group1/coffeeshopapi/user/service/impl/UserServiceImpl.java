@@ -1,17 +1,18 @@
-package org.group1.coffeeshopapi.admin.service.impl;
+package org.group1.coffeeshopapi.user.service.impl;
 
-import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.admin.entity.User;
-import org.group1.coffeeshopapi.admin.mapper.UserMapper;
-import org.group1.coffeeshopapi.admin.repository.UserRepository;
-import org.group1.coffeeshopapi.admin.service.UserService;
-import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.group1.coffeeshopapi.user.entity.User;
+import org.group1.coffeeshopapi.user.mapper.UserMapper;
+import org.group1.coffeeshopapi.user.repository.UserRepository;
+import org.group1.coffeeshopapi.user.service.UserService;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
-import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.group1.coffeeshopapi.common.responses.PaginatedResponse;
 import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.utils.PageUtil;
+import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
@@ -21,7 +22,8 @@ import org.springframework.stereotype.Service;
 import java.util.UUID;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
@@ -36,20 +38,17 @@ public class UserServiceImpl implements UserService {
         return userMapper.toResponse(user);
     }
 
-    private CustomUserDetails getCurrentUserDetails() {
-        return (CustomUserDetails) SecurityContextHolder.getContext()
+    private UUID getCurrentUserId() {
+        CustomUserDetails principal = (CustomUserDetails) SecurityContextHolder.getContext()
                 .getAuthentication()
                 .getPrincipal();
-    }
-
-    private UUID getCurrentUserId() {
-        return getCurrentUserDetails().getId();
+        return principal.getId();
     }
 
     @Override
-    public PageResponse<UserResponse> getAllUsers(Pageable pageable) {
+    public PaginatedResponse<UserResponse> getAllUsers(Pageable pageable) {
         Page<UserResponse> page = userRepository.findAll(pageable).map(userMapper::toResponse);
-        return PageUtil.toPageResponse(page);
+        return PageUtil.toPaginatedResponse(page);
     }
 
     @Override
@@ -78,18 +77,6 @@ public class UserServiceImpl implements UserService {
 
         if (user.getId().equals(getCurrentUserId())) {
             throw new InvalidOperationException("Admins cannot change their own role.");
-        }
-
-        Role actingRole = getCurrentUserDetails().user().getRole();
-        if (actingRole != Role.SUPER_ADMIN) {
-            // Plain admins may only move a user between CUSTOMER and BARISTA,
-            // and may never touch another admin or super admin account.
-            if (role != Role.BARISTA && role != Role.CUSTOMER) {
-                throw new InvalidOperationException("Only a super admin can grant the admin or super admin role.");
-            }
-            if (user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN) {
-                throw new InvalidOperationException("Only a super admin can change the role of an admin.");
-            }
         }
 
         user.setRole(role);

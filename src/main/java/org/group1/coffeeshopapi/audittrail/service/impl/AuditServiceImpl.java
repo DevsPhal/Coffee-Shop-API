@@ -17,18 +17,26 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 public class AuditServiceImpl implements AuditService {
 	private final AuditLogRepository auditLogRepository;
 	private final AuditLogMapper auditLogMapper;
 
 	@Override
 	@Transactional
-	public void log(String actorId, String actorName, String role, String entity, String entityId, String action,
-			String description, String ipAddress) {
+	public void log(String actorId,
+					String actorName,
+					String role,
+					String entity,
+					String entityId,
+					String action,
+					String description,
+					String ipAddress) {
 		AuditLog entry = AuditLog.builder()
 				.actorId(actorId)
 				.actorName(actorName)
@@ -52,16 +60,6 @@ public class AuditServiceImpl implements AuditService {
 	@Override
 	public Page<AuditLogResponse> getAll(Pageable pageable) {
 		return auditLogRepository.findAllByOrderByCreatedAtDesc(pageable).map(auditLogMapper::toResponse);
-	}
-
-	@Override
-	public Page<AuditLogResponse> getByActor(String actorId, Pageable pageable) {
-		return auditLogRepository.findByActorNameOrActorId(actorId, pageable).map(auditLogMapper::toResponse);
-	}
-
-	@Override
-	public Page<AuditLogResponse> getByEntity(String entity, Pageable pageable) {
-		return auditLogRepository.findByEntityContainingIgnoreCaseOrderByCreatedAtDesc(entity, pageable).map(auditLogMapper::toResponse);
 	}
 
 	@Override

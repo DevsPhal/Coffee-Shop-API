@@ -4,11 +4,11 @@ import java.util.UUID;
 
 import org.group1.coffeeshopapi.barista.dto.request.BaristaRequest;
 import org.group1.coffeeshopapi.barista.dto.response.BaristaResponse;
-import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.group1.coffeeshopapi.common.responses.PaginatedResponse;
 import org.springframework.data.domain.Pageable;
 
 public interface BaristaService {
-    PageResponse<BaristaResponse> getAllBaristas(Pageable pageable);
+    PaginatedResponse<BaristaResponse> getAllBaristas(Pageable pageable);
     BaristaResponse getBaristaById(UUID id);
     BaristaResponse createBarista(BaristaRequest request);
     BaristaResponse updateBarista(UUID id, BaristaRequest request);
