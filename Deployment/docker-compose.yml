@@ -60,6 +60,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file:
+      - ../.env
     environment:
       SPRING_PROFILES_ACTIVE: docker
       PORT: 8080
@@ -69,14 +71,11 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: 590stcoffee@168
-      JWT_SECRET: ${JWT_SECRET:-590st-cafe-local-development-jwt-secret-change-before-production}
       JWT_EXPIRATION: 86400000
       JWT_REFRESH_EXPIRATION: 604800000
       APP_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003
       MAIL_HOST: smtp.gmail.com
       MAIL_PORT: 587
-      MAIL_USERNAME: ${MAIL_USERNAME:-}
-      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       APP_AUTH_LOG_OTP: ${APP_AUTH_LOG_OTP:-false}
       APP_AUTH_EMAIL_REQUIRED: ${APP_AUTH_EMAIL_REQUIRED:-true}
       SPRINGDOC_SWAGGER_UI_ENABLED: "true"
@@ -92,6 +91,7 @@ services:
       MINIO_PRIVATE_BUCKET: 590st-private
       MINIO_RECEIPTS_BUCKET: 590st-receipts
       MINIO_REPORTS_BUCKET: 590st-reports
+      TELEGRAM_WEBHOOK_BASE_URL: https://api.590stcafe.shop
       STRIPE_API_KEY:
       STRIPE_WEBHOOK_SECRET:
     ports:

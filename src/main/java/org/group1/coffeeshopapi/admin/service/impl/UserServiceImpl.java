@@ -80,9 +80,16 @@ public class UserServiceImpl implements UserService {
             throw new InvalidOperationException("Admins cannot change their own role.");
         }
 
-        boolean superAdminInvolved = role == Role.SUPER_ADMIN || user.getRole() == Role.SUPER_ADMIN;
-        if (superAdminInvolved && getCurrentUserDetails().user().getRole() != Role.SUPER_ADMIN) {
-            throw new InvalidOperationException("Only a super admin can grant or revoke the super admin role.");
+        Role actingRole = getCurrentUserDetails().user().getRole();
+        if (actingRole != Role.SUPER_ADMIN) {
+            // Plain admins may only move a user between CUSTOMER and BARISTA,
+            // and may never touch another admin or super admin account.
+            if (role != Role.BARISTA && role != Role.CUSTOMER) {
+                throw new InvalidOperationException("Only a super admin can grant the admin or super admin role.");
+            }
+            if (user.getRole() == Role.ADMIN || user.getRole() == Role.SUPER_ADMIN) {
+                throw new InvalidOperationException("Only a super admin can change the role of an admin.");
+            }
         }
 
         user.setRole(role);

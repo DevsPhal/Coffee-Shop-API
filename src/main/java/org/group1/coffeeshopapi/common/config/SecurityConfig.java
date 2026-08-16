@@ -26,11 +26,6 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final RestAccessDeniedHandler restAccessDeniedHandler;
 
-    /**
-     * SUPER_ADMIN inherits every authority granted to ADMIN, so a single role check
-     * (e.g. hasRole('ADMIN')) covers both roles without duplicating rules per role.
-     * Declared static so it is available early enough for method security to pick it up.
-     */
     @Bean
     static RoleHierarchy roleHierarchy() {
         return RoleHierarchyImpl.withDefaultRolePrefix()
