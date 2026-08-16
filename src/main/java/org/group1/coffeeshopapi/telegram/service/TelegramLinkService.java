@@ -4,6 +4,7 @@ package org.group1.coffeeshopapi.telegram.service;
 import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
 import org.group1.coffeeshopapi.telegram.entity.TelegramLink;
 import org.group1.coffeeshopapi.telegram.repository.TelegramLinkRepository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -23,9 +24,10 @@ public class TelegramLinkService {
     private final TelegramLinkRepository telegramLinkRepository;
     private final TelegramProperties properties;
 
-    public TelegramLinkService(RedisTemplate<String, String> redisTemplate,
-                               TelegramLinkRepository telegramLinkRepository,
-                               TelegramProperties properties) {
+    public TelegramLinkService(
+            @Qualifier("telegramRedisTemplate") RedisTemplate<String, String> redisTemplate,
+            TelegramLinkRepository telegramLinkRepository,
+            TelegramProperties properties) {
         this.redisTemplate = redisTemplate;
         this.telegramLinkRepository = telegramLinkRepository;
         this.properties = properties;

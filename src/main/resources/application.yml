@@ -6,7 +6,7 @@ spring:
     name: Coffee-Shop-API
 
   main:
-    web-application-type: servlet   # webflux is on the classpath (WebClient for Telegram) — force servlet, not reactive
+    web-application-type: servlet
 
   datasource:
     url: jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_NAME}
@@ -57,6 +57,7 @@ spring:
           max-idle: 8
           min-idle: 2
           max-wait: 1000ms
+      database: 0
 
 jwt:
   secret: ${JWT_SECRET}
@@ -72,6 +73,8 @@ app:
     log-otp: ${APP_AUTH_LOG_OTP:false}
     email-required: ${APP_AUTH_EMAIL_REQUIRED:true}
     otp-expiry-minutes: ${APP_AUTH_OTP_EXPIRY_MINUTES:5}
+    super-admin-email: ${SUPER_ADMIN_EMAIL:}
+    super-admin-password: ${SUPER_ADMIN_PASSWORD:}
 
 bakong:
   base-url: ${BAKONG_BASE_URL:}
@@ -95,3 +98,4 @@ telegram:
   webhook-path: /api/telegram/webhook
   api-base-url: https://api.telegram.org/bot
   link-code-ttl-seconds: 300
+  redis-database: 1
