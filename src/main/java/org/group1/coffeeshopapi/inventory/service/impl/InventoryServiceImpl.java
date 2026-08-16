@@ -1,10 +1,11 @@
 package org.group1.coffeeshopapi.inventory.service.impl;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.inventory.dto.request.InventoryAdjustRequest;
 import org.group1.coffeeshopapi.inventory.dto.request.InventoryUpdateRequest;
 import org.group1.coffeeshopapi.inventory.dto.response.InventoryResponse;
@@ -12,13 +13,17 @@ import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.inventory.mapper.InventoryMapper;
 import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 @Transactional
 public class InventoryServiceImpl implements InventoryService {
 
@@ -45,7 +50,7 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public InventoryResponse getInventoryByProductId(Long productId) {
+    public InventoryResponse getInventoryByProductId(UUID productId) {
         return inventoryMapper.toResponse(findByProductId(productId));
     }
 
@@ -53,34 +58,41 @@ public class InventoryServiceImpl implements InventoryService {
     @Transactional(readOnly = true)
     public InventoryResponse getInventoryByProductCode(String productCode) {
         Inventory inventory = inventoryRepository.findByProduct_ProductId(productCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Inventory not found for product code: " + productCode));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Inventory not found for product code: " + productCode));
         return inventoryMapper.toResponse(inventory);
     }
 
     @Override
-    public InventoryResponse adjustStock(Long productId, InventoryAdjustRequest request) {
+    public InventoryResponse adjustStock(UUID productId, InventoryAdjustRequest request) {
         Inventory inventory = findByProductId(productId);
 
         int newQuantity = inventory.getQuantityOnHand() + request.getQuantityChange();
         if (newQuantity < 0) {
-            throw new IllegalArgumentException("Stock adjustment would result in negative quantity ("
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Stock adjustment would result in negative quantity ("
                     + inventory.getQuantityOnHand() + " + " + request.getQuantityChange() + ")");
         }
 
+        log.info("Inventory before stock adjustment: productId={}, quantity={}", productId, inventory.getQuantityOnHand());
         inventory.setQuantityOnHand(newQuantity);
         if (request.getQuantityChange() > 0) {
             inventory.setLastRestockedAt(LocalDateTime.now());
         }
 
         Inventory saved = inventoryRepository.save(inventory);
+        log.info("Inventory after stock adjustment: productId={}, quantity={}", productId, saved.getQuantityOnHand());
         return inventoryMapper.toResponse(saved);
     }
 
     @Override
-    public InventoryResponse updateInventory(Long productId, InventoryUpdateRequest request) {
+    public InventoryResponse updateInventory(UUID productId, InventoryUpdateRequest request) {
         Inventory inventory = findByProductId(productId);
 
         if (request.getQuantityOnHand() != null) {
+            if (request.getQuantityOnHand() < 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Stock cannot be negative");
+            }
             inventory.setQuantityOnHand(request.getQuantityOnHand());
         }
         if (request.getLowStockThreshold() != null) {
@@ -91,8 +103,9 @@ public class InventoryServiceImpl implements InventoryService {
         return inventoryMapper.toResponse(saved);
     }
 
-    private Inventory findByProductId(Long productId) {
+    private Inventory findByProductId(UUID productId) {
         return inventoryRepository.findByProduct_Id(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Inventory not found for product ID: " + productId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Inventory not found for product ID: " + productId));
     }
 }

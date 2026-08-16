@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.audittrail.service.impl;
 
+import java.util.UUID;
+
 import java.time.LocalDateTime;
 import java.util.Optional;
 
@@ -15,18 +17,26 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 public class AuditServiceImpl implements AuditService {
 	private final AuditLogRepository auditLogRepository;
 	private final AuditLogMapper auditLogMapper;
 
 	@Override
 	@Transactional
-	public void log(String actorId, String actorName, String role, String entity, String entityId, String action,
-			String description, String ipAddress) {
+	public void log(String actorId,
+					String actorName,
+					String role,
+					String entity,
+					String entityId,
+					String action,
+					String description,
+					String ipAddress) {
 		AuditLog entry = AuditLog.builder()
 				.actorId(actorId)
 				.actorName(actorName)
@@ -53,22 +63,12 @@ public class AuditServiceImpl implements AuditService {
 	}
 
 	@Override
-	public Page<AuditLogResponse> getByActor(String actorId, Pageable pageable) {
-		return auditLogRepository.findByActorNameOrActorId(actorId, pageable).map(auditLogMapper::toResponse);
-	}
-
-	@Override
-	public Page<AuditLogResponse> getByEntity(String entity, Pageable pageable) {
-		return auditLogRepository.findByEntityContainingIgnoreCaseOrderByCreatedAtDesc(entity, pageable).map(auditLogMapper::toResponse);
-	}
-
-	@Override
 	public Page<AuditLogResponse> query(String actorId, String entity, LocalDateTime from, LocalDateTime to, Pageable pageable) {
 		return auditLogRepository.queryWithFilters(actorId, entity, from, to, pageable).map(auditLogMapper::toResponse);
 	}
 
 	@Override
-	public Optional<AuditLogResponse> getById(Long id) {
+	public Optional<AuditLogResponse> getById(UUID id) {
 		return auditLogRepository.findById(id).map(auditLogMapper::toResponse);
 	}
 
@@ -79,7 +79,7 @@ public class AuditServiceImpl implements AuditService {
 
 	@Override
 	@Transactional
-	public void delete(Long id) {
+	public void delete(UUID id) {
 		if (!auditLogRepository.existsById(id)) {
 			throw new ResourceNotFoundException("Audit log not found: " + id);
 		}

@@ -1,6 +1,6 @@
 package org.group1.coffeeshopapi.auth.service.impl;
 
-import org.group1.coffeeshopapi.admin.repository.UserRepository;
+import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.group1.coffeeshopapi.auth.dto.request.RegisterRequest;
 import org.group1.coffeeshopapi.auth.service.EmailService;
 import org.group1.coffeeshopapi.auth.service.OtpService;

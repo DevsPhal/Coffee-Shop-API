@@ -1,6 +1,6 @@
 package org.group1.coffeeshopapi.barista.mapper;
 
-import org.group1.coffeeshopapi.admin.entity.User;
+import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.barista.dto.request.BaristaRequest;
 import org.group1.coffeeshopapi.barista.dto.response.BaristaResponse;
 import org.mapstruct.Mapper;
@@ -25,7 +25,6 @@ public interface BaristaMapper {
     @Mapping(target = "role", constant = "BARISTA")
     @Mapping(target = "enabled", source = "enabled", defaultValue = "true")
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "uuid", ignore = true)
     @Mapping(target = "familyName", ignore = true)
     @Mapping(target = "givenName", ignore = true)
     @Mapping(target = "accountNonExpired", ignore = true)
@@ -40,7 +39,6 @@ public interface BaristaMapper {
     @Mapping(target = "phoneNumber", source = "phone")
     @Mapping(target = "username", expression = "java(request.getUsername() != null && !request.getUsername().isBlank() ? request.getUsername() : request.getEmail())")
     @Mapping(target = "id", ignore = true)
-    @Mapping(target = "uuid", ignore = true)
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "familyName", ignore = true)
     @Mapping(target = "givenName", ignore = true)

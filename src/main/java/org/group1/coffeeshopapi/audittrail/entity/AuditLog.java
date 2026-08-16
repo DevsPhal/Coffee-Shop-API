@@ -26,8 +26,8 @@ import lombok.Setter;
 @AllArgsConstructor
 public class AuditLog {
 	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Long id;
+	@GeneratedValue(strategy = GenerationType.UUID)
+	private UUID id;
 
 	@Column(nullable = false, unique = true, length = 50)
 	private String auditId;

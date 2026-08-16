@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.products.entity;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.categories.entity.Category;
 
@@ -29,8 +30,8 @@ import lombok.Setter;
 @NoArgsConstructor
 public class Product {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    @GeneratedValue(strategy = GenerationType.UUID)
+    private UUID id;
 
     @Column(nullable = false, unique = true, length = 50)
     private String productId;

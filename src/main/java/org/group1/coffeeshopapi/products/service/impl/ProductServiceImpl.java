@@ -1,12 +1,13 @@
 package org.group1.coffeeshopapi.products.service.impl;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.group1.coffeeshopapi.categories.entity.Category;
 import org.group1.coffeeshopapi.categories.repository.CategoryRepository;
-import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
-import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.responses.PaginatedResponse;
+import org.group1.coffeeshopapi.common.utils.PageUtil;
 import org.group1.coffeeshopapi.products.dto.request.ProductCreateRequest;
 import org.group1.coffeeshopapi.products.dto.request.ProductUpdateRequest;
 import org.group1.coffeeshopapi.products.dto.response.ProductResponse;
@@ -14,13 +15,19 @@ import org.group1.coffeeshopapi.products.entity.Product;
 import org.group1.coffeeshopapi.products.mapper.ProductMapper;
 import org.group1.coffeeshopapi.products.repository.ProductRepository;
 import org.group1.coffeeshopapi.products.service.ProductService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 @Transactional
 public class ProductServiceImpl implements ProductService {
 
@@ -30,38 +37,39 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     public ProductResponse createProduct(ProductCreateRequest request) {
-        // Check if product ID already exists
         if (productRepository.findByProductId(request.getProductId()).isPresent()) {
-            throw new DuplicateResourceException("Product with ID " + request.getProductId() + " already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Product with ID " + request.getProductId() + " already exists");
         }
 
+        log.info("Product before saving: {}", request);
         Product product = productMapper.toEntity(request);
         product.setCategory(findCategoryByCode(request.getCategoryCode()));
         Product savedProduct = productRepository.save(product);
+        log.info("Product after saving: {}", savedProduct.getId());
         return productMapper.toResponse(savedProduct);
     }
 
     @Override
-    public ProductResponse getProductById(Long id) {
+    public ProductResponse getProductById(UUID id) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with ID: " + id));
         return productMapper.toResponse(product);
     }
 
     @Override
     public ProductResponse getProductByProductId(String productId) {
         Product product = productRepository.findByProductId(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with Product ID: " + productId));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Product not found with Product ID: " + productId));
         return productMapper.toResponse(product);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<ProductResponse> getAllProducts() {
-        return productRepository.findAll()
-                .stream()
-                .map(productMapper::toResponse)
-                .collect(Collectors.toList());
+    public PaginatedResponse<ProductResponse> getAllProducts(Pageable pageable) {
+        Page<ProductResponse> page = productRepository.findAll(pageable).map(productMapper::toResponse);
+        return PageUtil.toPaginatedResponse(page);
     }
 
     @Override
@@ -92,9 +100,9 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public ProductResponse updateProduct(Long id, ProductUpdateRequest request) {
+    public ProductResponse updateProduct(UUID id, ProductUpdateRequest request) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with ID: " + id));
 
         productMapper.updateEntity(request, product);
         if (request.getCategoryCode() != null) {
@@ -105,21 +113,25 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
-    public void deleteProduct(Long id) {
+    public void deleteProduct(UUID id) {
         Product product = productRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
-        productRepository.delete(product);
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found with ID: " + id));
+        product.setIsActive(false);
+        productRepository.save(product);
     }
 
     @Override
     public void deleteProductByProductId(String productId) {
         Product product = productRepository.findByProductId(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with Product ID: " + productId));
-        productRepository.delete(product);
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Product not found with Product ID: " + productId));
+        product.setIsActive(false);
+        productRepository.save(product);
     }
 
     private Category findCategoryByCode(String categoryCode) {
         return categoryRepository.findByCode(categoryCode)
-                .orElseThrow(() -> new ResourceNotFoundException("Category not found with code: " + categoryCode));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Category not found with code: " + categoryCode));
     }
 }

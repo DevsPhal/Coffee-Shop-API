@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.report.service.impl;
 
+import java.util.UUID;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeParseException;
@@ -22,10 +24,12 @@ import org.group1.coffeeshopapi.report.service.ReportService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 public class ReportImpl implements ReportService {
 
     private final ReportRepository reportRepository;
@@ -43,7 +47,7 @@ public class ReportImpl implements ReportService {
 
     @Override
     @Transactional(readOnly = true)
-    public ReportResponse getReportById(Long id) {
+    public ReportResponse getReportById(UUID id) {
         return reportRepository.findById(id)
                 .map(reportMapper::toResponse)
                 .orElseThrow(() -> new ResourceNotFoundException("Report not found: " + id));
@@ -51,7 +55,7 @@ public class ReportImpl implements ReportService {
 
     @Override
     @Transactional
-    public ReportResponse updateReport(Long id, ReportRequest request) {
+    public ReportResponse updateReport(UUID id, ReportRequest request) {
         Report report = reportRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Report not found: " + id));
         reportMapper.updateEntity(request, report);
@@ -60,7 +64,7 @@ public class ReportImpl implements ReportService {
 
     @Override
     @Transactional
-    public void deleteReport(Long id) {
+    public void deleteReport(UUID id) {
         if (!reportRepository.existsById(id)) {
             throw new ResourceNotFoundException("Report not found: " + id);
         }

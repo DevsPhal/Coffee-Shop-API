@@ -1,8 +1,8 @@
 package org.group1.coffeeshopapi.common.security;
 
 import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.admin.entity.User;
-import org.group1.coffeeshopapi.admin.repository.UserRepository;
+import org.group1.coffeeshopapi.user.entity.User;
+import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;

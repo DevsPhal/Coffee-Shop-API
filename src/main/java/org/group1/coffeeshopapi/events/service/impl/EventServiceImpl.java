@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.events.service.impl;
 
+import java.util.UUID;
+
 import java.time.LocalDate;
 import java.util.List;
 
@@ -15,10 +17,12 @@ import org.group1.coffeeshopapi.events.service.EventService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 @Transactional
 public class EventServiceImpl implements EventService {
 
@@ -33,19 +37,19 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional(readOnly = true)
-    public EventResponse getEventById(Long id) {
+    public EventResponse getEventById(UUID id) {
         return eventMapper.toResponse(findById(id));
     }
 
     @Override
-    public EventResponse updateEvent(Long id, EventRequest request) {
+    public EventResponse updateEvent(UUID id, EventRequest request) {
         Event event = findById(id);
         eventMapper.updateEntity(request, event);
         return eventMapper.toResponse(eventRepository.save(event));
     }
 
     @Override
-    public void deleteEvent(Long id) {
+    public void deleteEvent(UUID id) {
         if (!eventRepository.existsById(id)) {
             throw new ResourceNotFoundException("Event not found: " + id);
         }
@@ -76,7 +80,7 @@ public class EventServiceImpl implements EventService {
         return eventMapper.toResponses(eventRepository.findByTypeOrderByDateAsc(type));
     }
 
-    private Event findById(Long id) {
+    private Event findById(UUID id) {
         return eventRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Event not found: " + id));
     }

@@ -1,9 +1,11 @@
 package org.group1.coffeeshopapi.common.security;
 
-import org.group1.coffeeshopapi.admin.entity.User;
+import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+
+import java.util.UUID;
 
 public final class SecurityUtils {
 
@@ -18,7 +20,7 @@ public final class SecurityUtils {
         return details.user();
     }
 
-    public static Long currentUserId() {
+    public static UUID currentUserId() {
         User user = currentUser();
         return user == null ? null : user.getId();
     }

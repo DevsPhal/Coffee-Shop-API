@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.notifications.service;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.group1.coffeeshopapi.notifications.dto.request.NotificationCreateRequest;
@@ -10,7 +12,7 @@ public interface NotificationService {
     List<NotificationResponse> getAll();
     List<NotificationResponse> getUnread();
     long getUnreadCount();
-    void markRead(Long id);
+    void markRead(UUID id);
     void markAllRead();
-    void delete(Long id);
+    void delete(UUID id);
 }

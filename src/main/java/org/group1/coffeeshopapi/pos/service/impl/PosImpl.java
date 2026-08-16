@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.pos.service.impl;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -13,10 +14,12 @@ import org.group1.coffeeshopapi.products.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 public class PosImpl implements PosService {
 
     private final ProductRepository productRepository;
@@ -25,7 +28,7 @@ public class PosImpl implements PosService {
     @Override
     @Transactional(readOnly = true)
     public List<PosCatalogItemResponse> getProducts() {
-        Map<Long, Inventory> stockByProductId = inventoryRepository.findAll().stream()
+        Map<UUID, Inventory> stockByProductId = inventoryRepository.findAll().stream()
                 .collect(Collectors.toMap(inv -> inv.getProduct().getId(), Function.identity()));
 
         return productRepository.findAllActive().stream().map(p -> {

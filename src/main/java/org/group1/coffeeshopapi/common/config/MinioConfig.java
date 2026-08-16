@@ -4,6 +4,8 @@ import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -15,6 +17,8 @@ import java.util.List;
 @Configuration
 @RequiredArgsConstructor
 public class MinioConfig {
+
+    private static final Logger log = LoggerFactory.getLogger(MinioConfig.class);
 
     @Value("${minio.endpoint}")
     private String endpoint;
@@ -64,7 +68,9 @@ public class MinioConfig {
                 minioClient.makeBucket(MakeBucketArgs.builder().bucket(name).build());
             }
         } catch (Exception exception) {
-            throw new IllegalStateException("Unable to initialize MinIO bucket: " + name, exception);
+            log.warn("Unable to initialize MinIO bucket '{}' - MinIO may be unreachable. "
+                    + "File storage features will not work until MinIO is available. Cause: {}",
+                    name, exception.getMessage());
         }
     }
 }

@@ -1,6 +1,6 @@
 package org.group1.coffeeshopapi.common.utils;
 
-import org.group1.coffeeshopapi.common.responses.PageResponse;
+import org.group1.coffeeshopapi.common.responses.PaginatedResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,8 +27,8 @@ public final class PageUtil {
         return PageRequest.of(pageNumber, pageSize, sort);
     }
 
-    public static <T> PageResponse<T> toPageResponse(Page<T> page) {
-        return PageResponse.<T>builder()
+    public static <T> PaginatedResponse<T> toPaginatedResponse(Page<T> page) {
+        return PaginatedResponse.<T>builder()
                 .content(page.getContent())
                 .pageNumber(page.getNumber() + DEFAULT_PAGE)
                 .pageSize(page.getSize())

@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.payments.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.PaymentStatus;
@@ -17,8 +18,8 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PaymentResponse {
-    private Long id;
-    private Long orderId;
+    private UUID id;
+    private UUID orderId;
     private PaymentMethod method;
     private PaymentStatus status;
     private double amount;

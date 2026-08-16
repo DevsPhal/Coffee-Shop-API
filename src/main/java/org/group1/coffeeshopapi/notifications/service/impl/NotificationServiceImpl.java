@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.notifications.service.impl;
 
+import java.util.UUID;
+
 import java.util.List;
 
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
@@ -12,10 +14,12 @@ import org.group1.coffeeshopapi.notifications.service.NotificationService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 @Transactional
 public class NotificationServiceImpl implements NotificationService {
 
@@ -55,7 +59,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public void markRead(Long id) {
+    public void markRead(UUID id) {
         Notification notification = findById(id);
         notification.setRead(true);
         notificationRepository.save(notification);
@@ -68,14 +72,14 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public void delete(Long id) {
+    public void delete(UUID id) {
         if (!notificationRepository.existsById(id)) {
             throw new ResourceNotFoundException("Notification not found: " + id);
         }
         notificationRepository.deleteById(id);
     }
 
-    private Notification findById(Long id) {
+    private Notification findById(UUID id) {
         return notificationRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Notification not found: " + id));
     }

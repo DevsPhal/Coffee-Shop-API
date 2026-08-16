@@ -1,7 +1,8 @@
 package org.group1.coffeeshopapi.auth.service.impl;
 
 import io.jsonwebtoken.JwtException;
-import lombok.RequiredArgsConstructor;
+import lombok.AllArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.auth.dto.request.LoginRequest;
 import org.group1.coffeeshopapi.auth.dto.request.RegisterRequest;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
@@ -10,12 +11,12 @@ import org.group1.coffeeshopapi.auth.dto.response.RegisterResponse;
 import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
 import org.group1.coffeeshopapi.auth.dto.response.VerifyOtpResponse;
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.admin.entity.User;
+import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidOtpException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.exception.UnauthorizedException;
-import org.group1.coffeeshopapi.admin.repository.UserRepository;
+import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.security.JwtService;
 import org.group1.coffeeshopapi.auth.service.AuthService;
@@ -30,7 +31,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
+@Slf4j
+@AllArgsConstructor
 public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -41,13 +43,14 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public RegisterResponse register(RegisterRequest registerRequest) {
-        if (userRepository.existsByEmail(registerRequest.getEmail())){
+        String email = normalizeEmail(registerRequest.getEmail());
+        if (userRepository.existsByEmail(email)){
             throw new DuplicateResourceException("Email already registered");
         }
 
         User user = User.builder()
                 .fullName(registerRequest.getFullName())
-                .email(registerRequest.getEmail())
+                .email(email)
                 .password(passwordEncoder.encode(registerRequest.getPassword()))
                 .role(Role.CUSTOMER)
                 .enabled(false)
@@ -71,10 +74,11 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(LoginRequest loginRequest) {
+        String email = normalizeEmail(loginRequest.getEmail());
         try {
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
-                            loginRequest.getEmail(),
+                            email,
                             loginRequest.getPassword()
                     )
             );
@@ -83,7 +87,7 @@ public class AuthServiceImpl implements AuthService {
         } catch (DisabledException ex) {
             throw new DisabledException("Account not verified, Please check your email for OTP.");
         }
-        User user = userRepository.findByEmail(loginRequest.getEmail())
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found."));
 
         CustomUserDetails userDetails = new CustomUserDetails(user);
@@ -106,17 +110,18 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public VerifyOtpResponse verifyOtp(String email, String otp) {
+        String normalizedEmail = normalizeEmail(email);
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
-        if (!otpService.isValid(email, otp)){
+        if (!otpService.isValid(normalizedEmail, otp)){
             throw new InvalidOtpException("Invalid or expired OTP.");
         }
 
         user.setEnabled(true);
         userRepository.save(user);
 
-        otpService.clearOtp(email);
+        otpService.clearOtp(normalizedEmail);
 
         return VerifyOtpResponse.builder()
                 .verified(true)
@@ -126,7 +131,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void resendOtp(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(normalizeEmail(email))
                 .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
 
         if (user.isEnabled()) {
@@ -160,7 +165,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void forgotPassword(String email) {
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmail(normalizeEmail(email))
                 .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
 
         String otp = otpService.generateOtp(user.getEmail());
@@ -169,32 +174,38 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public VerifyOtpResponse verifyResetOtp(String email, String otp) {
-        userRepository.findByEmail(email)
+        String normalizedEmail = normalizeEmail(email);
+        userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
 
-        if (!otpService.isValid(email, otp)) {
+        if (!otpService.isValid(normalizedEmail, otp)) {
             throw new InvalidOtpException("Invalid or expired OTP.");
         }
 
         return VerifyOtpResponse.builder()
                 .verified(true)
-                .email(email)
+                .email(normalizedEmail)
                 .build();
     }
 
     @Override
     public void resetPassword(String email, String otp, String newPassword) {
-        User user = userRepository.findByEmail(email)
+        String normalizedEmail = normalizeEmail(email);
+        User user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
 
-        if (!otpService.isValid(email, otp)) {
+        if (!otpService.isValid(normalizedEmail, otp)) {
             throw new InvalidOtpException("Invalid or expired OTP.");
         }
 
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
-        otpService.clearOtp(email);
+        otpService.clearOtp(normalizedEmail);
+    }
+
+    private static String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
     }
 
     @Override
