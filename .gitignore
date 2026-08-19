@@ -12,6 +12,9 @@ build/
 .env.*
 !.env.example
 
+### Redis ###
+dump.rdb
+
 ### STS ###
 .apt_generated
 .classpath

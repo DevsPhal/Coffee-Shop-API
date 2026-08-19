@@ -23,6 +23,11 @@ dependencies {
     // minio
     implementation 'io.minio:minio:9.0.3'
 
+    // Bakong KHQR SDK (NBC) + QR code image rendering
+    implementation 'kh.gov.nbc.bakong_khqr:sdk-java:1.0.0.17'
+    implementation 'com.google.zxing:core:3.5.4'
+    implementation 'com.google.zxing:javase:3.5.4'
+
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'

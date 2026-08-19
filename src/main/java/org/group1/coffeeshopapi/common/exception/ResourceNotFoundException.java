@@ -1,7 +1,9 @@
 package org.group1.coffeeshopapi.common.exception;
 
-public class ResourceNotFoundException extends RuntimeException {
-    public ResourceNotFoundException(String message){
-        super(message);
+import org.springframework.http.HttpStatus;
+
+public class ResourceNotFoundException extends ApiException {
+    public ResourceNotFoundException(String message) {
+        super(HttpStatus.NOT_FOUND, message);
     }
 }

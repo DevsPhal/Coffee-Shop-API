@@ -1,121 +1,63 @@
 package org.group1.coffeeshopapi.user.entity;
 
-import jakarta.persistence.*;
-import lombok.Builder;
-import lombok.AllArgsConstructor;
+import jakarta.persistence.Column;
+import jakarta.persistence.DiscriminatorColumn;
+import jakarta.persistence.DiscriminatorType;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.Inheritance;
+import jakarta.persistence.InheritanceType;
+import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.util.UUID;
-
+import org.group1.coffeeshopapi.common.entity.BaseEntity;
+import org.group1.coffeeshopapi.common.enums.Gender;
 import org.group1.coffeeshopapi.common.enums.Role;
+import org.group1.coffeeshopapi.common.enums.Status;
 
-@Entity
-@Table(name = "auth_users")
-@Setter
+/**
+ * Shared identity for every account, stored in {@code auth_users}. Holds the fields that matter
+ * for authentication (credentials, verification status) regardless of role. Each role's
+ * additional data lives in its own joined table (see {@link Role}'s subclasses:
+ * {@code Admin}, {@code Barista}, {@code Customer}) — Hibernate joins them automatically, so
+ * one {@link org.group1.coffeeshopapi.user.repository.UserRepository} query works across all
+ * roles while {@code AdminRepository}/{@code BaristaRepository}/{@code CustomerRepository} let
+ * you query a single role directly.
+ * <p>
+ * {@code status} is the verification gate: {@link Status#INACTIVE} until the account completes
+ * OTP verification, {@link Status#ACTIVE} afterward (or immediately for staff created by an
+ * admin/super admin, who skip that step).
+ */
 @Getter
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class User {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+@Setter
+@Entity
+@Inheritance(strategy = InheritanceType.JOINED)
+@DiscriminatorColumn(name = "role", discriminatorType = DiscriminatorType.STRING)
+@Table(name = "auth_users")
+public abstract class User extends BaseEntity {
 
-    @Column(name = "full_name", nullable = false, length = 256)
+    @Column(nullable = false)
     private String fullName;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
-    @Builder.Default
-    private Role role = Role.CUSTOMER;
-
-    @Column(nullable = false, unique = true, length = 64)
-    private String username;
-
-    @Column(nullable = false, unique = true, length = 256)
+    @Email
+    @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false, length = 256)
+    @Column(nullable = false)
     private String password;
-
-    @Column(nullable = false, columnDefinition = "Text")
-    private String familyName;
-
-    @Column(nullable = false, columnDefinition = "Text")
-    private String givenName;
 
     @Column(unique = true)
     private String phoneNumber;
 
-    private String gender;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Gender gender;
 
-    private LocalDate dob;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Status status;
 
-    @Column(length = 256)
-    private String profileImage;
-
-    @Column(length = 256)
-    private String coverImage;
-
-    @Column(columnDefinition = "TEXT")
-    private String address;
-
-    @Column(name = "loyalty_points", columnDefinition = "INT DEFAULT 0")
-    @Builder.Default
-    private Integer loyaltyPoints = 0;
-
-    @Column(name = "notification_preference", length = 20, columnDefinition = "VARCHAR(20) DEFAULT 'IN_APP'")
-    @Builder.Default
-    private String notificationPreference = "IN_APP";
-
-    private Boolean accountNonExpired;
-
-    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
-    private Boolean accountNonLocked;
-
-    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
-    private Boolean credentialsNonExpired;
-
-    @Column(columnDefinition = "BOOLEAN DEFAULT TRUE")
-    @Builder.Default
-    private boolean enabled = true;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    private void onCreate() {
-        if (fullName == null || fullName.isBlank()) {
-            fullName = ((givenName == null ? "" : givenName) + " " + (familyName == null ? "" : familyName)).trim();
-        }
-        if (givenName == null || givenName.isBlank()) {
-            givenName = fullName;
-        }
-        if (familyName == null) {
-            familyName = "";
-        }
-        if ((username == null || username.isBlank()) && email != null) {
-            username = email;
-        }
-        if (role == null) {
-            role = Role.CUSTOMER;
-        }
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-        updatedAt = LocalDateTime.now();
-    }
-
-    @PreUpdate
-    private void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
-
+    public abstract Role getRole();
 }

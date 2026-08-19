@@ -1,22 +1,26 @@
 package org.group1.coffeeshopapi.user.mapper;
 
-import org.group1.coffeeshopapi.user.dto.request.UserRequest;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
+import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.entity.User;
-import org.mapstruct.Mapper;
-import org.mapstruct.Mapping;
+import org.springframework.stereotype.Component;
 
-@Mapper(componentModel = "spring")
-public interface UserMapper {
+@Component
+public class UserMapper {
 
-    UserResponse toResponse(User user);
+    public UserResponse toResponse(User user) {
+        // Telegram linking is a customer-only concern — Admin/Barista never have a chat linked.
+        boolean telegramLinked = user instanceof Customer customer && customer.getTelegramChatId() != null;
 
-    @Mapping(target = "id", ignore = true)
-    @Mapping(target = "loyaltyPoints", ignore = true)
-    @Mapping(target = "accountNonExpired", ignore = true)
-    @Mapping(target = "credentialsNonExpired", ignore = true)
-    @Mapping(target = "enabled", source = "enabled", defaultValue = "true")
-    @Mapping(target = "createdAt", ignore = true)
-    @Mapping(target = "updatedAt", ignore = true)
-    User toEntity(UserRequest request);
+        return UserResponse.builder()
+                .id(user.getId())
+                .fullName(user.getFullName())
+                .email(user.getEmail())
+                .phoneNumber(user.getPhoneNumber())
+                .gender(user.getGender())
+                .role(user.getRole())
+                .status(user.getStatus())
+                .telegramLinked(telegramLinked)
+                .build();
+    }
 }

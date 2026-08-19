@@ -1,90 +1,90 @@
 package org.group1.coffeeshopapi.auth.controller;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.auth.dto.request.*;
+import org.group1.coffeeshopapi.auth.dto.response.AuthTokenResponse;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
-import org.group1.coffeeshopapi.auth.dto.response.RefreshTokenResponse;
-import org.group1.coffeeshopapi.auth.dto.response.RegisterResponse;
-import org.group1.coffeeshopapi.auth.dto.response.VerifyOtpResponse;
 import org.group1.coffeeshopapi.auth.service.AuthService;
-import org.group1.coffeeshopapi.user.dto.response.UserResponse;
-import org.group1.coffeeshopapi.user.service.UserService;
+import org.group1.coffeeshopapi.common.constant.AppConstant;
+import org.group1.coffeeshopapi.common.constant.SecurityConstants;
+import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
+@Tag(name = "Auth", description = "Registration, password + OTP two-factor login, tokens, and password reset")
 public class AuthController {
 
     private final AuthService authService;
-    private final UserService userService;
 
-    @ResponseStatus(HttpStatus.CREATED)
     @PostMapping("/register")
-    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
-        return authService.register(request);
+    public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
+        authService.register(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(HttpStatus.CREATED,
+                "Registration successful. Please check your email for a verification code.", null));
     }
 
-    @PostMapping("/verify-otp")
-    public VerifyOtpResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
-        return authService.verifyOtp(request.getEmail(), request.getOtp());
-    }
-
-    @PostMapping("/resend-otp")
-    public void resendOtp(@Valid @RequestBody EmailRequest emailRequest){
-        authService.resendOtp(emailRequest.getEmail());
+    @PostMapping("/verify-registration")
+    public ResponseEntity<ApiResponse<Void>> verifyRegistration(@Valid @RequestBody VerifyRegistrationRequest request) {
+        authService.verifyRegistration(request);
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK,
+                "Account verified successfully. You can now log in.", null));
     }
 
     @PostMapping("/login")
-    public LoginResponse login(@Valid @RequestBody LoginRequest request){
-        return authService.login(request);
+    public ResponseEntity<ApiResponse<LoginResponse>> login(@Valid @RequestBody LoginRequest request) {
+        LoginResponse result = authService.login(request);
+        String message = result.otpRequired()
+                ? "A verification code has been sent to your email."
+                : "Login successful.";
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, message, result));
+    }
+
+    @PostMapping("/verify-login-otp")
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> verifyLoginOtp(@Valid @RequestBody VerifyLoginOtpRequest request) {
+        AuthTokenResponse tokens = authService.verifyLoginOtp(request);
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "Login successful.", tokens));
+    }
+
+    @PostMapping("/resend-otp")
+    public ResponseEntity<ApiResponse<Void>> resendOtp(@Valid @RequestBody ResendOtpRequest request) {
+        authService.resendOtp(request);
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK,
+                "If eligible, a new verification code has been sent.", null));
     }
 
     @PostMapping("/refresh-token")
-    public RefreshTokenResponse refreshToken(@Valid @RequestBody RefreshTokenRequest refreshTokenRequest){
-        return authService.refreshToken(refreshTokenRequest.getToken());
+    public ResponseEntity<ApiResponse<AuthTokenResponse>> refreshToken(@Valid @RequestBody RefreshTokenRequest request) {
+        AuthTokenResponse tokens = authService.refreshToken(request);
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, tokens));
     }
 
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Void>> logout(
-            HttpServletRequest httpRequest,
-            @RequestBody(required = false) RefreshTokenRequest refreshTokenRequest){
-        String authHeader = httpRequest.getHeader("Authorization");
-        String accessToken = (authHeader != null && authHeader.startsWith("Bearer "))
-                ? authHeader.substring(7) : null;
-        String refreshToken = refreshTokenRequest != null ? refreshTokenRequest.getToken() : null;
-        authService.logout(accessToken, refreshToken);
-        return ResponseEntity.ok(ApiResponse.<Void>builder()
-                .status(HttpStatus.OK.value())
-                .message("Logged out successfully.")
-                .timeStamp(LocalDateTime.now())
-                .build());
+            @RequestHeader(value = SecurityConstants.JWT_HEADER, required = false) String authorizationHeader) {
+        String accessToken = authorizationHeader != null && authorizationHeader.startsWith(SecurityConstants.JWT_PREFIX)
+                ? authorizationHeader.substring(SecurityConstants.JWT_PREFIX.length())
+                : "";
+        authService.logout(accessToken);
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "Logged out successfully", null));
     }
 
     @PostMapping("/forgot-password")
-    public void forgotPassword(@Valid @RequestBody EmailRequest emailRequest){
-        authService.forgotPassword(emailRequest.getEmail());
-    }
-
-    @PostMapping("/verify-reset-otp")
-    public VerifyOtpResponse verifyResetOtp(@Valid @RequestBody VerifyOtpRequest request){
-        return authService.verifyResetOtp(request.getEmail(), request.getOtp());
+    public ResponseEntity<ApiResponse<Void>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        authService.forgotPassword(request);
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK,
+                "If an account exists for this email, a reset code has been sent.", null));
     }
 
     @PostMapping("/reset-password")
-    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request){
-        authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
-    }
-
-    @PostMapping("/change-password")
-    public void changePassword(@Valid @RequestBody ChangePasswordRequest request){
-        authService.changePassword(request.getOldPassword(), request.getNewPassword());
-    }
-
-    @GetMapping("/me")
-    public UserResponse me(){
-        return userService.getCurrentUser();
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        authService.resetPassword(request);
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK,
+                "Password reset successfully. Please log in with your new password.", null));
     }
 }

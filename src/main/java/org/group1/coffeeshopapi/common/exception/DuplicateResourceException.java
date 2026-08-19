@@ -1,7 +1,9 @@
 package org.group1.coffeeshopapi.common.exception;
 
-public class DuplicateResourceException extends RuntimeException{
-    public DuplicateResourceException(String message){
-        super(message);
+import org.springframework.http.HttpStatus;
+
+public class DuplicateResourceException extends ApiException {
+    public DuplicateResourceException(String message) {
+        super(HttpStatus.CONFLICT, message);
     }
 }
