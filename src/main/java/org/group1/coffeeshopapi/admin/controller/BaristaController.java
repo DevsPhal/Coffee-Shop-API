@@ -1,0 +1,58 @@
+package org.group1.coffeeshopapi.admin.controller;
+
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.admin.dto.request.CreateStaffRequest;
+import org.group1.coffeeshopapi.admin.dto.request.UpdateStaffRequest;
+import org.group1.coffeeshopapi.admin.service.StaffService;
+import org.group1.coffeeshopapi.common.constant.AppConstant;
+import org.group1.coffeeshopapi.common.enums.Role;
+import org.group1.coffeeshopapi.common.response.ApiResponse;
+import org.group1.coffeeshopapi.user.dto.response.UserResponse;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+@RequestMapping("/api/admin/baristas")
+@RequiredArgsConstructor
+@Tag(name = "Barista", description = "Admin only: full CRUD for barista accounts")
+@SecurityRequirement(name = "bearerAuth")
+public class BaristaController {
+
+    private final StaffService staffService;
+
+    @PostMapping
+    public ResponseEntity<ApiResponse<UserResponse>> create(@Valid @RequestBody CreateStaffRequest request) {
+        UserResponse barista = staffService.create(request, Role.BARISTA);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of(HttpStatus.CREATED, "Barista account created successfully.", barista));
+    }
+
+    @GetMapping
+    public ApiResponse<List<UserResponse>> list() {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, staffService.list(Role.BARISTA));
+    }
+
+    @GetMapping("/{id}")
+    public ApiResponse<UserResponse> getById(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, staffService.getById(id, Role.BARISTA));
+    }
+
+    @PatchMapping("/{id}")
+    public ApiResponse<UserResponse> update(@PathVariable UUID id, @RequestBody UpdateStaffRequest request) {
+        UserResponse barista = staffService.update(id, request, Role.BARISTA);
+        return ApiResponse.of(HttpStatus.OK, "Barista account updated successfully.", barista);
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable UUID id) {
+        staffService.delete(id, Role.BARISTA);
+        return ApiResponse.of(HttpStatus.OK, "Barista account deleted successfully.", null);
+    }
+}
