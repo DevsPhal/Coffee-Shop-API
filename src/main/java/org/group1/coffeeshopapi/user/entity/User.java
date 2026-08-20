@@ -1,14 +1,11 @@
 package org.group1.coffeeshopapi.user.entity;
 
 import jakarta.persistence.Column;
-import jakarta.persistence.DiscriminatorColumn;
-import jakarta.persistence.DiscriminatorType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Inheritance;
 import jakarta.persistence.InheritanceType;
-import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,13 +15,13 @@ import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.Status;
 
 /**
- * Shared identity for every account, stored in {@code auth_users}. Holds the fields that matter
- * for authentication (credentials, verification status) regardless of role. Each role's
- * additional data lives in its own joined table (see {@link Role}'s subclasses:
- * {@code Admin}, {@code Barista}, {@code Customer}) — Hibernate joins them automatically, so
- * one {@link org.group1.coffeeshopapi.user.repository.UserRepository} query works across all
- * roles while {@code AdminRepository}/{@code BaristaRepository}/{@code CustomerRepository} let
- * you query a single role directly.
+ * Shared shape for every account. Never persisted on its own — {@code Admin}, {@code Barista},
+ * and {@code Customer} each declare the concrete, standalone table ({@code admins},
+ * {@code baristas}, {@code customers}) that physically holds these fields (credentials,
+ * verification status, Telegram link) alongside their own role-specific columns. One
+ * {@link org.group1.coffeeshopapi.user.repository.UserRepository} query still works across all
+ * roles (Hibernate unions the three tables), while {@code AdminRepository}/
+ * {@code BaristaRepository}/{@code CustomerRepository} let you query a single role directly.
  * <p>
  * {@code status} is the verification gate: {@link Status#INACTIVE} until the account completes
  * OTP verification, {@link Status#ACTIVE} afterward (or immediately for staff created by an
@@ -33,22 +30,20 @@ import org.group1.coffeeshopapi.common.enums.Status;
 @Getter
 @Setter
 @Entity
-@Inheritance(strategy = InheritanceType.JOINED)
-@DiscriminatorColumn(name = "role", discriminatorType = DiscriminatorType.STRING)
-@Table(name = "auth_users")
+@Inheritance(strategy = InheritanceType.TABLE_PER_CLASS)
 public abstract class User extends BaseEntity {
 
     @Column(nullable = false)
     private String fullName;
 
     @Email
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String email;
 
     @Column(nullable = false)
     private String password;
 
-    @Column(unique = true)
+    @Column
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
@@ -58,6 +53,9 @@ public abstract class User extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Status status;
+
+    @Column
+    private String telegramChatId;
 
     public abstract Role getRole();
 }

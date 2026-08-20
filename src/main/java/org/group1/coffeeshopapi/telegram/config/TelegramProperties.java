@@ -29,6 +29,9 @@ public class TelegramProperties {
     }
 
     public String deepLink(String code) {
-        return "https://t.me/" + botUsername + "?start=" + code;
+        String username = botUsername != null && botUsername.startsWith("@")
+                ? botUsername.substring(1)
+                : botUsername;
+        return "https://t.me/" + username + "?start=" + code;
     }
 }

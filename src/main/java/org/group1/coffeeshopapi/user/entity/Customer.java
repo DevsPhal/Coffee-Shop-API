@@ -1,22 +1,17 @@
 package org.group1.coffeeshopapi.user.entity;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.persistence.UniqueConstraint;
 import org.group1.coffeeshopapi.common.enums.Role;
 
-@Getter
-@Setter
 @Entity
-@Table(name = "customers")
-@DiscriminatorValue("CUSTOMER")
+@Table(name = "customers", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_customers_email", columnNames = "email"),
+        @UniqueConstraint(name = "uk_customers_phone_number", columnNames = "phone_number"),
+        @UniqueConstraint(name = "uk_customers_telegram_chat_id", columnNames = "telegram_chat_id")
+})
 public class Customer extends User {
-
-    @Column(unique = true)
-    private String telegramChatId;
 
     @Override
     public Role getRole() {

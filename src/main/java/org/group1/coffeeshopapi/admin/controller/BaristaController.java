@@ -10,12 +10,13 @@ import org.group1.coffeeshopapi.admin.service.StaffService;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
+import org.group1.coffeeshopapi.common.response.PageResponse;
+import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -35,8 +36,11 @@ public class BaristaController {
     }
 
     @GetMapping
-    public ApiResponse<List<UserResponse>> list() {
-        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, staffService.list(Role.BARISTA));
+    public ApiResponse<PageResponse<UserResponse>> list(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
+                PageResponse.of(staffService.list(Role.BARISTA, PageUtil.buildPageable(page, size))));
     }
 
     @GetMapping("/{id}")
@@ -45,7 +49,7 @@ public class BaristaController {
     }
 
     @PatchMapping("/{id}")
-    public ApiResponse<UserResponse> update(@PathVariable UUID id, @RequestBody UpdateStaffRequest request) {
+    public ApiResponse<UserResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateStaffRequest request) {
         UserResponse barista = staffService.update(id, request, Role.BARISTA);
         return ApiResponse.of(HttpStatus.OK, "Barista account updated successfully.", barista);
     }

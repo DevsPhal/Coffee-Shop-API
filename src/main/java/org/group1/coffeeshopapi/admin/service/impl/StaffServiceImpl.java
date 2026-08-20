@@ -18,11 +18,13 @@ import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.user.mapper.UserMapper;
 import org.group1.coffeeshopapi.user.repository.UserRepository;
+import org.group1.coffeeshopapi.user.service.AuthUserSyncService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -36,6 +38,7 @@ public class StaffServiceImpl implements StaffService {
     private final UserMapper userMapper;
     private final SuperAdminProperties superAdminProperties;
     private final TokenService tokenService;
+    private final AuthUserSyncService authUserSyncService;
 
     @Override
     @Transactional
@@ -66,6 +69,7 @@ public class StaffServiceImpl implements StaffService {
         } else {
             baristaRepository.save((Barista) staff);
         }
+        authUserSyncService.sync(staff);
         return userMapper.toResponse(staff);
     }
 
@@ -75,10 +79,10 @@ public class StaffServiceImpl implements StaffService {
     }
 
     @Override
-    public List<UserResponse> list(Role role) {
+    public Page<UserResponse> list(Role role, Pageable pageable) {
         return switch (role) {
-            case ADMIN -> adminRepository.findAll().stream().map(userMapper::toResponse).toList();
-            case BARISTA -> baristaRepository.findAll().stream().map(userMapper::toResponse).toList();
+            case ADMIN -> adminRepository.findAll(pageable).map(userMapper::toResponse);
+            case BARISTA -> baristaRepository.findAll(pageable).map(userMapper::toResponse);
             default -> throw new IllegalArgumentException("Unsupported staff role: " + role);
         };
     }
@@ -107,6 +111,7 @@ public class StaffServiceImpl implements StaffService {
         }
 
         userRepository.save(staff);
+        authUserSyncService.sync(staff);
         return userMapper.toResponse(staff);
     }
 
@@ -116,6 +121,7 @@ public class StaffServiceImpl implements StaffService {
         User staff = findByIdAndRole(id, role);
         tokenService.revokeRefreshToken(staff.getId());
         userRepository.delete(staff);
+        authUserSyncService.remove(staff.getId());
     }
 
     private User findByIdAndRole(UUID id, Role role) {

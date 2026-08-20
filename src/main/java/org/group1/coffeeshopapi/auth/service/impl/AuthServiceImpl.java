@@ -18,10 +18,12 @@ import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.common.util.JwtUtil;
+import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.group1.coffeeshopapi.user.repository.UserRepository;
+import org.group1.coffeeshopapi.user.service.AuthUserSyncService;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -42,6 +44,8 @@ public class AuthServiceImpl implements AuthService {
     private final TokenService tokenService;
     private final JwtUtil jwtUtil;
     private final SuperAdminProperties superAdminProperties;
+    private final AuthUserSyncService authUserSyncService;
+    private final TelegramLinkService telegramLinkService;
 
     @Override
     @Transactional
@@ -62,6 +66,7 @@ public class AuthServiceImpl implements AuthService {
         customer.setGender(request.gender());
         customer.setStatus(Status.INACTIVE);
         customerRepository.saveAndFlush(customer);
+        authUserSyncService.sync(customer);
 
         otpService.generateAndSend(email, customer.getFullName(), OtpPurpose.REGISTER);
     }
@@ -80,6 +85,7 @@ public class AuthServiceImpl implements AuthService {
         otpService.verify(email, OtpPurpose.REGISTER, request.otp());
         customer.setStatus(Status.ACTIVE);
         customerRepository.save(customer);
+        authUserSyncService.sync(customer);
     }
 
     @Override
@@ -100,7 +106,7 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
 
-        otpService.generateAndSend(email, user.getFullName(), OtpPurpose.LOGIN);
+        otpService.generateAndSend(email, user.getFullName(), OtpPurpose.LOGIN, telegramDeepLinkFor(user));
         String ticket = tokenService.createLoginTicket(user.getId());
         return LoginResponse.otpChallenge(ticket);
     }
@@ -134,7 +140,7 @@ public class AuthServiceImpl implements AuthService {
                 UUID userId = tokenService.peekLoginTicket(request.loginTicket());
                 User user = userRepository.findById(userId)
                         .orElseThrow(() -> new ResourceNotFoundException("Account no longer exists"));
-                otpService.resend(user.getEmail(), user.getFullName(), OtpPurpose.LOGIN);
+                otpService.resend(user.getEmail(), user.getFullName(), OtpPurpose.LOGIN, telegramDeepLinkFor(user));
             }
             case RESET_PASSWORD -> {
                 String email = requireEmail(request);
@@ -214,6 +220,7 @@ public class AuthServiceImpl implements AuthService {
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+        authUserSyncService.sync(user);
         tokenService.revokeRefreshToken(user.getId());
     }
 
@@ -222,6 +229,18 @@ public class AuthServiceImpl implements AuthService {
         String refreshToken = jwtUtil.generateRefreshToken(email, role.name());
         tokenService.storeRefreshToken(userId, refreshToken);
         return new AuthTokenResponse(accessToken, refreshToken, "Bearer", jwtUtil.getAccessExpirationMs());
+    }
+
+    /**
+     * A login OTP email offers a "Connect Telegram" button only for customers who haven't
+     * linked a chat yet — staff/super-admin have no Telegram concept, and an already-linked
+     * customer doesn't need another code.
+     */
+    private String telegramDeepLinkFor(User user) {
+        if (user.getRole() != Role.CUSTOMER || user.getTelegramChatId() != null) {
+            return null;
+        }
+        return telegramLinkService.generateLinkCode(user.getId()).deepLink();
     }
 
     private String requireEmail(ResendOtpRequest request) {

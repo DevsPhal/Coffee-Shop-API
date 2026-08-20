@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface AdminRepository extends JpaRepository<Admin, UUID> {
     Optional<Admin> findByEmail(String email);
+    Optional<Admin> findByTelegramChatId(String telegramChatId);
 }

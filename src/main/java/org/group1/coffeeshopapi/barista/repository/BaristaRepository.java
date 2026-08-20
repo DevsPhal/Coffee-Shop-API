@@ -8,4 +8,5 @@ import java.util.UUID;
 
 public interface BaristaRepository extends JpaRepository<Barista, UUID> {
     Optional<Barista> findByEmail(String email);
+    Optional<Barista> findByTelegramChatId(String telegramChatId);
 }

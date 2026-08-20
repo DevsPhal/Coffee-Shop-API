@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.admin.dto.request;
 
+import jakarta.validation.constraints.Pattern;
 import org.group1.coffeeshopapi.common.enums.Gender;
 import org.group1.coffeeshopapi.common.enums.Status;
 
@@ -9,7 +10,10 @@ import org.group1.coffeeshopapi.common.enums.Status;
  */
 public record UpdateStaffRequest(
         String fullName,
+
+        @Pattern(regexp = "\\d{9,10}", message = "Phone number must be 9 or 10 digits")
         String phoneNumber,
+
         Gender gender,
         Status status
 ) {

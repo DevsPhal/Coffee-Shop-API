@@ -4,8 +4,9 @@ import org.group1.coffeeshopapi.admin.dto.request.CreateStaffRequest;
 import org.group1.coffeeshopapi.admin.dto.request.UpdateStaffRequest;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
-import java.util.List;
 import java.util.UUID;
 
 /**
@@ -15,7 +16,7 @@ import java.util.UUID;
 public interface StaffService {
     UserResponse create(CreateStaffRequest request, Role role);
     UserResponse getById(UUID id, Role role);
-    List<UserResponse> list(Role role);
+    Page<UserResponse> list(Role role, Pageable pageable);
     UserResponse update(UUID id, UpdateStaffRequest request, Role role);
     void delete(UUID id, Role role);
 }

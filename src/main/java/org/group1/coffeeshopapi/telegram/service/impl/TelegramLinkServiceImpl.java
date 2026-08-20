@@ -8,6 +8,7 @@ import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
+import org.group1.coffeeshopapi.user.service.AuthUserSyncService;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
     private final StringRedisTemplate redisTemplate;
     private final CustomerRepository customerRepository;
     private final TelegramProperties properties;
+    private final AuthUserSyncService authUserSyncService;
 
     @Override
     public TelegramLinkCodeResponse generateLinkCode(UUID customerId) {
@@ -55,12 +57,18 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
                 .filter(existing -> !existing.getId().equals(customer.getId()))
                 .ifPresent(existing -> {
                     existing.setTelegramChatId(null);
-                    customerRepository.save(existing);
+                    // Flush immediately: this chat id is still unique-constrained, so the old
+                    // owner's row must actually clear in the DB before the new owner's row below
+                    // claims it — otherwise Hibernate may flush both UPDATEs in the wrong order
+                    // and both rows briefly hold the same chat id, tripping the constraint.
+                    customerRepository.saveAndFlush(existing);
+                    authUserSyncService.sync(existing);
                 });
 
         customer.setTelegramChatId(chatId.toString());
         customerRepository.save(customer);
-        return "Your account has been linked. You'll receive updates here.";
+        authUserSyncService.sync(customer);
+        return "You're linked, " + customer.getFullName() + "! You'll receive order and login updates here.";
     }
 
     @Override
@@ -70,6 +78,7 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
                 .orElseThrow(() -> new ResourceNotFoundException("This chat is not linked to any account"));
         customer.setTelegramChatId(null);
         customerRepository.save(customer);
+        authUserSyncService.sync(customer);
         return "Your account has been unlinked.";
     }
 

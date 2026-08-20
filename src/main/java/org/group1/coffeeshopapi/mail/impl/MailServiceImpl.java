@@ -25,7 +25,8 @@ public class MailServiceImpl implements MailService {
 
     @Override
     @Async("mailTaskExecutor")
-    public void sendOtpEmail(String to, String fullName, String otp, int expiryMinutes, String purposeLabel) {
+    public void sendOtpEmail(String to, String fullName, String otp, int expiryMinutes, String purposeLabel,
+                              String telegramDeepLink) {
         try {
             Context context = new Context();
             context.setVariable("fullName", fullName);
@@ -33,6 +34,7 @@ public class MailServiceImpl implements MailService {
             context.setVariable("expiryMinutes", expiryMinutes);
             context.setVariable("purposeLabel", purposeLabel);
             context.setVariable("shopEmail", shopEmail);
+            context.setVariable("telegramDeepLink", telegramDeepLink);
 
             String html = templateEngine.process("email/otp-email", context);
 
