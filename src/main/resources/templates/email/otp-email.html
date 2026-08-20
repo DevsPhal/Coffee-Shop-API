@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title th:text="${purposeLabel} + ' Verification Code'">Verification Code</title>
+    <title th:text="${purposeLabel}">Verification Code</title>
 </head>
 <body style="margin:0; padding:0; background-color:#f4ede4; font-family:Segoe UI, Roboto, Helvetica, Arial, sans-serif;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4ede4; padding:32px 0;">
@@ -11,15 +11,22 @@
         <td align="center">
             <table role="presentation" width="480" cellpadding="0" cellspacing="0"
                    style="background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 2px 8px rgba(36,24,17,0.08);">
+
+                <!-- Header with logo when configured, falling back to the wordmark otherwise -->
                 <tr>
-                    <td style="background-color:#241811; padding:24px 32px;">
-                        <span style="color:#fbf7ef; font-size:20px; font-weight:600; letter-spacing:0.5px;">590st Cafe</span>
+                    <td align="center" style="background-color:#241811; padding:24px 32px;">
+                        <img th:if="${logoUrl}" th:src="${logoUrl}" alt="590st Cafe"
+                             width="56" height="56"
+                             style="display:block; border-radius:50%; margin:0 auto;"/>
+                        <span th:unless="${logoUrl}"
+                              style="color:#fbf7ef; font-size:20px; font-weight:600; letter-spacing:0.5px;">590st Cafe</span>
                     </td>
                 </tr>
+
                 <tr>
                     <td style="padding:32px;">
                         <p style="margin:0 0 8px; color:#241811; font-size:16px;">
-                            Hi <span th:text="${fullName}">there</span>,
+                            Hi <span th:text="${fullName}" style="text-transform: capitalize">there</span>,
                         </p>
                         <p style="margin:0 0 24px; color:#5c4a3a; font-size:14px; line-height:1.5;">
                             Use the code below to complete your <span th:text="${purposeLabel}">action</span>.
@@ -35,6 +42,22 @@
                                             000000
                                         </span>
                                     </div>
+                                </td>
+                            </tr>
+                        </table>
+
+                        <!-- Connect Telegram button -->
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" th:if="${telegramDeepLink}">
+                            <tr>
+                                <td align="center" style="padding:24px 0 0;">
+                                    <a th:href="${telegramDeepLink}" target="_blank"
+                                       style="display:inline-block; background-color:#229ED9; color:#ffffff; text-decoration:none;
+                                              font-size:14px; font-weight:600; padding:12px 28px; border-radius:8px;">
+                                        &#9992; Connect Telegram
+                                    </a>
+                                    <p style="margin:10px 0 0; color:#8a7a6b; font-size:12px; line-height:1.4;">
+                                        Tap the button, then press <strong>Start</strong> in Telegram to get order and login updates there.
+                                    </p>
                                 </td>
                             </tr>
                         </table>

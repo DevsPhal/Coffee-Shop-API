@@ -9,13 +9,26 @@ public interface OtpService {
      * so normal flows (login, register, forgot-password) never fail just because a code was
      * already issued moments ago.
      */
-    void generateAndSend(String email, String fullName, OtpPurpose purpose);
+    default void generateAndSend(String email, String fullName, OtpPurpose purpose) {
+        generateAndSend(email, fullName, purpose, null);
+    }
+
+    /**
+     * Same as {@link #generateAndSend(String, String, OtpPurpose)}, but the email also offers a
+     * "Connect Telegram" button linking to {@code telegramDeepLink} when non-null.
+     */
+    void generateAndSend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink);
 
     /**
      * Explicit user-initiated resend. Unlike {@link #generateAndSend}, this throws while the
      * cooldown is active so repeated clicks get real feedback instead of silently doing nothing.
      */
-    void resend(String email, String fullName, OtpPurpose purpose);
+    default void resend(String email, String fullName, OtpPurpose purpose) {
+        resend(email, fullName, purpose, null);
+    }
+
+    /** Same as {@link #resend(String, String, OtpPurpose)}, with an optional Telegram deep link. */
+    void resend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink);
 
     void verify(String email, OtpPurpose purpose, String code);
 }

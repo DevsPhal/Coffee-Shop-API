@@ -29,26 +29,26 @@ public class OtpServiceImpl implements OtpService {
     private final MailService mailService;
 
     @Override
-    public void generateAndSend(String email, String fullName, OtpPurpose purpose) {
+    public void generateAndSend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink) {
         String cooldownKey = RedisKeys.otpCooldownKey(purpose.name(), email);
         if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
             // A still-valid code was already issued moments ago (e.g. a prior login attempt) —
             // reuse it silently rather than failing a legitimate flow.
             return;
         }
-        send(email, fullName, purpose);
+        send(email, fullName, purpose, telegramDeepLink);
     }
 
     @Override
-    public void resend(String email, String fullName, OtpPurpose purpose) {
+    public void resend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink) {
         String cooldownKey = RedisKeys.otpCooldownKey(purpose.name(), email);
         if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
             throw new TooManyRequestsException("Please wait before requesting another code");
         }
-        send(email, fullName, purpose);
+        send(email, fullName, purpose, telegramDeepLink);
     }
 
-    private void send(String email, String fullName, OtpPurpose purpose) {
+    private void send(String email, String fullName, OtpPurpose purpose, String telegramDeepLink) {
         String cooldownKey = RedisKeys.otpCooldownKey(purpose.name(), email);
         String otp = String.valueOf(100000 + RANDOM.nextInt(900000));
         String otpKey = RedisKeys.otpKey(purpose.name(), email);
@@ -63,7 +63,8 @@ public class OtpServiceImpl implements OtpService {
             log.warn("[DEV] OTP for {} ({}): {}", email, purpose, otp);
         }
 
-        mailService.sendOtpEmail(email, fullName, otp, otpProperties.getOtpExpiryMinutes(), purpose.label());
+        mailService.sendOtpEmail(email, fullName, otp, otpProperties.getOtpExpiryMinutes(), purpose.label(),
+                telegramDeepLink);
     }
 
     @Override
