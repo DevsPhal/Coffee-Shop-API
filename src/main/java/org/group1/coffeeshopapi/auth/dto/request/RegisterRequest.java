@@ -1,30 +1,26 @@
 package org.group1.coffeeshopapi.auth.dto.request;
 
-import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
+import org.group1.coffeeshopapi.common.enums.Gender;
 
-@Data
-@Schema(description = "Payload")
-public class RegisterRequest {
-   @NotBlank(message = "Username is required")
-   @Size(min = 4, max = 20, message = "Full name must be between 4 and 20 characters")
-   @Schema(example = "your name")
-   private String fullName;
+public record RegisterRequest(
+        @NotBlank(message = "Full name is required")
+        String fullName,
 
-   @NotBlank(message = "Email is required")
-   @Email(message = "Invalid email format")
-   @Schema(example = "you@gmail.com")
-   private String email;
+        @NotBlank(message = "Email is required")
+        @Email(message = "Email must be valid")
+        String email,
 
-   @NotBlank(message = "Phone number is required")
-   @Schema(example = "+85512345678")
-   private String phone;
+        @NotBlank(message = "Password is required")
+        @Size(min = 8, message = "Password must be at least 8 characters")
+        String password,
 
-   @NotBlank(message = "Password is required")
-   @Size(min = 8, message = "Password must be at least 8 character")
-   @Schema(example = "Qwert12!@")
-   private String password;
+        @Pattern(regexp = "\\d{9,10}", message = "Phone number must be 9 or 10 digits")
+        String phoneNumber,
+
+        Gender gender
+) {
 }

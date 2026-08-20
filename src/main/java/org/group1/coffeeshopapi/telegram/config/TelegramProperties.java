@@ -1,40 +1,37 @@
 package org.group1.coffeeshopapi.telegram.config;
 
+import lombok.Getter;
+import lombok.Setter;
+import org.group1.coffeeshopapi.common.constant.SecurityConstants;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.context.annotation.Configuration;
 
+@Getter
+@Setter
+@Configuration
 @ConfigurationProperties(prefix = "telegram")
 public class TelegramProperties {
-
     private String botToken;
+    private String botUsername;
     private String webhookSecret;
     private String webhookBaseUrl;
-    private String webhookPath;
-    private String apiBaseUrl;
-    private long linkCodeTtlSeconds = 300;
+    private String webhookPath = SecurityConstants.TELEGRAM_WEBHOOK_PATH;
+    private String apiBaseUrl = "https://api.telegram.org";
+    private int linkCodeTtlSeconds = 300;
+    private boolean autoRegisterWebhook = true;
 
-    public String getBotToken() { return botToken; }
-    public void setBotToken(String botToken) { this.botToken = botToken; }
-
-    public String getWebhookSecret() { return webhookSecret; }
-    public void setWebhookSecret(String webhookSecret) { this.webhookSecret = webhookSecret; }
-
-    public String getWebhookBaseUrl() { return webhookBaseUrl; }
-    public void setWebhookBaseUrl(String webhookBaseUrl) { this.webhookBaseUrl = webhookBaseUrl; }
-
-    public String getWebhookPath() { return webhookPath; }
-    public void setWebhookPath(String webhookPath) { this.webhookPath = webhookPath; }
-
-    public String getApiBaseUrl() { return apiBaseUrl; }
-    public void setApiBaseUrl(String apiBaseUrl) { this.apiBaseUrl = apiBaseUrl; }
-
-    public long getLinkCodeTtlSeconds() { return linkCodeTtlSeconds; }
-    public void setLinkCodeTtlSeconds(long linkCodeTtlSeconds) { this.linkCodeTtlSeconds = linkCodeTtlSeconds; }
-
-    public String fullApiUrl(String method) {
-        return apiBaseUrl + botToken + "/" + method;
+    public String apiUrl(String method) {
+        return apiBaseUrl + "/bot" + botToken + "/" + method;
     }
 
     public String fullWebhookUrl() {
         return webhookBaseUrl + webhookPath;
+    }
+
+    public String deepLink(String code) {
+        String username = botUsername != null && botUsername.startsWith("@")
+                ? botUsername.substring(1)
+                : botUsername;
+        return "https://t.me/" + username + "?start=" + code;
     }
 }

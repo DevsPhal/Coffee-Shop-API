@@ -1,43 +1,21 @@
 package org.group1.coffeeshopapi.admin.entity;
 
+import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
+import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.user.entity.User;
 
-import jakarta.persistence.*;
-import lombok.*;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
-
 @Entity
-@Table(name = "admins")
-@Setter
-@Getter
-@Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class Admin {
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private UUID id;
+@Table(name = "admins", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_admins_email", columnNames = "email"),
+        @UniqueConstraint(name = "uk_admins_phone_number", columnNames = "phone_number"),
+        @UniqueConstraint(name = "uk_admins_telegram_chat_id", columnNames = "telegram_chat_id")
+})
+public class Admin extends User {
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "user_id", referencedColumnName = "id", nullable = false, unique = true)
-    private User user;
-
-    @Column(length = 100)
-    private String displayName;
-
-    @Column(length = 100)
-    private String department;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @Column(name = "last_login_at")
-    private LocalDateTime lastLoginAt;
-
-    @PrePersist
-    private void onCreate() {
-        this.createdAt = LocalDateTime.now();
+    @Override
+    public Role getRole() {
+        return Role.ADMIN;
     }
 }

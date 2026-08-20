@@ -1,224 +1,252 @@
 package org.group1.coffeeshopapi.auth.service.impl;
 
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
-import lombok.AllArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.group1.coffeeshopapi.auth.dto.request.LoginRequest;
-import org.group1.coffeeshopapi.auth.dto.request.RegisterRequest;
+import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.auth.dto.request.*;
+import org.group1.coffeeshopapi.auth.dto.response.AuthTokenResponse;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
-import org.group1.coffeeshopapi.auth.dto.response.RefreshTokenResponse;
-import org.group1.coffeeshopapi.auth.dto.response.RegisterResponse;
-import org.group1.coffeeshopapi.auth.dto.response.UserResponse;
-import org.group1.coffeeshopapi.auth.dto.response.VerifyOtpResponse;
-import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.user.entity.User;
-import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
-import org.group1.coffeeshopapi.common.exception.InvalidOtpException;
-import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
-import org.group1.coffeeshopapi.common.exception.UnauthorizedException;
-import org.group1.coffeeshopapi.user.repository.UserRepository;
-import org.group1.coffeeshopapi.common.security.CustomUserDetails;
-import org.group1.coffeeshopapi.common.security.JwtService;
 import org.group1.coffeeshopapi.auth.service.AuthService;
-import org.group1.coffeeshopapi.auth.service.EmailService;
 import org.group1.coffeeshopapi.auth.service.OtpService;
+import org.group1.coffeeshopapi.auth.service.TokenService;
+import org.group1.coffeeshopapi.common.enums.OtpPurpose;
+import org.group1.coffeeshopapi.common.enums.Role;
+import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
+import org.group1.coffeeshopapi.common.exception.InvalidCredentialsException;
+import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
+import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
+import org.group1.coffeeshopapi.common.util.JwtUtil;
+import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
+import org.group1.coffeeshopapi.user.entity.Customer;
+import org.group1.coffeeshopapi.user.entity.User;
+import org.group1.coffeeshopapi.user.repository.CustomerRepository;
+import org.group1.coffeeshopapi.user.repository.UserRepository;
+import org.group1.coffeeshopapi.user.service.AuthUserSyncService;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.DisabledException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.UUID;
 
 @Service
-@Slf4j
-@AllArgsConstructor
+@RequiredArgsConstructor
 public class AuthServiceImpl implements AuthService {
+
     private final UserRepository userRepository;
+    private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
-    private final EmailService emailService;
     private final OtpService otpService;
+    private final TokenService tokenService;
+    private final JwtUtil jwtUtil;
+    private final SuperAdminProperties superAdminProperties;
+    private final AuthUserSyncService authUserSyncService;
+    private final TelegramLinkService telegramLinkService;
 
     @Override
-    public RegisterResponse register(RegisterRequest registerRequest) {
-        String email = normalizeEmail(registerRequest.getEmail());
-        if (userRepository.existsByEmail(email)){
-            throw new DuplicateResourceException("Email already registered");
+    @Transactional
+    public void register(RegisterRequest request) {
+        String email = request.email().toLowerCase();
+        if (superAdminProperties.matches(email)) {
+            throw new DuplicateResourceException("This email is reserved");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new DuplicateResourceException("An account with this email already exists");
         }
 
-        User user = User.builder()
-                .fullName(registerRequest.getFullName())
-                .email(email)
-                .password(passwordEncoder.encode(registerRequest.getPassword()))
-                .role(Role.CUSTOMER)
-                .enabled(false)
-                .build();
-        userRepository.save(user);
+        Customer customer = new Customer();
+        customer.setFullName(request.fullName());
+        customer.setEmail(email);
+        customer.setPassword(passwordEncoder.encode(request.password()));
+        customer.setPhoneNumber(request.phoneNumber());
+        customer.setGender(request.gender());
+        customer.setStatus(Status.INACTIVE);
+        customerRepository.saveAndFlush(customer);
+        authUserSyncService.sync(customer);
 
-        String otp = otpService.generateOtp(user.getEmail());
-
-        emailService.sendOtpEmail(
-                user.getEmail(),
-                user.getFullName(),
-                otp
-        );
-        return RegisterResponse.builder()
-                .userId(user.getId())
-                .email(user.getEmail())
-                .verificationRequired(true)
-                .build();
+        otpService.generateAndSend(email, customer.getFullName(), OtpPurpose.REGISTER);
     }
 
+    @Override
+    @Transactional
+    public void verifyRegistration(VerifyRegistrationRequest request) {
+        String email = request.email().toLowerCase();
+        Customer customer = customerRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
+
+        if (customer.getStatus() == Status.ACTIVE) {
+            throw new DuplicateResourceException("This account has already been verified");
+        }
+
+        otpService.verify(email, OtpPurpose.REGISTER, request.otp());
+        customer.setStatus(Status.ACTIVE);
+        customerRepository.save(customer);
+        authUserSyncService.sync(customer);
+    }
 
     @Override
-    public LoginResponse login(LoginRequest loginRequest) {
-        String email = normalizeEmail(loginRequest.getEmail());
-        try {
+    public LoginResponse login(LoginRequest request) {
+        String email = request.email().toLowerCase();
+
+        if (superAdminProperties.matches(email)) {
+            // The super admin is a config-only account: no email inbox, no OTP friction, no DB row.
             authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            email,
-                            loginRequest.getPassword()
-                    )
-            );
-        } catch (BadCredentialsException ex) {
-            throw new UnauthorizedException("Invalid email or password.");
-        } catch (DisabledException ex) {
-            throw new DisabledException("Account not verified, Please check your email for OTP.");
+                    new UsernamePasswordAuthenticationToken(email, request.password()));
+            AuthTokenResponse tokens = issueTokens(SuperAdminUserDetails.ID, email, Role.SUPER_ADMIN);
+            return LoginResponse.authenticated(tokens);
         }
+
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(email, request.password()));
+
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found."));
+                .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
 
-        CustomUserDetails userDetails = new CustomUserDetails(user);
-
-        String accessToken = jwtService.generateAccessToken(userDetails);
-        String refreshToken = jwtService.generateRefreshToken(userDetails);
-        return LoginResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .user(
-                        UserResponse.builder()
-                                .id(user.getId())
-                                .fullName(user.getFullName())
-                                .email(user.getEmail())
-                                .role(user.getRole())
-                                .build()
-                )
-                .build();
+        otpService.generateAndSend(email, user.getFullName(), OtpPurpose.LOGIN, telegramDeepLinkFor(user));
+        String ticket = tokenService.createLoginTicket(user.getId());
+        return LoginResponse.otpChallenge(ticket);
     }
 
     @Override
-    public VerifyOtpResponse verifyOtp(String email, String otp) {
-        String normalizedEmail = normalizeEmail(email);
+    public AuthTokenResponse verifyLoginOtp(VerifyLoginOtpRequest request) {
+        UUID userId = tokenService.consumeLoginTicket(request.loginTicket());
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Account no longer exists"));
 
-        User user = userRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
-        if (!otpService.isValid(normalizedEmail, otp)){
-            throw new InvalidOtpException("Invalid or expired OTP.");
-        }
-
-        user.setEnabled(true);
-        userRepository.save(user);
-
-        otpService.clearOtp(normalizedEmail);
-
-        return VerifyOtpResponse.builder()
-                .verified(true)
-                .email(user.getEmail())
-                .build();
+        otpService.verify(user.getEmail(), OtpPurpose.LOGIN, request.otp());
+        return issueTokens(user.getId(), user.getEmail(), user.getRole());
     }
 
     @Override
-    public void resendOtp(String email) {
-        User user = userRepository.findByEmail(normalizeEmail(email))
-                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
-
-        if (user.isEnabled()) {
-            throw new DuplicateResourceException("Account is already verified, please login.");
-        }
-
-        String otp = otpService.generateOtp(user.getEmail());
-        emailService.sendOtpEmail(user.getEmail(), user.getFullName(), otp);
-    }
-
-    @Override
-    public RefreshTokenResponse refreshToken(String refreshToken) {
-        try {
-            String email = jwtService.extractUsername(refreshToken);
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new UnauthorizedException("Invalid or expired refresh token."));
-            CustomUserDetails userDetails = new CustomUserDetails(user);
-
-            if (!jwtService.isRefreshTokenValid(refreshToken, userDetails)) {
-                throw new UnauthorizedException("Invalid or expired refresh token.");
+    public void resendOtp(ResendOtpRequest request) {
+        switch (request.purpose()) {
+            case REGISTER -> {
+                String email = requireEmail(request);
+                Customer customer = customerRepository.findByEmail(email)
+                        .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
+                if (customer.getStatus() == Status.ACTIVE) {
+                    throw new DuplicateResourceException("This account has already been verified");
+                }
+                otpService.resend(email, customer.getFullName(), OtpPurpose.REGISTER);
             }
+            case LOGIN -> {
+                if (request.loginTicket() == null || request.loginTicket().isBlank()) {
+                    throw new InvalidCredentialsException("Login ticket is required to resend a login code");
+                }
+                UUID userId = tokenService.peekLoginTicket(request.loginTicket());
+                User user = userRepository.findById(userId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Account no longer exists"));
+                otpService.resend(user.getEmail(), user.getFullName(), OtpPurpose.LOGIN, telegramDeepLinkFor(user));
+            }
+            case RESET_PASSWORD -> {
+                String email = requireEmail(request);
+                userRepository.findByEmail(email)
+                        .ifPresent(user -> otpService.resend(email, user.getFullName(), OtpPurpose.RESET_PASSWORD));
+            }
+        }
+    }
 
-            String accessToken = jwtService.generateAccessToken(userDetails);
-            return RefreshTokenResponse.builder()
-                    .accessToken(accessToken)
-                    .build();
+    @Override
+    public AuthTokenResponse refreshToken(RefreshTokenRequest request) {
+        Claims claims;
+        try {
+            claims = jwtUtil.extractClaims(request.refreshToken());
         } catch (JwtException | IllegalArgumentException ex) {
-            throw new UnauthorizedException("Invalid or expired refresh token.");
+            throw new InvalidCredentialsException("Invalid or expired refresh token");
+        }
+
+        if (!jwtUtil.isRefreshToken(claims)) {
+            throw new InvalidCredentialsException("Invalid or expired refresh token");
+        }
+
+        String email = claims.getSubject();
+        UUID userId;
+        Role role;
+        if (superAdminProperties.matches(email)) {
+            userId = SuperAdminUserDetails.ID;
+            role = Role.SUPER_ADMIN;
+        } else {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new InvalidCredentialsException("Invalid or expired refresh token"));
+            userId = user.getId();
+            role = user.getRole();
+        }
+
+        if (!tokenService.isRefreshTokenValid(userId, request.refreshToken())) {
+            throw new InvalidCredentialsException("Refresh token has been revoked");
+        }
+
+        return issueTokens(userId, email, role);
+    }
+
+    @Override
+    public void logout(String accessToken) {
+        try {
+            Claims claims = jwtUtil.extractClaims(accessToken);
+            long remainingMillis = claims.getExpiration().getTime() - System.currentTimeMillis();
+            tokenService.denylistAccessToken(claims.getId(), remainingMillis);
+
+            String email = claims.getSubject();
+            UUID userId = superAdminProperties.matches(email)
+                    ? SuperAdminUserDetails.ID
+                    : userRepository.findByEmail(email).map(User::getId).orElse(null);
+            if (userId != null) {
+                tokenService.revokeRefreshToken(userId);
+            }
+        } catch (JwtException | IllegalArgumentException ignored) {
+            // Already invalid/expired token — logout is idempotent either way.
         }
     }
 
     @Override
-    public void forgotPassword(String email) {
-        User user = userRepository.findByEmail(normalizeEmail(email))
-                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
-
-        String otp = otpService.generateOtp(user.getEmail());
-        emailService.sendOtpEmail(user.getEmail(), user.getFullName(), otp);
+    public void forgotPassword(ForgotPasswordRequest request) {
+        String email = request.email().toLowerCase();
+        userRepository.findByEmail(email)
+                .ifPresent(user -> otpService.generateAndSend(email, user.getFullName(), OtpPurpose.RESET_PASSWORD));
     }
 
     @Override
-    public VerifyOtpResponse verifyResetOtp(String email, String otp) {
-        String normalizedEmail = normalizeEmail(email);
-        userRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String email = request.email().toLowerCase();
+        otpService.verify(email, OtpPurpose.RESET_PASSWORD, request.otp());
 
-        if (!otpService.isValid(normalizedEmail, otp)) {
-            throw new InvalidOtpException("Invalid or expired OTP.");
-        }
-
-        return VerifyOtpResponse.builder()
-                .verified(true)
-                .email(normalizedEmail)
-                .build();
-    }
-
-    @Override
-    public void resetPassword(String email, String otp, String newPassword) {
-        String normalizedEmail = normalizeEmail(email);
-        User user = userRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new ResourceNotFoundException("Email not found"));
-
-        if (!otpService.isValid(normalizedEmail, otp)) {
-            throw new InvalidOtpException("Invalid or expired OTP.");
-        }
-
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
-
-        otpService.clearOtp(normalizedEmail);
-    }
-
-    private static String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase();
-    }
-
-    @Override
-    public void changePassword(String oldPassword, String newPassword) {
-        String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
+                .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
 
-        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
-            throw new UnauthorizedException("Old password is incorrect.");
-        }
-
-        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+        authUserSyncService.sync(user);
+        tokenService.revokeRefreshToken(user.getId());
+    }
+
+    private AuthTokenResponse issueTokens(UUID userId, String email, Role role) {
+        String accessToken = jwtUtil.generateAccessToken(email, role.name());
+        String refreshToken = jwtUtil.generateRefreshToken(email, role.name());
+        tokenService.storeRefreshToken(userId, refreshToken);
+        return new AuthTokenResponse(accessToken, refreshToken, "Bearer", jwtUtil.getAccessExpirationMs());
+    }
+
+    /**
+     * A login OTP email offers a "Connect Telegram" button only for customers who haven't
+     * linked a chat yet — staff/super-admin have no Telegram concept, and an already-linked
+     * customer doesn't need another code.
+     */
+    private String telegramDeepLinkFor(User user) {
+        if (user.getRole() != Role.CUSTOMER || user.getTelegramChatId() != null) {
+            return null;
+        }
+        return telegramLinkService.generateLinkCode(user.getId()).deepLink();
+    }
+
+    private String requireEmail(ResendOtpRequest request) {
+        if (request.email() == null || request.email().isBlank()) {
+            throw new InvalidCredentialsException("Email is required for this request");
+        }
+        return request.email().toLowerCase();
     }
 }
