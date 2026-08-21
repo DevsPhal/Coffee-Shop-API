@@ -2,102 +2,71 @@ services:
 
   postgres:
     image: postgres:17
-    container_name: 590stcoffee-postgres
+    container_name: 590stcoffee-postgres-dev
     restart: unless-stopped
     environment:
-      POSTGRES_DB: 590stcoffee
-      POSTGRES_USER: 590stcoffee
-      POSTGRES_PASSWORD: 590stcoffee@168
+      POSTGRES_DB: ${DB_NAME:-590stcafe}
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U 590stcoffee"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
-    container_name: 590stcoffee-redis
+    container_name: 590stcoffee-redis-dev
     restart: unless-stopped
-    command: redis-server --requirepass 590stcoffee@168 --appendonly yes
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - redis_dev_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "590stcoffee@168", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
   minio:
     image: minio/minio
-    container_name: 590stcoffee-minio
+    container_name: 590stcoffee-minio-dev
     restart: unless-stopped
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioadmin
-      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
     ports:
       - "9000:9000"
       - "9001:9001"
     volumes:
-      - minio_data:/data
+      - minio_dev_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
-  backend:
-    build:
-      context: ..
-      dockerfile: Dockerfile
-      args:
-        BUILDKIT_INLINE_CACHE: "1"
-    container_name: 590stcoffee-api
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: 590stcoffee-ngrok-dev
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    env_file:
-      - ../.env
+    command:
+      - "http"
+      - "host.docker.internal:8080"
     environment:
-      SPRING_PROFILES_ACTIVE: docker
-      PORT: 8080
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/590stcoffee
-      SPRING_DATASOURCE_USERNAME: 590stcoffee
-      SPRING_DATASOURCE_PASSWORD: 590stcoffee@168
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
-      REDIS_PASSWORD: 590stcoffee@168
-      JWT_EXPIRATION: 86400000
-      JWT_REFRESH_EXPIRATION: 604800000
-      APP_CORS_ALLOWED_ORIGINS: http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003
-      MAIL_HOST: smtp.gmail.com
-      MAIL_PORT: 587
-      APP_AUTH_LOG_OTP: ${APP_AUTH_LOG_OTP:-false}
-      APP_AUTH_EMAIL_REQUIRED: ${APP_AUTH_EMAIL_REQUIRED:-true}
-      SPRINGDOC_SWAGGER_UI_ENABLED: "true"
-      SPRINGDOC_API_DOCS_ENABLED: "true"
-      SPRINGDOC_SWAGGER_UI_PATH: /swagger-ui.html
-      SPRINGDOC_API_DOCS_PATH: /v1/api-docs
-      MINIO_ENDPOINT: http://minio:9000
-      MINIO_PUBLIC_ENDPOINT: http://localhost:9000
-      MINIO_ACCESS_KEY: minioadmin
-      MINIO_SECRET_KEY: minioadmin
-      MINIO_BUCKET_NAME: 590st-public
-      MINIO_PUBLIC_BUCKET: 590st-public
-      MINIO_PRIVATE_BUCKET: 590st-private
-      MINIO_RECEIPTS_BUCKET: 590st-receipts
-      MINIO_REPORTS_BUCKET: 590st-reports
-      TELEGRAM_WEBHOOK_BASE_URL: https://api.590stcafe.shop
-      STRIPE_API_KEY:
-      STRIPE_WEBHOOK_SECRET:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
     ports:
-      - "8080:8080"
+      - "4040:4040"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
-  postgres_data:
-  minio_data:
-  redis_data:
+  postgres_dev_data:
+  redis_dev_data:
+  minio_dev_data:
