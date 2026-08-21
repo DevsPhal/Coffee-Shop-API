@@ -16,6 +16,7 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 
 @Configuration
 @EnableWebSecurity
@@ -53,7 +54,23 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(SecurityConstants.PUBLIC_ENDPOINTS).permitAll()
                         .requestMatchers("/api/admin/admins/**").hasRole("SUPER_ADMIN")
+                        .requestMatchers("/api/admin/users/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/baristas/**").hasRole("ADMIN")
+                        // Baristas need read-only access to the catalog to ring up sales.
+                        .requestMatchers(HttpMethod.GET, "/api/admin/categories/**", "/api/admin/products/**")
+                        .hasAnyRole("ADMIN", "BARISTA")
+                        .requestMatchers("/api/admin/categories/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/products/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/inventory/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/events/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/orders/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/reports/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/banners/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/expenses/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/finance/**").hasRole("ADMIN")
+                        .requestMatchers("/api/barista/orders/**").hasRole("BARISTA")
+                        .requestMatchers("/api/barista/reports/**").hasRole("BARISTA")
+                        .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

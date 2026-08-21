@@ -28,6 +28,9 @@ dependencies {
     implementation 'com.google.zxing:core:3.5.4'
     implementation 'com.google.zxing:javase:3.5.4'
 
+    // Excel (.xlsx) parsing for bulk product import
+    implementation 'org.apache.poi:poi-ooxml:5.3.0'
+
     implementation 'org.springframework.boot:spring-boot-starter-web'
 
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
