@@ -10,6 +10,7 @@ public record PageResponse<T>(
         int size,
         long totalElements,
         int totalPages,
+        boolean first,
         boolean last
 ) {
     public static <T> PageResponse<T> of(Page<T> page) {
@@ -19,6 +20,7 @@ public record PageResponse<T>(
                 page.getSize(),
                 page.getTotalElements(),
                 page.getTotalPages(),
+                page.isFirst(),
                 page.isLast());
     }
 }

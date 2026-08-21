@@ -16,13 +16,19 @@ import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
 import org.group1.coffeeshopapi.user.dto.response.SuperAdminResponse;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.group1.coffeeshopapi.user.mapper.UserMapper;
+import org.group1.coffeeshopapi.user.service.UserProfileService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/users")
@@ -33,6 +39,7 @@ public class UserController {
 
     private final UserMapper userMapper;
     private final TelegramLinkService telegramLinkService;
+    private final UserProfileService userProfileService;
 
     @GetMapping("/me")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
@@ -52,5 +59,26 @@ public class UserController {
         }
         TelegramLinkCodeResponse linkCode = telegramLinkService.generateLinkCode(customUserDetails.getId());
         return ApiResponse.of(HttpStatus.OK, "Telegram link code generated.", linkCode);
+    }
+
+    @PostMapping(value = "/me/avatar", consumes = "multipart/form-data")
+    public ApiResponse<UserResponse> uploadAvatar(
+            @RequestParam("file") MultipartFile file,
+            @AuthenticationPrincipal UserDetails principal) {
+        UUID userId = requireCustomUser(principal).getId();
+        return ApiResponse.of(HttpStatus.OK, "Avatar uploaded successfully.", userProfileService.uploadAvatar(userId, file));
+    }
+
+    @DeleteMapping("/me/avatar")
+    public ApiResponse<UserResponse> removeAvatar(@AuthenticationPrincipal UserDetails principal) {
+        UUID userId = requireCustomUser(principal).getId();
+        return ApiResponse.of(HttpStatus.OK, "Avatar removed successfully.", userProfileService.removeAvatar(userId));
+    }
+
+    private CustomUserDetails requireCustomUser(UserDetails principal) {
+        if (!(principal instanceof CustomUserDetails customUserDetails)) {
+            throw new InvalidOperationException("Super admin does not have an avatar");
+        }
+        return customUserDetails;
     }
 }

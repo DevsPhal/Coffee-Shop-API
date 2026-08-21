@@ -13,6 +13,7 @@ public record UserResponse(
         String fullName,
         String email,
         String phoneNumber,
+        String avatarUrl,
         Gender gender,
         Role role,
         Status status,
