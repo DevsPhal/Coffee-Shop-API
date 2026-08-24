@@ -23,6 +23,15 @@ public class TelegramApiClientImpl implements TelegramApiClient {
 
     @Override
     public void sendMessage(Long chatId, String text) {
+        send(chatId, Map.of("chat_id", chatId, "text", text));
+    }
+
+    @Override
+    public void sendHtmlMessage(Long chatId, String html) {
+        send(chatId, Map.of("chat_id", chatId, "text", html, "parse_mode", "HTML"));
+    }
+
+    private void send(Long chatId, Map<String, ?> body) {
         if (!hasToken()) {
             return;
         }
@@ -30,7 +39,7 @@ public class TelegramApiClientImpl implements TelegramApiClient {
             restClient.post()
                     .uri(properties.apiUrl("sendMessage"))
                     .contentType(MediaType.APPLICATION_JSON)
-                    .body(Map.of("chat_id", chatId, "text", text))
+                    .body(body)
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception ex) {
@@ -67,6 +76,9 @@ public class TelegramApiClientImpl implements TelegramApiClient {
         }
         try {
             List<Map<String, String>> commands = List.of(
+                    Map.of("command", "menu", "description", "View the menu (optionally by category)"),
+                    Map.of("command", "categories", "description", "List product categories"),
+                    Map.of("command", "discounts", "description", "See today's discounted items"),
                     Map.of("command", "start", "description", "Link your account"),
                     Map.of("command", "unlink", "description", "Unlink your account"),
                     Map.of("command", "help", "description", "Show available commands")

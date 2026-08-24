@@ -12,6 +12,7 @@ public class SecurityConstants {
 
     public static final String[] PUBLIC_ENDPOINTS = {
             "/api/auth/**",
+            "/api/banners/**",
             TELEGRAM_WEBHOOK_PATH,
             "/swagger-ui.html",
             "/swagger-ui/**",

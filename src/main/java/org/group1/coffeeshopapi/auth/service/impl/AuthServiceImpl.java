@@ -30,6 +30,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -228,7 +231,36 @@ public class AuthServiceImpl implements AuthService {
         String accessToken = jwtUtil.generateAccessToken(email, role.name());
         String refreshToken = jwtUtil.generateRefreshToken(email, role.name());
         tokenService.storeRefreshToken(userId, refreshToken);
-        return new AuthTokenResponse(accessToken, refreshToken, "Bearer", jwtUtil.getAccessExpirationMs());
+        long expiresInMs = jwtUtil.getAccessExpirationMs();
+        return new AuthTokenResponse(accessToken, refreshToken, "Bearer", expiresInMs, formatDuration(expiresInMs));
+    }
+
+    // e.g. 86400000 -> "1 day", 90000 -> "1 minute 30 seconds". Seconds are dropped once the
+    // duration reaches a day/hour/minute, since they're not meaningful at that granularity.
+    private String formatDuration(long millis) {
+        Duration duration = Duration.ofMillis(millis);
+        long days = duration.toDays();
+        int hours = duration.toHoursPart();
+        int minutes = duration.toMinutesPart();
+        int seconds = duration.toSecondsPart();
+
+        List<String> parts = new ArrayList<>();
+        if (days > 0) {
+            parts.add(days + (days == 1 ? " day" : " days"));
+        }
+        if (hours > 0) {
+            parts.add(hours + (hours == 1 ? " hour" : " hours"));
+        }
+        if (minutes > 0) {
+            parts.add(minutes + (minutes == 1 ? " minute" : " minutes"));
+        }
+        if (parts.isEmpty() && seconds > 0) {
+            parts.add(seconds + (seconds == 1 ? " second" : " seconds"));
+        }
+        if (parts.isEmpty()) {
+            parts.add("0 seconds");
+        }
+        return String.join(" ", parts);
     }
 
     /**

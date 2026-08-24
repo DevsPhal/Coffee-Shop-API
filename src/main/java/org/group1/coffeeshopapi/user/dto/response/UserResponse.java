@@ -13,9 +13,15 @@ public record UserResponse(
         String fullName,
         String email,
         String phoneNumber,
+        String avatarUrl,
         Gender gender,
         Role role,
         Status status,
-        boolean telegramLinked
+        boolean telegramLinked,
+        // Which admin/super admin created this account. Only ever set for ADMIN/BARISTA rows —
+        // customers self-register, so this stays null for them.
+        UUID createdBy,
+        String createdByName,
+        Role createdByRole
 ) {
 }

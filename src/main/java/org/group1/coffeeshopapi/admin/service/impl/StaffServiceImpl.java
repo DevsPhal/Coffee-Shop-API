@@ -42,7 +42,7 @@ public class StaffServiceImpl implements StaffService {
 
     @Override
     @Transactional
-    public UserResponse create(CreateStaffRequest request, Role role) {
+    public UserResponse create(CreateStaffRequest request, Role role, UUID createdBy) {
         String email = request.email().toLowerCase();
         if (superAdminProperties.matches(email)) {
             throw new DuplicateResourceException("This email is reserved");
@@ -65,9 +65,12 @@ public class StaffServiceImpl implements StaffService {
         staff.setStatus(Status.ACTIVE);
 
         if (staff instanceof Admin admin) {
+            admin.setCreatedBy(createdBy);
             adminRepository.save(admin);
         } else {
-            baristaRepository.save((Barista) staff);
+            Barista barista = (Barista) staff;
+            barista.setCreatedBy(createdBy);
+            baristaRepository.save(barista);
         }
         authUserSyncService.sync(staff);
         return userMapper.toResponse(staff);
