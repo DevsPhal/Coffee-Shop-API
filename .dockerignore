@@ -1,15 +1,39 @@
+# Build output
 build/
 .gradle/
+out/
+*.class
+
+# Git
 .git/
 .gitignore
+.gitattributes
+
+# IDE
 .idea/
 .vscode/
-out/
 *.iml
-*.log
+
+# Docker
 Dockerfile*
-README.md
-**/.DS_Store
-**/node_modules/
+Deployment/
+
+# Env & secrets
 **/.env
 **/.env.*
+
+# Logs & dumps
+*.log
+dump.rdb
+
+# OS
+**/.DS_Store
+Thumbs.db
+
+# Node (if frontend ever lands in same context)
+**/node_modules/
+
+# Docs / tooling
+README.md
+.claude/
+.mcp.json
