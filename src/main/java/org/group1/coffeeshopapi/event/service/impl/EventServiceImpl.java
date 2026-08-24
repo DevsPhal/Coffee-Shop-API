@@ -11,12 +11,17 @@ import org.group1.coffeeshopapi.event.entity.Event;
 import org.group1.coffeeshopapi.event.mapper.EventMapper;
 import org.group1.coffeeshopapi.event.repository.EventRepository;
 import org.group1.coffeeshopapi.event.service.EventService;
+import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
+import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -28,6 +33,7 @@ public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
     private final EventMapper eventMapper;
     private final FileStorageService fileStorageService;
+    private final ActorLookupService actorLookupService;
 
     @Override
     @Transactional
@@ -43,17 +49,25 @@ public class EventServiceImpl implements EventService {
         event.setEndAt(request.endAt());
         event.setCreatedBy(createdBy);
 
-        return eventMapper.toResponse(eventRepository.save(event));
+        return toResponse(eventRepository.save(event));
     }
 
     @Override
     public EventResponse getById(UUID id) {
-        return eventMapper.toResponse(findById(id));
+        return toResponse(findById(id));
     }
 
     @Override
     public Page<EventResponse> list(Pageable pageable) {
-        return eventRepository.findAll(pageable).map(eventMapper::toResponse);
+        Page<Event> events = eventRepository.findAll(pageable);
+
+        Set<UUID> actorIds = new HashSet<>();
+        for (Event event : events) {
+            actorIds.add(event.getCreatedBy());
+        }
+        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
+
+        return events.map(event -> eventMapper.toResponse(event, actors.get(event.getCreatedBy())));
     }
 
     @Override
@@ -80,7 +94,7 @@ public class EventServiceImpl implements EventService {
             throw new InvalidOperationException("Event end date must be after the start date");
         }
 
-        return eventMapper.toResponse(eventRepository.save(event));
+        return toResponse(eventRepository.save(event));
     }
 
     @Override
@@ -102,7 +116,7 @@ public class EventServiceImpl implements EventService {
             fileStorageService.delete(previousImageUrl);
         }
 
-        return eventMapper.toResponse(event);
+        return toResponse(event);
     }
 
     @Override
@@ -114,7 +128,11 @@ public class EventServiceImpl implements EventService {
             event.setImageUrl(null);
             event = eventRepository.save(event);
         }
-        return eventMapper.toResponse(event);
+        return toResponse(event);
+    }
+
+    private EventResponse toResponse(Event event) {
+        return eventMapper.toResponse(event, actorLookupService.resolve(event.getCreatedBy()));
     }
 
     private Event findById(UUID id) {

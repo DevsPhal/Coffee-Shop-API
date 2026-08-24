@@ -17,6 +17,7 @@ import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -64,6 +65,14 @@ public class Product extends BaseEntity {
 
     @Column
     private LocalDateTime discountEndAt;
+
+    // Which admin/super admin created or last modified this product — nullable so pre-existing
+    // rows (created before this tracking existed) don't need a backfill.
+    @Column
+    private UUID createdBy;
+
+    @Column
+    private UUID updatedBy;
 
     public boolean isDiscountActive(LocalDateTime at) {
         if (discountType == null || discountValue == null) {

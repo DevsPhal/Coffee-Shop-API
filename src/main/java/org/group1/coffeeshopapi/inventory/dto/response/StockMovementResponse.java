@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.inventory.dto.response;
 
+import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.StockMovementType;
 import org.group1.coffeeshopapi.common.enums.StockStrategy;
 
@@ -16,6 +17,8 @@ public record StockMovementResponse(
         BigDecimal quantity,
         String note,
         UUID performedBy,
+        String performedByName,
+        Role performedByRole,
         LocalDateTime createdAt
 ) {
 }

@@ -26,6 +26,8 @@ import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.mapper.ProductMapper;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.service.ProductService;
+import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
+import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,7 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
@@ -51,10 +54,11 @@ public class ProductServiceImpl implements ProductService {
     private final InventoryRepository inventoryRepository;
     private final ProductMapper productMapper;
     private final FileStorageService fileStorageService;
+    private final ActorLookupService actorLookupService;
 
     @Override
     @Transactional
-    public ProductResponse create(CreateProductRequest request) {
+    public ProductResponse create(CreateProductRequest request, UUID actorId) {
         if (productRepository.existsBySkuIgnoreCase(request.sku())) {
             throw new DuplicateResourceException("A product with this SKU already exists");
         }
@@ -67,6 +71,8 @@ public class ProductServiceImpl implements ProductService {
         product.setUnit(request.unit());
         product.setPrice(request.price());
         product.setCategory(category);
+        product.setCreatedBy(actorId);
+        product.setUpdatedBy(actorId);
         product = productRepository.save(product);
 
         // Every product gets exactly one inventory record the moment it's created, so stock-in/
@@ -77,13 +83,13 @@ public class ProductServiceImpl implements ProductService {
         inventory.setReorderLevel(request.reorderLevel() != null ? request.reorderLevel() : BigDecimal.ZERO);
         inventoryRepository.save(inventory);
 
-        return productMapper.toResponse(product, inventory);
+        return toResponse(product, inventory);
     }
 
     @Override
     public ProductResponse getById(UUID id) {
         Product product = findById(id);
-        return productMapper.toResponse(product, findInventory(product.getId()));
+        return toResponse(product, findInventory(product.getId()));
     }
 
     @Override
@@ -91,7 +97,7 @@ public class ProductServiceImpl implements ProductService {
         Page<Product> products = categoryId != null
                 ? productRepository.findByCategoryId(categoryId, pageable)
                 : productRepository.findAll(pageable);
-        return products.map(product -> productMapper.toResponse(product, findInventory(product.getId())));
+        return toResponsePage(products);
     }
 
     @Override
@@ -99,12 +105,12 @@ public class ProductServiceImpl implements ProductService {
         Page<Product> products = categoryId != null
                 ? productRepository.findByCategoryIdAndStatus(categoryId, Status.ACTIVE, pageable)
                 : productRepository.findByStatus(Status.ACTIVE, pageable);
-        return products.map(product -> productMapper.toResponse(product, findInventory(product.getId())));
+        return toResponsePage(products);
     }
 
     @Override
     @Transactional
-    public ProductResponse update(UUID id, UpdateProductRequest request) {
+    public ProductResponse update(UUID id, UpdateProductRequest request, UUID actorId) {
         Product product = findById(id);
 
         if (request.name() != null) {
@@ -125,6 +131,7 @@ public class ProductServiceImpl implements ProductService {
         if (request.status() != null) {
             product.setStatus(request.status());
         }
+        product.setUpdatedBy(actorId);
         product = productRepository.save(product);
 
         Inventory inventory = findInventory(product.getId());
@@ -133,7 +140,7 @@ public class ProductServiceImpl implements ProductService {
             inventoryRepository.save(inventory);
         }
 
-        return productMapper.toResponse(product, inventory);
+        return toResponse(product, inventory);
     }
 
     @Override
@@ -150,7 +157,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductResponse setDiscount(UUID id, SetProductDiscountRequest request) {
+    public ProductResponse setDiscount(UUID id, SetProductDiscountRequest request, UUID actorId) {
         Product product = findById(id);
 
         if (request.discountType() == DiscountType.PERCENTAGE
@@ -166,55 +173,59 @@ public class ProductServiceImpl implements ProductService {
         product.setDiscountValue(request.discountValue());
         product.setDiscountStartAt(request.discountStartAt());
         product.setDiscountEndAt(request.discountEndAt());
+        product.setUpdatedBy(actorId);
         product = productRepository.save(product);
 
-        return productMapper.toResponse(product, findInventory(product.getId()));
+        return toResponse(product, findInventory(product.getId()));
     }
 
     @Override
     @Transactional
-    public ProductResponse clearDiscount(UUID id) {
+    public ProductResponse clearDiscount(UUID id, UUID actorId) {
         Product product = findById(id);
         product.setDiscountType(null);
         product.setDiscountValue(null);
         product.setDiscountStartAt(null);
         product.setDiscountEndAt(null);
+        product.setUpdatedBy(actorId);
         product = productRepository.save(product);
 
-        return productMapper.toResponse(product, findInventory(product.getId()));
+        return toResponse(product, findInventory(product.getId()));
     }
 
     @Override
     @Transactional
-    public ProductResponse uploadImage(UUID id, MultipartFile file) {
+    public ProductResponse uploadImage(UUID id, MultipartFile file, UUID actorId) {
         Product product = findById(id);
         String previousImageUrl = product.getImageUrl();
 
         product.setImageUrl(fileStorageService.uploadImage(file, IMAGE_FOLDER));
+        product.setUpdatedBy(actorId);
         product = productRepository.save(product);
 
         if (previousImageUrl != null) {
             fileStorageService.delete(previousImageUrl);
         }
 
-        return productMapper.toResponse(product, findInventory(product.getId()));
+        return toResponse(product, findInventory(product.getId()));
     }
 
     @Override
     @Transactional
-    public ProductResponse removeImage(UUID id) {
+    public ProductResponse removeImage(UUID id, UUID actorId) {
         Product product = findById(id);
         if (product.getImageUrl() != null) {
             fileStorageService.delete(product.getImageUrl());
             product.setImageUrl(null);
+            product.setUpdatedBy(actorId);
             product = productRepository.save(product);
         }
-        return productMapper.toResponse(product, findInventory(product.getId()));
+        return toResponse(product, findInventory(product.getId()));
     }
 
     @Override
     @Transactional
-    public ProductImportResponse importFromExcel(MultipartFile file) {
+    public ProductImportResponse importFromExcel(MultipartFile file, UUID actorId) {
         if (file == null || file.isEmpty()) {
             throw new InvalidOperationException("Excel file is required");
         }
@@ -291,6 +302,8 @@ public class ProductServiceImpl implements ProductService {
                 product.setUnit(unit);
                 product.setPrice(price);
                 product.setCategory(category);
+                product.setCreatedBy(actorId);
+                product.setUpdatedBy(actorId);
                 product = productRepository.save(product);
 
                 Inventory inventory = new Inventory();
@@ -341,5 +354,25 @@ public class ProductServiceImpl implements ProductService {
     private Inventory findInventory(UUID productId) {
         return inventoryRepository.findByProductId(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Inventory not found for product"));
+    }
+
+    private ProductResponse toResponse(Product product, Inventory inventory) {
+        return productMapper.toResponse(product, inventory,
+                actorLookupService.resolve(product.getCreatedBy()),
+                actorLookupService.resolve(product.getUpdatedBy()));
+    }
+
+    // Batches the createdBy/updatedBy lookups for a whole page instead of resolving each row
+    // individually, so listing N products costs one extra query instead of up to 2N.
+    private Page<ProductResponse> toResponsePage(Page<Product> products) {
+        Set<UUID> actorIds = new HashSet<>();
+        for (Product product : products) {
+            actorIds.add(product.getCreatedBy());
+            actorIds.add(product.getUpdatedBy());
+        }
+        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
+
+        return products.map(product -> productMapper.toResponse(product, findInventory(product.getId()),
+                actors.get(product.getCreatedBy()), actors.get(product.getUpdatedBy())));
     }
 }

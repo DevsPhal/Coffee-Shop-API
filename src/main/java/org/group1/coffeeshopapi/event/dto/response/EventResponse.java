@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.event.dto.response;
 
+import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.time.LocalDateTime;
@@ -14,6 +15,8 @@ public record EventResponse(
         LocalDateTime endAt,
         Status status,
         UUID createdBy,
+        String createdByName,
+        Role createdByRole,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

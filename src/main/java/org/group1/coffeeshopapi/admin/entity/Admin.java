@@ -1,11 +1,18 @@
 package org.group1.coffeeshopapi.admin.entity;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import lombok.Getter;
+import lombok.Setter;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.user.entity.User;
 
+import java.util.UUID;
+
+@Getter
+@Setter
 @Entity
 @Table(name = "admins", uniqueConstraints = {
         @UniqueConstraint(name = "uk_admins_email", columnNames = "email"),
@@ -13,6 +20,10 @@ import org.group1.coffeeshopapi.user.entity.User;
         @UniqueConstraint(name = "uk_admins_telegram_chat_id", columnNames = "telegram_chat_id")
 })
 public class Admin extends User {
+
+    // Which admin/super admin created this account — null for pre-existing rows.
+    @Column
+    private UUID createdBy;
 
     @Override
     public Role getRole() {

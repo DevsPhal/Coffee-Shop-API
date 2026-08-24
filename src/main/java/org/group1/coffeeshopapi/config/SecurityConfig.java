@@ -32,14 +32,22 @@ public class SecurityConfig {
     }
 
     /**
-     * Grants SUPER_ADMIN every other role's authorities, so it satisfies any hasRole(...)/
-     * hasAuthority(...) check in this filter chain — including ones added later — without
-     * having to remember to add it to each new requestMatcher individually.
+     * Grants SUPER_ADMIN every ADMIN-scoped authority, so it satisfies any hasRole("ADMIN")
+     * check in this filter chain — including ones added later — without having to remember to
+     * add it to each new requestMatcher individually.
+     * <p>
+     * Deliberately NOT extended to BARISTA/CUSTOMER: those endpoints key off a real
+     * {@code baristaId}/{@code customerId} row (POS sales, self-service carts) and every
+     * controller there injects {@code @AuthenticationPrincipal CustomUserDetails} unconditionally.
+     * The super admin's principal is {@code SuperAdminUserDetails}, a different type with no
+     * backing row — letting it past the role check would just NPE on {@code currentUser.getId()}
+     * instead of failing cleanly. Admin-wide visibility into all orders is already available via
+     * the {@code /api/admin/orders/**} endpoints, which don't have this problem.
      */
     @Bean
     public RoleHierarchy roleHierarchy() {
         return RoleHierarchyImpl.withDefaultRolePrefix()
-                .role("SUPER_ADMIN").implies("ADMIN", "BARISTA", "CUSTOMER")
+                .role("SUPER_ADMIN").implies("ADMIN")
                 .build();
     }
 
@@ -56,8 +64,12 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/admins/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/users/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/baristas/**").hasRole("ADMIN")
-                        // Baristas need read-only access to the catalog to ring up sales.
-                        .requestMatchers(HttpMethod.GET, "/api/admin/categories/**", "/api/admin/products/**")
+                        // Baristas need read-only access to the catalog to ring up sales, and to
+                        // stock levels/movements/low-stock so they can see what an order deducted
+                        // and flag what needs restocking — without being able to adjust it
+                        // themselves (stock-in/stock-cut stay Admin-only, matched below).
+                        .requestMatchers(HttpMethod.GET, "/api/admin/categories/**", "/api/admin/products/**",
+                                "/api/admin/inventory/**")
                         .hasAnyRole("ADMIN", "BARISTA")
                         .requestMatchers("/api/admin/categories/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/products/**").hasRole("ADMIN")
@@ -68,6 +80,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/banners/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/expenses/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/finance/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/bakong/**").hasRole("ADMIN")
                         .requestMatchers("/api/barista/orders/**").hasRole("BARISTA")
                         .requestMatchers("/api/barista/reports/**").hasRole("BARISTA")
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")

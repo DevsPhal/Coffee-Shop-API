@@ -1,10 +1,13 @@
 package org.group1.coffeeshopapi.telegram.service;
 
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.telegram.command.TelegramCommand;
 import org.group1.coffeeshopapi.telegram.command.TelegramCommandRegistry;
 import org.group1.coffeeshopapi.telegram.dto.TelegramMessage;
 import org.group1.coffeeshopapi.telegram.dto.TelegramUpdate;
 import org.springframework.stereotype.Component;
+
+import java.util.Optional;
 
 @Component
 @RequiredArgsConstructor
@@ -27,10 +30,15 @@ public class TelegramUpdateHandler {
         String commandName = parts[0].split("@")[0];
         String argument = parts.length > 1 ? parts[1] : null;
 
-        String reply = registry.find(commandName)
-                .map(command -> command.execute(message, argument))
+        Optional<TelegramCommand> command = registry.find(commandName);
+        String reply = command
+                .map(c -> c.execute(message, argument))
                 .orElse("Unknown command. Send /help to see what I can do.");
 
-        apiClient.sendMessage(message.chat().id(), reply);
+        if (command.map(TelegramCommand::useHtml).orElse(false)) {
+            apiClient.sendHtmlMessage(message.chat().id(), reply);
+        } else {
+            apiClient.sendMessage(message.chat().id(), reply);
+        }
     }
 }

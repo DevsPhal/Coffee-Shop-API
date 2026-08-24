@@ -44,13 +44,14 @@ public class ReportServiceImpl implements ReportService {
 
         // Self-service customer orders paid via Bakong have no barista attached — they still
         // count toward shop-wide totals below, but there's no one to attribute a report row to.
-        List<Order> baristaHandled = orders.stream().filter(order -> order.getBaristaId() != null).toList();
+        List<Order> baristaHandled = orders.stream().filter(order -> order.getBarista() != null).toList();
 
         Map<UUID, String> baristaNames = baristaRepository.findAllById(
-                        baristaHandled.stream().map(Order::getBaristaId).distinct().toList()).stream()
+                        baristaHandled.stream().map(order -> order.getBarista().getId()).distinct().toList()).stream()
                 .collect(Collectors.toMap(Barista::getId, Barista::getFullName));
 
-        Map<UUID, List<Order>> byBarista = baristaHandled.stream().collect(Collectors.groupingBy(Order::getBaristaId));
+        Map<UUID, List<Order>> byBarista = baristaHandled.stream()
+                .collect(Collectors.groupingBy(order -> order.getBarista().getId()));
         List<DailyReportResponse> baristaReports = byBarista.entrySet().stream()
                 .map(entry -> summarize(entry.getKey(), baristaNames.get(entry.getKey()), date, entry.getValue()))
                 .sorted((a, b) -> b.grandTotal().compareTo(a.grandTotal()))

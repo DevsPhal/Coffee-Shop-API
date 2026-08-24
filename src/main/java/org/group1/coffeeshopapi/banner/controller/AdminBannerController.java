@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.banner.service.BannerService;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
+import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -27,10 +28,11 @@ import java.util.UUID;
 public class AdminBannerController {
 
     private final BannerService bannerService;
+    private final CurrentActor currentActor;
 
     @PostMapping
     public ResponseEntity<ApiResponse<BannerResponse>> create(@Valid @RequestBody CreateBannerRequest request) {
-        BannerResponse response = bannerService.create(request);
+        BannerResponse response = bannerService.create(request, currentActor.id());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Banner created successfully.", response));
     }
@@ -50,7 +52,8 @@ public class AdminBannerController {
 
     @PatchMapping("/{id}")
     public ApiResponse<BannerResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateBannerRequest request) {
-        return ApiResponse.of(HttpStatus.OK, "Banner updated successfully.", bannerService.update(id, request));
+        return ApiResponse.of(HttpStatus.OK, "Banner updated successfully.",
+                bannerService.update(id, request, currentActor.id()));
     }
 
     @DeleteMapping("/{id}")
@@ -61,11 +64,13 @@ public class AdminBannerController {
 
     @PostMapping(value = "/{id}/image", consumes = "multipart/form-data")
     public ApiResponse<BannerResponse> uploadImage(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
-        return ApiResponse.of(HttpStatus.OK, "Banner image uploaded successfully.", bannerService.uploadImage(id, file));
+        return ApiResponse.of(HttpStatus.OK, "Banner image uploaded successfully.",
+                bannerService.uploadImage(id, file, currentActor.id()));
     }
 
     @DeleteMapping("/{id}/image")
     public ApiResponse<BannerResponse> removeImage(@PathVariable UUID id) {
-        return ApiResponse.of(HttpStatus.OK, "Banner image removed successfully.", bannerService.removeImage(id));
+        return ApiResponse.of(HttpStatus.OK, "Banner image removed successfully.",
+                bannerService.removeImage(id, currentActor.id()));
     }
 }

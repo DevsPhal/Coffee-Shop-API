@@ -5,6 +5,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.mail.MailService;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.Resource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
@@ -16,6 +18,11 @@ import org.thymeleaf.context.Context;
 @Service
 @RequiredArgsConstructor
 public class MailServiceImpl implements MailService {
+
+    // Referenced by the template as an inline cid: image rather than a public URL, so the logo
+    // shows up without needing to host it anywhere — see logoUrl handling below.
+    private static final String LOGO_CONTENT_ID = "logo";
+    private static final String LOGO_CLASSPATH_LOCATION = "templates/email/images/590stCafeLogo.jpeg";
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
@@ -36,14 +43,23 @@ public class MailServiceImpl implements MailService {
             context.setVariable("shopEmail", shopEmail);
             context.setVariable("telegramDeepLink", telegramDeepLink);
 
+            Resource logo = new ClassPathResource(LOGO_CLASSPATH_LOCATION);
+            boolean logoAvailable = logo.exists();
+            if (logoAvailable) {
+                context.setVariable("logoUrl", "cid:" + LOGO_CONTENT_ID);
+            }
+
             String html = templateEngine.process("email/otp-email", context);
 
             MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, false, "UTF-8");
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
             helper.setFrom(shopEmail);
             helper.setSubject(purposeLabel + " Verification Code");
             helper.setText(html, true);
+            if (logoAvailable) {
+                helper.addInline(LOGO_CONTENT_ID, logo);
+            }
 
             mailSender.send(message);
         } catch (Exception ex) {

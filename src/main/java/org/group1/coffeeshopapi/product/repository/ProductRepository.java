@@ -6,6 +6,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface ProductRepository extends JpaRepository<Product, UUID> {
@@ -16,4 +17,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     Page<Product> findByStatus(Status status, Pageable pageable);
     Page<Product> findByCategoryIdAndStatus(UUID categoryId, Status status, Pageable pageable);
+
+    // Small-catalog reads for the Telegram bot menu — no pagination needed for a shop's full menu.
+    List<Product> findByStatusOrderByNameAsc(Status status);
+    List<Product> findByCategoryIdAndStatusOrderByNameAsc(UUID categoryId, Status status);
 }

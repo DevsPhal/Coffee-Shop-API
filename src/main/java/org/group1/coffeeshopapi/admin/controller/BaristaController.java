@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
+import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.springframework.http.HttpStatus;
@@ -27,10 +28,11 @@ import java.util.UUID;
 public class BaristaController {
 
     private final StaffService staffService;
+    private final CurrentActor currentActor;
 
     @PostMapping
     public ResponseEntity<ApiResponse<UserResponse>> create(@Valid @RequestBody CreateStaffRequest request) {
-        UserResponse barista = staffService.create(request, Role.BARISTA);
+        UserResponse barista = staffService.create(request, Role.BARISTA, currentActor.id());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Barista account created successfully.", barista));
     }

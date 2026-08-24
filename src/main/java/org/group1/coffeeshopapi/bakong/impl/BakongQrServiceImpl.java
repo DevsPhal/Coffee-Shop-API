@@ -6,13 +6,16 @@ import kh.gov.nbc.bakong_khqr.model.KHQRCurrency;
 import kh.gov.nbc.bakong_khqr.model.KHQRData;
 import kh.gov.nbc.bakong_khqr.model.KHQRResponse;
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.bakong.BakongExchangeRateService;
 import org.group1.coffeeshopapi.bakong.BakongQrService;
 import org.group1.coffeeshopapi.bakong.dto.BakongQrResult;
+import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 
 @Service
@@ -20,9 +23,10 @@ import java.time.Duration;
 public class BakongQrServiceImpl implements BakongQrService {
 
     private final BakongProperties bakongProperties;
+    private final BakongExchangeRateService exchangeRateService;
 
     @Override
-    public BakongQrResult generateQr(BigDecimal amount, String billNumber) {
+    public BakongQrResult generateQr(BigDecimal amount, String billNumber, Currency currency) {
         if (!bakongProperties.isConfigured()) {
             throw new InvalidOperationException("Bakong payment is not configured");
         }
@@ -30,12 +34,16 @@ public class BakongQrServiceImpl implements BakongQrService {
             throw new InvalidOperationException("Amount must be greater than zero");
         }
 
+        Currency resolvedCurrency = currency != null ? currency : bakongProperties.getCurrency();
+        KHQRCurrency khqrCurrency = toKhqrCurrency(resolvedCurrency);
+        BigDecimal encodedAmount = resolvedCurrency == Currency.KHR ? toKhr(amount) : amount;
+
         IndividualInfo individualInfo = new IndividualInfo();
         individualInfo.setBakongAccountId(bakongProperties.getAccountId());
         individualInfo.setAccountInformation(blankToNull(bakongProperties.getAccountInformation()));
         individualInfo.setAcquiringBank(blankToNull(bakongProperties.getAcquiringBank()));
-        individualInfo.setCurrency(toCurrency(bakongProperties.getCurrency()));
-        individualInfo.setAmount(amount.doubleValue());
+        individualInfo.setCurrency(khqrCurrency);
+        individualInfo.setAmount(encodedAmount.doubleValue());
         individualInfo.setMerchantName(bakongProperties.getMerchantName());
         individualInfo.setMerchantCity(bakongProperties.getMerchantCity());
         individualInfo.setBillNumber(billNumber);
@@ -54,15 +62,20 @@ public class BakongQrServiceImpl implements BakongQrService {
             throw new InvalidOperationException("Unable to generate Bakong QR: " + message);
         }
 
-        return new BakongQrResult(response.getData().getQr(), response.getData().getMd5());
+        return new BakongQrResult(response.getData().getQr(), response.getData().getMd5(), resolvedCurrency, encodedAmount);
     }
 
-    private KHQRCurrency toCurrency(String currency) {
-        try {
-            return currency == null || currency.isBlank() ? KHQRCurrency.USD : KHQRCurrency.valueOf(currency.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            throw new InvalidOperationException("Unsupported currency for Bakong KHQR: " + currency);
+    /** Amounts are always priced/stored in USD; KHR has no minor unit, so the converted total must be a whole number. */
+    private BigDecimal toKhr(BigDecimal usdAmount) {
+        BigDecimal rate = exchangeRateService.getCurrentRate();
+        if (rate == null || rate.signum() <= 0) {
+            throw new InvalidOperationException("Bakong USD-to-KHR exchange rate is not configured");
         }
+        return usdAmount.multiply(rate).setScale(0, RoundingMode.HALF_UP);
+    }
+
+    private KHQRCurrency toKhqrCurrency(Currency currency) {
+        return currency == Currency.KHR ? KHQRCurrency.KHR : KHQRCurrency.USD;
     }
 
     private String blankToNull(String value) {

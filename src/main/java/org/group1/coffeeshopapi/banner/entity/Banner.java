@@ -10,6 +10,8 @@ import lombok.Setter;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
 
+import java.util.UUID;
+
 // A promotional image shown on the storefront landing page, ordered by sortOrder ascending.
 @Getter
 @Setter
@@ -33,4 +35,13 @@ public class Banner extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
+
+    // Banners are only ever touched by ADMIN/SUPER_ADMIN, so this is named for that specific
+    // relation rather than a generic "createdBy" — nullable so pre-existing rows don't need a
+    // backfill.
+    @Column
+    private UUID adminId;
+
+    @Column
+    private UUID updatedByAdminId;
 }

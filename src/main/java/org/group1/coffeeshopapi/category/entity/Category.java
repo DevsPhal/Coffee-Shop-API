@@ -10,6 +10,8 @@ import lombok.Setter;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
 
+import java.util.UUID;
+
 @Getter
 @Setter
 @Entity
@@ -25,4 +27,12 @@ public class Category extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
+
+    // Which admin/super admin created or last modified this category — nullable so pre-existing
+    // rows (created before this tracking existed) don't need a backfill.
+    @Column
+    private UUID createdBy;
+
+    @Column
+    private UUID updatedBy;
 }

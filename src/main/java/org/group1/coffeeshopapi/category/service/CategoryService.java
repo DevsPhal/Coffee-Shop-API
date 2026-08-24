@@ -9,9 +9,9 @@ import org.springframework.data.domain.Pageable;
 import java.util.UUID;
 
 public interface CategoryService {
-    CategoryResponse create(CreateCategoryRequest request);
+    CategoryResponse create(CreateCategoryRequest request, UUID actorId);
     CategoryResponse getById(UUID id);
     Page<CategoryResponse> list(Pageable pageable);
-    CategoryResponse update(UUID id, UpdateCategoryRequest request);
+    CategoryResponse update(UUID id, UpdateCategoryRequest request, UUID actorId);
     void delete(UUID id);
 }

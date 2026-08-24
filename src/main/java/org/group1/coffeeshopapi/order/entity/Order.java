@@ -5,26 +5,36 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.group1.coffeeshopapi.barista.entity.Barista;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
+import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
+import org.group1.coffeeshopapi.user.entity.Customer;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 /**
- * Either a POS sale rung up by a barista ({@code baristaId} set, {@code customerId} null) or a
- * self-service order placed by a customer ({@code customerId} set). A customer order that
- * chooses cash-on-pickup keeps {@code customerId} and stays {@link OrderStatus#PENDING} with
+ * Either a POS sale rung up by a barista ({@code barista} set, {@code customer} null) or a
+ * self-service order placed by a customer ({@code customer} set). A customer order that chooses
+ * cash-on-pickup keeps {@code customer} and stays {@link OrderStatus#PENDING} with
  * {@code paymentMethod} = CASH until a barista collects the cash in person, at which point
- * {@code baristaId} is also set on the same order (who placed it vs. who fulfilled it).
+ * {@code barista} is also set on the same order (who placed it vs. who fulfilled it).
+ * <p>
+ * {@code barista}/{@code customer} are real relations (never the Super Admin, who never touches
+ * an order — see SecurityConfig) rather than a plain id + lookup, unlike the audit-style
+ * {@code createdBy}/{@code performedBy} fields elsewhere in the system: those can legitimately be
+ * either an Admin row or the config-driven Super Admin, which has no backing row to relate to.
  * <p>
  * Stock is only cut from inventory once the order reaches {@link OrderStatus#COMPLETED}
  * (payment confirmed) — a still-{@code PENDING} order that gets cancelled never touched
@@ -36,11 +46,13 @@ import java.util.UUID;
 @Table(name = "orders")
 public class Order extends BaseEntity {
 
-    @Column
-    private UUID baristaId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "barista_id")
+    private Barista barista;
 
-    @Column
-    private UUID customerId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "customer_id")
+    private Customer customer;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
@@ -67,6 +79,15 @@ public class Order extends BaseEntity {
 
     @Column(length = 64)
     private String bakongMd5Hash;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 3)
+    private Currency bakongCurrency;
+
+    // The amount actually encoded in the QR, in bakongCurrency — differs from totalAmount (always
+    // USD) when bakongCurrency is KHR, since that's converted via bakong.khr-per-usd-rate.
+    @Column(precision = 15, scale = 2)
+    private BigDecimal bakongAmount;
 
     @Column(length = 128)
     private String bakongTransactionHash;

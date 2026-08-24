@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.order.service;
 
+import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
@@ -22,7 +23,8 @@ public interface OrderService {
 
     OrderResponse payCash(UUID id, UUID baristaId, CashPaymentRequest request);
 
-    BakongQrResponse generateBakongQr(UUID id, UUID baristaId);
+    // currency is optional; null falls back to the configured default (bakong.currency).
+    BakongQrResponse generateBakongQr(UUID id, UUID baristaId, Currency currency);
 
     OrderResponse confirmBakongPayment(UUID id, UUID baristaId);
 
@@ -30,6 +32,19 @@ public interface OrderService {
 
     // A barista collecting cash in person for a customer's cash-on-pickup order (not one they created).
     OrderResponse collectCash(UUID id, UUID collectingBaristaId, CashPaymentRequest request);
+
+    // The pickup queue: customer cash-on-pickup orders no barista has claimed yet — what
+    // collectCash above is meant to be called on.
+    Page<OrderResponse> listAwaitingPickup(Pageable pageable);
+
+    // The Bakong counterpart to collectCash: a barista confirming/accepting a customer's
+    // Bakong-paid order they didn't create. Checks payment status the same way the customer's
+    // own confirm does, and attributes the order to this barista once paid.
+    OrderResponse acceptBakongPayment(UUID id, UUID acceptingBaristaId);
+
+    // The Bakong counterpart to listAwaitingPickup: customer orders with a Bakong QR generated,
+    // still PENDING, that no barista has claimed yet.
+    Page<OrderResponse> listAwaitingBakongConfirmation(Pageable pageable);
 
     // --- Customer self-service orders ---
 
@@ -42,7 +57,7 @@ public interface OrderService {
     // Customer picks "pay cash at pickup" — stays PENDING until a barista calls collectCash.
     OrderResponse selectCashOnPickup(UUID id, UUID customerId);
 
-    BakongQrResponse generateBakongQrForCustomer(UUID id, UUID customerId);
+    BakongQrResponse generateBakongQrForCustomer(UUID id, UUID customerId, Currency currency);
 
     OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId);
 

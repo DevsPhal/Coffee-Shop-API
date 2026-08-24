@@ -21,6 +21,8 @@ import org.group1.coffeeshopapi.inventory.repository.StockBatchRepository;
 import org.group1.coffeeshopapi.inventory.repository.StockMovementRepository;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.product.entity.Product;
+import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
+import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -28,7 +30,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -41,6 +46,7 @@ public class InventoryServiceImpl implements InventoryService {
     private final StockMovementRepository stockMovementRepository;
     private final InventoryMapper inventoryMapper;
     private final StockMovementMapper stockMovementMapper;
+    private final ActorLookupService actorLookupService;
 
     @Override
     public InventoryResponse getByProduct(UUID productId) {
@@ -50,6 +56,11 @@ public class InventoryServiceImpl implements InventoryService {
     @Override
     public Page<InventoryResponse> list(Pageable pageable) {
         return inventoryRepository.findAll(pageable).map(inventoryMapper::toResponse);
+    }
+
+    @Override
+    public Page<InventoryResponse> listLowStock(Pageable pageable) {
+        return inventoryRepository.findLowStock(pageable).map(inventoryMapper::toResponse);
     }
 
     @Override
@@ -76,7 +87,7 @@ public class InventoryServiceImpl implements InventoryService {
         movement.setPerformedBy(performedBy);
         stockMovementRepository.save(movement);
 
-        return stockMovementMapper.toResponse(movement);
+        return toResponse(movement);
     }
 
     @Override
@@ -144,8 +155,19 @@ public class InventoryServiceImpl implements InventoryService {
 
     @Override
     public Page<StockMovementResponse> listMovements(UUID productId, Pageable pageable) {
-        return stockMovementRepository.findByProductId(productId, pageable)
-                .map(stockMovementMapper::toResponse);
+        Page<StockMovement> movements = stockMovementRepository.findByProductId(productId, pageable);
+
+        Set<UUID> actorIds = new HashSet<>();
+        for (StockMovement movement : movements) {
+            actorIds.add(movement.getPerformedBy());
+        }
+        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
+
+        return movements.map(movement -> stockMovementMapper.toResponse(movement, actors.get(movement.getPerformedBy())));
+    }
+
+    private StockMovementResponse toResponse(StockMovement movement) {
+        return stockMovementMapper.toResponse(movement, actorLookupService.resolve(movement.getPerformedBy()));
     }
 
     private Inventory findInventory(UUID productId) {

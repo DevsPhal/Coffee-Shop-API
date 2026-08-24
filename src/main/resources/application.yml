@@ -54,7 +54,12 @@ bakong:
   merchant-name: ${BAKONG_MERCHANT_NAME:}
   merchant-city: ${BAKONG_MERCHANT_CITY:Phnom Penh}
   merchant-category-code: ${BAKONG_MERCHANT_CATEGORY_CODE:5999}
+  store-label: ${BAKONG_STORE_LABEL:Coffee Shop}
+  terminal-label: ${BAKONG_TERMINAL_LABEL:POS}
+  purpose-of-transaction: ${BAKONG_PURPOSE_OF_TRANSACTION:Payment}
   currency: ${BAKONG_CURRENCY:USD}
+  expiration-minutes: ${BAKONG_EXPIRATION_MINUTES:15}
+  khr-per-usd-rate: ${BAKONG_KHR_PER_USD_RATE:4100}
 
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
@@ -79,6 +84,7 @@ app:
     otp-max-attempts: ${APP_AUTH_OTP_MAX_ATTEMPTS:5}
     otp-resend-cooldown-seconds: ${APP_AUTH_OTP_RESEND_COOLDOWN_SECONDS:60}
   super-admin:
+    id: ${SUPER_ADMIN_ID:}
     email: ${SUPER_ADMIN_EMAIL:}
     password: ${SUPER_ADMIN_PASSWORD:}
 
