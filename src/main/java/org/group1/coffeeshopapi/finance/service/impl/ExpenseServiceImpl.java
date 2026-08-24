@@ -9,12 +9,17 @@ import org.group1.coffeeshopapi.finance.entity.Expense;
 import org.group1.coffeeshopapi.finance.mapper.ExpenseMapper;
 import org.group1.coffeeshopapi.finance.repository.ExpenseRepository;
 import org.group1.coffeeshopapi.finance.service.ExpenseService;
+import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
+import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -23,6 +28,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     private final ExpenseRepository expenseRepository;
     private final ExpenseMapper expenseMapper;
+    private final ActorLookupService actorLookupService;
 
     @Override
     @Transactional
@@ -33,17 +39,25 @@ public class ExpenseServiceImpl implements ExpenseService {
         expense.setAmount(request.amount());
         expense.setExpenseDate(request.expenseDate() != null ? request.expenseDate() : LocalDate.now());
         expense.setRecordedBy(recordedBy);
-        return expenseMapper.toResponse(expenseRepository.save(expense));
+        return toResponse(expenseRepository.save(expense));
     }
 
     @Override
     public ExpenseResponse getById(UUID id) {
-        return expenseMapper.toResponse(findById(id));
+        return toResponse(findById(id));
     }
 
     @Override
     public Page<ExpenseResponse> list(Pageable pageable) {
-        return expenseRepository.findAllByOrderByExpenseDateDesc(pageable).map(expenseMapper::toResponse);
+        Page<Expense> expenses = expenseRepository.findAllByOrderByExpenseDateDesc(pageable);
+
+        Set<UUID> actorIds = new HashSet<>();
+        for (Expense expense : expenses) {
+            actorIds.add(expense.getRecordedBy());
+        }
+        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
+
+        return expenses.map(expense -> expenseMapper.toResponse(expense, actors.get(expense.getRecordedBy())));
     }
 
     @Override
@@ -62,13 +76,17 @@ public class ExpenseServiceImpl implements ExpenseService {
         if (request.expenseDate() != null) {
             expense.setExpenseDate(request.expenseDate());
         }
-        return expenseMapper.toResponse(expenseRepository.save(expense));
+        return toResponse(expenseRepository.save(expense));
     }
 
     @Override
     @Transactional
     public void delete(UUID id) {
         expenseRepository.delete(findById(id));
+    }
+
+    private ExpenseResponse toResponse(Expense expense) {
+        return expenseMapper.toResponse(expense, actorLookupService.resolve(expense.getRecordedBy()));
     }
 
     private Expense findById(UUID id) {

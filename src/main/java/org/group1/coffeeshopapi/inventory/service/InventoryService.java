@@ -14,6 +14,10 @@ public interface InventoryService {
     InventoryResponse getByProduct(UUID productId);
     Page<InventoryResponse> list(Pageable pageable);
 
+    // Products at or below their reorder level — read-only, so both Admin and Barista can check
+    // it without either of them being able to act on it (only Admin can stock-in/stock-cut).
+    Page<InventoryResponse> listLowStock(Pageable pageable);
+
     StockMovementResponse stockIn(StockInRequest request, UUID performedBy);
     StockCutResponse stockCut(StockCutRequest request, UUID performedBy);
 

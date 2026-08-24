@@ -15,6 +15,10 @@ public class HelpCommand implements TelegramCommand {
     public String execute(TelegramMessage message, String argument) {
         return """
                 Available commands:
+                /menu - View the full menu
+                /menu <category> - View items in a category
+                /categories - List product categories
+                /discounts - See today's discounted items
                 /start <code> - Link your account
                 /unlink - Unlink your account
                 /help - Show this message""";

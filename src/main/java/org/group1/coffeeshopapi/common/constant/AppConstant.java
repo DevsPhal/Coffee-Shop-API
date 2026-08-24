@@ -3,8 +3,9 @@ package org.group1.coffeeshopapi.common.constant;
 public class AppConstant {
     private AppConstant(){}
 
-    public static final int DEFAULT_PAGE_NUMBER = 0;
-    public static final int DEFAULT_PAGE_SIZE = 10;
+    // 1-based from the API's point of view — PageUtil converts to Spring Data's 0-based index.
+    public static final int DEFAULT_PAGE_NUMBER = 1;
+    public static final int DEFAULT_PAGE_SIZE = 9;
 
     public static final String DEFAULT_SORT_BY = "createdAt";
     public static final String DEFAULT_SORT_DIRECTION = "DESC";

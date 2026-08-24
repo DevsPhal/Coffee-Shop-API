@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
+import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
@@ -53,9 +54,11 @@ public class CustomerOrderController {
 
     @PostMapping("/{id}/pay/bakong/qr")
     public ApiResponse<BakongQrResponse> generateBakongQr(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+            @PathVariable UUID id,
+            @RequestParam(required = false) Currency currency,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, "Bakong KHQR generated successfully.",
-                orderService.generateBakongQrForCustomer(id, currentUser.getId()));
+                orderService.generateBakongQrForCustomer(id, currentUser.getId(), currency));
     }
 
     @PostMapping("/{id}/pay/bakong/confirm")

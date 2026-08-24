@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
-import org.group1.coffeeshopapi.common.security.CustomUserDetails;
+import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.event.dto.request.CreateEventRequest;
 import org.group1.coffeeshopapi.event.dto.request.UpdateEventRequest;
@@ -15,7 +15,6 @@ import org.group1.coffeeshopapi.event.dto.response.EventResponse;
 import org.group1.coffeeshopapi.event.service.EventService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -29,12 +28,11 @@ import java.util.UUID;
 public class EventController {
 
     private final EventService eventService;
+    private final CurrentActor currentActor;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<EventResponse>> create(
-            @Valid @RequestBody CreateEventRequest request,
-            @AuthenticationPrincipal CustomUserDetails currentUser) {
-        EventResponse event = eventService.create(request, currentUser.getId());
+    public ResponseEntity<ApiResponse<EventResponse>> create(@Valid @RequestBody CreateEventRequest request) {
+        EventResponse event = eventService.create(request, currentActor.id());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Event created successfully.", event));
     }

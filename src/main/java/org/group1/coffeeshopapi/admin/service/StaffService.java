@@ -14,7 +14,7 @@ import java.util.UUID;
  * role can never read/modify/delete an account of a different role through the same endpoint.
  */
 public interface StaffService {
-    UserResponse create(CreateStaffRequest request, Role role);
+    UserResponse create(CreateStaffRequest request, Role role, UUID createdBy);
     UserResponse getById(UUID id, Role role);
     Page<UserResponse> list(Role role, Pageable pageable);
     UserResponse update(UUID id, UpdateStaffRequest request, Role role);

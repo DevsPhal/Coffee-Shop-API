@@ -11,13 +11,18 @@ import org.group1.coffeeshopapi.banner.service.BannerService;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.storage.FileStorageService;
+import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
+import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -29,37 +34,54 @@ public class BannerServiceImpl implements BannerService {
     private final BannerRepository bannerRepository;
     private final BannerMapper bannerMapper;
     private final FileStorageService fileStorageService;
+    private final ActorLookupService actorLookupService;
 
     @Override
     @Transactional
-    public BannerResponse create(CreateBannerRequest request) {
+    public BannerResponse create(CreateBannerRequest request, UUID actorId) {
         Banner banner = new Banner();
         banner.setTitle(request.title());
         banner.setLinkUrl(request.linkUrl());
         banner.setSortOrder(request.sortOrder() != null ? request.sortOrder() : 0);
-        return bannerMapper.toResponse(bannerRepository.save(banner));
+        banner.setAdminId(actorId);
+        banner.setUpdatedByAdminId(actorId);
+        return toResponse(bannerRepository.save(banner));
     }
 
     @Override
     public BannerResponse getById(UUID id) {
-        return bannerMapper.toResponse(findById(id));
+        return toResponse(findById(id));
     }
 
     @Override
     public Page<BannerResponse> list(Pageable pageable) {
-        return bannerRepository.findAllByOrderBySortOrderAsc(pageable).map(bannerMapper::toResponse);
+        Page<Banner> banners = bannerRepository.findAllByOrderBySortOrderAsc(pageable);
+
+        Set<UUID> actorIds = new HashSet<>();
+        for (Banner banner : banners) {
+            actorIds.add(banner.getAdminId());
+            actorIds.add(banner.getUpdatedByAdminId());
+        }
+        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
+
+        return banners.map(banner -> bannerMapper.toResponse(banner,
+                actors.get(banner.getAdminId()), actors.get(banner.getUpdatedByAdminId())));
     }
 
     @Override
     public List<BannerResponse> listActive() {
+        // Public, unauthenticated endpoint (storefront landing page) — deliberately doesn't
+        // resolve staff identities here, so admin/super admin names never leak to anonymous
+        // visitors. adminId/updatedByAdminId still come through as raw ids for parity with the
+        // admin-facing response shape.
         return bannerRepository.findByStatusOrderBySortOrderAsc(Status.ACTIVE).stream()
-                .map(bannerMapper::toResponse)
+                .map(banner -> bannerMapper.toResponse(banner, null, null))
                 .toList();
     }
 
     @Override
     @Transactional
-    public BannerResponse update(UUID id, UpdateBannerRequest request) {
+    public BannerResponse update(UUID id, UpdateBannerRequest request, UUID actorId) {
         Banner banner = findById(id);
         if (request.title() != null) {
             banner.setTitle(request.title());
@@ -73,7 +95,8 @@ public class BannerServiceImpl implements BannerService {
         if (request.status() != null) {
             banner.setStatus(request.status());
         }
-        return bannerMapper.toResponse(bannerRepository.save(banner));
+        banner.setUpdatedByAdminId(actorId);
+        return toResponse(bannerRepository.save(banner));
     }
 
     @Override
@@ -88,29 +111,37 @@ public class BannerServiceImpl implements BannerService {
 
     @Override
     @Transactional
-    public BannerResponse uploadImage(UUID id, MultipartFile file) {
+    public BannerResponse uploadImage(UUID id, MultipartFile file, UUID actorId) {
         Banner banner = findById(id);
         String previousImageUrl = banner.getImageUrl();
 
         banner.setImageUrl(fileStorageService.uploadImage(file, IMAGE_FOLDER));
+        banner.setUpdatedByAdminId(actorId);
         banner = bannerRepository.save(banner);
 
         if (previousImageUrl != null) {
             fileStorageService.delete(previousImageUrl);
         }
-        return bannerMapper.toResponse(banner);
+        return toResponse(banner);
     }
 
     @Override
     @Transactional
-    public BannerResponse removeImage(UUID id) {
+    public BannerResponse removeImage(UUID id, UUID actorId) {
         Banner banner = findById(id);
         if (banner.getImageUrl() != null) {
             fileStorageService.delete(banner.getImageUrl());
             banner.setImageUrl(null);
+            banner.setUpdatedByAdminId(actorId);
             banner = bannerRepository.save(banner);
         }
-        return bannerMapper.toResponse(banner);
+        return toResponse(banner);
+    }
+
+    private BannerResponse toResponse(Banner banner) {
+        return bannerMapper.toResponse(banner,
+                actorLookupService.resolve(banner.getAdminId()),
+                actorLookupService.resolve(banner.getUpdatedByAdminId()));
     }
 
     private Banner findById(UUID id) {

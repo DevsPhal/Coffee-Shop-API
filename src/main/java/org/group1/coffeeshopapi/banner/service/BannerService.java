@@ -11,13 +11,13 @@ import java.util.List;
 import java.util.UUID;
 
 public interface BannerService {
-    BannerResponse create(CreateBannerRequest request);
+    BannerResponse create(CreateBannerRequest request, UUID actorId);
     BannerResponse getById(UUID id);
     Page<BannerResponse> list(Pageable pageable);
     List<BannerResponse> listActive();
-    BannerResponse update(UUID id, UpdateBannerRequest request);
+    BannerResponse update(UUID id, UpdateBannerRequest request, UUID actorId);
     void delete(UUID id);
 
-    BannerResponse uploadImage(UUID id, MultipartFile file);
-    BannerResponse removeImage(UUID id);
+    BannerResponse uploadImage(UUID id, MultipartFile file, UUID actorId);
+    BannerResponse removeImage(UUID id, UUID actorId);
 }

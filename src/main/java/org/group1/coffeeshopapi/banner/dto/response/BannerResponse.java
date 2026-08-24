@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.banner.dto.response;
 
+import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.time.LocalDateTime;
@@ -12,6 +13,12 @@ public record BannerResponse(
         String linkUrl,
         Integer sortOrder,
         Status status,
+        UUID adminId,
+        String adminName,
+        Role adminRole,
+        UUID updatedByAdminId,
+        String updatedByAdminName,
+        Role updatedByAdminRole,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

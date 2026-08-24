@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.category.service.CategoryService;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
+import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,10 +27,11 @@ import java.util.UUID;
 public class CategoryController {
 
     private final CategoryService categoryService;
+    private final CurrentActor currentActor;
 
     @PostMapping
     public ResponseEntity<ApiResponse<CategoryResponse>> create(@Valid @RequestBody CreateCategoryRequest request) {
-        CategoryResponse category = categoryService.create(request);
+        CategoryResponse category = categoryService.create(request, currentActor.id());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Category created successfully.", category));
     }
@@ -49,7 +51,8 @@ public class CategoryController {
 
     @PatchMapping("/{id}")
     public ApiResponse<CategoryResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateCategoryRequest request) {
-        return ApiResponse.of(HttpStatus.OK, "Category updated successfully.", categoryService.update(id, request));
+        return ApiResponse.of(HttpStatus.OK, "Category updated successfully.",
+                categoryService.update(id, request, currentActor.id()));
     }
 
     @DeleteMapping("/{id}")

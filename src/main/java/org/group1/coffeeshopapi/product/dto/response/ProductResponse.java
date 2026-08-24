@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.product.dto.response;
 
 import org.group1.coffeeshopapi.common.enums.DiscountType;
+import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.math.BigDecimal;
@@ -26,6 +27,12 @@ public record ProductResponse(
         LocalDateTime discountEndAt,
         boolean discountActive,
         BigDecimal finalPrice,
+        UUID createdBy,
+        String createdByName,
+        Role createdByRole,
+        UUID updatedBy,
+        String updatedByName,
+        Role updatedByRole,
         LocalDateTime createdAt,
         LocalDateTime updatedAt
 ) {

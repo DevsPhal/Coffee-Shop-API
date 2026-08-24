@@ -7,7 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
-import org.group1.coffeeshopapi.common.security.CustomUserDetails;
+import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.finance.dto.request.CreateExpenseRequest;
 import org.group1.coffeeshopapi.finance.dto.request.UpdateExpenseRequest;
@@ -15,7 +15,6 @@ import org.group1.coffeeshopapi.finance.dto.response.ExpenseResponse;
 import org.group1.coffeeshopapi.finance.service.ExpenseService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -28,12 +27,11 @@ import java.util.UUID;
 public class AdminExpenseController {
 
     private final ExpenseService expenseService;
+    private final CurrentActor currentActor;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<ExpenseResponse>> create(
-            @Valid @RequestBody CreateExpenseRequest request,
-            @AuthenticationPrincipal CustomUserDetails currentUser) {
-        ExpenseResponse response = expenseService.create(request, currentUser.getId());
+    public ResponseEntity<ApiResponse<ExpenseResponse>> create(@Valid @RequestBody CreateExpenseRequest request) {
+        ExpenseResponse response = expenseService.create(request, currentActor.id());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Expense recorded successfully.", response));
     }
