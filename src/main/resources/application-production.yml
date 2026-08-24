@@ -1,0 +1,11 @@
+# Active only when SPRING_PROFILES_ACTIVE=production is set via a real container env var
+# (see Deployment/production/docker-compose.yml and application.yml's comment on why).
+spring:
+  jpa:
+    # Don't leak SQL statements/data into production logs.
+    show-sql: false
+
+app:
+  auth:
+    # Never log OTP codes in production — must go out via real email delivery.
+    log-otp: false

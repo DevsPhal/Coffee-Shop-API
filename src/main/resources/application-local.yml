@@ -1,0 +1,12 @@
+# Active by default (see application.yml) — settings that only make sense for local development.
+spring:
+  jpa:
+    # See every generated SQL statement in the console — noisy, but useful while developing.
+    show-sql: true
+
+app:
+  auth:
+    # Prints the OTP code to the console instead of requiring real email delivery, so local login
+    # doesn't depend on MAIL_* being configured. Never do this in production — see
+    # application-production.yml.
+    log-otp: true

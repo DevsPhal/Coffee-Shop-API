@@ -2,6 +2,15 @@ spring:
   config:
     import: optional:file:.env[.properties]
 
+  # Falls back to "local" whenever nothing else says otherwise — running from an IDE or
+  # `./gradlew bootRun` just works with no extra setup. Deployment/production/docker-compose.yml
+  # overrides this to "production" via a real container environment variable (a plain .env file
+  # can't activate a profile — Spring only honors SPRING_PROFILES_ACTIVE from an actual OS/process
+  # environment variable, not from spring.config.import's file-based property source).
+  # See application-local.yml / application-production.yml for what each one changes.
+  profiles:
+    active: local
+
   application:
     name: Coffee-Shop-API
 
@@ -14,7 +23,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
 
   mail:
     host: ${MAIL_HOST}
@@ -79,12 +87,11 @@ mail:
 
 app:
   auth:
-    log-otp: ${APP_AUTH_LOG_OTP:true}
+    # log-otp is intentionally not set here — see application-local.yml / application-production.yml.
     otp-expiry-minutes: ${APP_AUTH_OTP_EXPIRY_MINUTES:5}
     otp-max-attempts: ${APP_AUTH_OTP_MAX_ATTEMPTS:5}
     otp-resend-cooldown-seconds: ${APP_AUTH_OTP_RESEND_COOLDOWN_SECONDS:60}
   super-admin:
-    id: ${SUPER_ADMIN_ID:}
     email: ${SUPER_ADMIN_EMAIL:}
     password: ${SUPER_ADMIN_PASSWORD:}
 
