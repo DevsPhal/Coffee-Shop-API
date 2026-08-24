@@ -15,6 +15,10 @@ build/
 ### Redis ###
 dump.rdb
 
+### Deployment Docker ###
+Deployment/local/.env
+Deployment/production/.env
+
 ### STS ###
 .apt_generated
 .classpath
