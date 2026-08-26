@@ -23,6 +23,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    # Prevents Hibernate from auto-generating CHECK constraints on @Enumerated(STRING) columns —
+    # see NoEnumCheckPostgreSQLDialect for why: with no migration tool, ddl-auto: update never
+    # revisits those constraints when an enum's values change, so they silently go stale.
+    database-platform: org.group1.coffeeshopapi.config.NoEnumCheckPostgreSQLDialect
 
   mail:
     host: ${MAIL_HOST}
