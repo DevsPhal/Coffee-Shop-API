@@ -65,7 +65,7 @@ services:
     volumes:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
-    entrypoint: "certbot certonly --webroot -w /var/www/certbot --email nemsophal7@gmail.com --agree-tos --no-eff-email -d api.590stcafe.shop"
+    entrypoint: "certbot certonly --webroot -w /var/www/certbot --email ${CERTBOT_EMAIL} --agree-tos --no-eff-email -d ${DOMAIN_NAME}"
 
 volumes:
   db-data-prod:
