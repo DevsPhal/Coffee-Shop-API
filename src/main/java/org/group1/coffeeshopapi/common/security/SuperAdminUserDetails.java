@@ -1,7 +1,7 @@
 package org.group1.coffeeshopapi.common.security;
 
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.user.dto.response.SuperAdminResponse;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -68,7 +68,7 @@ public class SuperAdminUserDetails implements UserDetails {
                 .fullName("Super Admin")
                 .email(email)
                 .role(Role.SUPER_ADMIN)
-                .status(Status.ACTIVE)
+                .status(UserStatus.ACTIVE)
                 .build();
     }
 }

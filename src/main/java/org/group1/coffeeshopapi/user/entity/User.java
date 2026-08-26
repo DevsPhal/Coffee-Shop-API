@@ -12,7 +12,7 @@ import lombok.Setter;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Gender;
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.UserStatus;
 
 /**
  * Shared shape for every account. Never persisted on its own — {@code Admin}, {@code Barista},
@@ -23,9 +23,13 @@ import org.group1.coffeeshopapi.common.enums.Status;
  * roles (Hibernate unions the three tables), while {@code AdminRepository}/
  * {@code BaristaRepository}/{@code CustomerRepository} let you query a single role directly.
  * <p>
- * {@code status} is the verification gate: {@link Status#INACTIVE} until the account completes
- * OTP verification, {@link Status#ACTIVE} afterward (or immediately for staff created by an
- * admin/super admin, who skip that step).
+ * {@code status} is the account's full lifecycle state — see {@link UserStatus}. It starts at
+ * {@link UserStatus#PENDING_VERIFICATION} until the account completes OTP verification, moves to
+ * {@link UserStatus#ACTIVE} afterward (or immediately for staff created by an admin/super admin,
+ * who skip that step), and can later be moved to {@link UserStatus#DEACTIVATED},
+ * {@link UserStatus#SUSPENDED}, {@link UserStatus#BANNED}, or {@link UserStatus#DELETED} by an
+ * admin. Only {@link UserStatus#ACTIVE} accounts can authenticate — see
+ * {@link org.group1.coffeeshopapi.common.security.CustomUserDetails#isEnabled()}.
  */
 @Getter
 @Setter
@@ -54,8 +58,8 @@ public abstract class User extends BaseEntity {
     private Gender gender;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Status status;
+    @Column(nullable = false, length = 20)
+    private UserStatus status;
 
     @Column
     private String telegramChatId;

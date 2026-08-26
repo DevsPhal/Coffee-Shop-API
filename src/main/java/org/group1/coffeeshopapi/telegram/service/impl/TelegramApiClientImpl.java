@@ -79,6 +79,8 @@ public class TelegramApiClientImpl implements TelegramApiClient {
                     Map.of("command", "menu", "description", "View the menu (optionally by category)"),
                     Map.of("command", "categories", "description", "List product categories"),
                     Map.of("command", "discounts", "description", "See today's discounted items"),
+                    Map.of("command", "events", "description", "See upcoming events"),
+                    Map.of("command", "rate", "description", "Current USD to KHR exchange rate"),
                     Map.of("command", "start", "description", "Link your account"),
                     Map.of("command", "unlink", "description", "Unlink your account"),
                     Map.of("command", "help", "description", "Show available commands")

@@ -35,12 +35,12 @@ public class BakongExchangeRateServiceImpl implements BakongExchangeRateService 
     public BakongExchangeRateResponse getRateInfo() {
         return repository.findById(BakongExchangeRate.SINGLETON_ID)
                 .map(this::toResponse)
-                .orElseGet(() -> new BakongExchangeRateResponse(bakongProperties.getKhrPerUsdRate(), null, null, null, null));
+                .orElseGet(() -> new BakongExchangeRateResponse(bakongProperties.getKhrPerUsdRate(), null, null, null, null, null));
     }
 
     @Override
     @Transactional
-    public BakongExchangeRateResponse updateRate(BigDecimal khrPerUsdRate, UUID updatedByAdminId) {
+    public BakongExchangeRateResponse updateRate(BigDecimal khrPerUsdRate, BigDecimal marketRate, UUID updatedByAdminId) {
         if (khrPerUsdRate == null || khrPerUsdRate.signum() <= 0) {
             throw new InvalidOperationException("Exchange rate must be greater than zero");
         }
@@ -48,6 +48,9 @@ public class BakongExchangeRateServiceImpl implements BakongExchangeRateService 
         BakongExchangeRate entity = repository.findById(BakongExchangeRate.SINGLETON_ID)
                 .orElseGet(BakongExchangeRate::new);
         entity.setKhrPerUsdRate(khrPerUsdRate);
+        if (marketRate != null) {
+            entity.setMarketRate(marketRate);
+        }
         entity.setUpdatedByAdminId(updatedByAdminId);
         return toResponse(repository.save(entity));
     }
@@ -56,6 +59,7 @@ public class BakongExchangeRateServiceImpl implements BakongExchangeRateService 
         ActorSummary actor = actorLookupService.resolve(entity.getUpdatedByAdminId());
         return new BakongExchangeRateResponse(
                 entity.getKhrPerUsdRate(),
+                entity.getMarketRate(),
                 entity.getUpdatedByAdminId(),
                 actor != null ? actor.name() : null,
                 actor != null ? actor.role() : null,

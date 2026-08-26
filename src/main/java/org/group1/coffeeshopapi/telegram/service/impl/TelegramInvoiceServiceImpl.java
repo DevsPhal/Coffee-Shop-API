@@ -47,7 +47,7 @@ public class TelegramInvoiceServiceImpl implements TelegramInvoiceService {
                 .append("</b>\n\n");
 
         for (OrderInvoiceLineItem item : invoice.items()) {
-            sb.append("• ").append(TelegramFormat.escape(item.productName()))
+            sb.append("• ").append(TelegramFormat.escape(TelegramFormat.titleCase(item.productName())))
                     .append(" × ").append(item.quantity())
                     .append(" — ").append(TelegramFormat.usd(item.subtotal()))
                     .append('\n');

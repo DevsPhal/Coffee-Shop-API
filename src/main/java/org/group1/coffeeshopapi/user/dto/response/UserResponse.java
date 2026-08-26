@@ -3,7 +3,7 @@ package org.group1.coffeeshopapi.user.dto.response;
 import lombok.Builder;
 import org.group1.coffeeshopapi.common.enums.Gender;
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.UserStatus;
 
 import java.util.UUID;
 
@@ -16,7 +16,7 @@ public record UserResponse(
         String avatarUrl,
         Gender gender,
         Role role,
-        Status status,
+        UserStatus status,
         boolean telegramLinked,
         // Which admin/super admin created this account. Only ever set for ADMIN/BARISTA rows —
         // customers self-register, so this stays null for them.

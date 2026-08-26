@@ -10,7 +10,7 @@ import org.group1.coffeeshopapi.auth.service.TokenService;
 import org.group1.coffeeshopapi.barista.entity.Barista;
 import org.group1.coffeeshopapi.barista.repository.BaristaRepository;
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
@@ -62,7 +62,7 @@ public class StaffServiceImpl implements StaffService {
         staff.setPhoneNumber(request.phoneNumber());
         staff.setGender(request.gender());
         // Created directly by a higher-privileged role, so it's trusted — active immediately, no OTP verification.
-        staff.setStatus(Status.ACTIVE);
+        staff.setStatus(UserStatus.ACTIVE);
 
         if (staff instanceof Admin admin) {
             admin.setCreatedBy(createdBy);
@@ -106,7 +106,7 @@ public class StaffServiceImpl implements StaffService {
         }
         if (request.status() != null) {
             staff.setStatus(request.status());
-            if (request.status() == Status.INACTIVE) {
+            if (request.status() != UserStatus.ACTIVE) {
                 // Block new access tokens immediately; JwtAuthFilter's isEnabled() re-check
                 // handles any already-issued access token still inside its lifetime.
                 tokenService.revokeRefreshToken(staff.getId());

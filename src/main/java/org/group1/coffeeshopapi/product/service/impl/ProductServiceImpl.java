@@ -22,9 +22,13 @@ import org.group1.coffeeshopapi.product.dto.request.UpdateProductRequest;
 import org.group1.coffeeshopapi.product.dto.response.ProductImportResponse;
 import org.group1.coffeeshopapi.product.dto.response.ProductImportRowError;
 import org.group1.coffeeshopapi.product.dto.response.ProductResponse;
+import org.group1.coffeeshopapi.product.dto.response.ProductSizeOptionResponse;
 import org.group1.coffeeshopapi.product.entity.Product;
+import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
 import org.group1.coffeeshopapi.product.mapper.ProductMapper;
+import org.group1.coffeeshopapi.product.mapper.ProductSizeOptionMapper;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
+import org.group1.coffeeshopapi.product.repository.ProductSizeOptionRepository;
 import org.group1.coffeeshopapi.product.service.ProductService;
 import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
 import org.group1.coffeeshopapi.user.service.ActorLookupService;
@@ -37,6 +41,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +57,9 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final InventoryRepository inventoryRepository;
+    private final ProductSizeOptionRepository sizeOptionRepository;
     private final ProductMapper productMapper;
+    private final ProductSizeOptionMapper sizeOptionMapper;
     private final FileStorageService fileStorageService;
     private final ActorLookupService actorLookupService;
 
@@ -357,22 +364,38 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse toResponse(Product product, Inventory inventory) {
+        List<ProductSizeOptionResponse> sizeOptions = sizeOptionRepository
+                .findByProductIdOrderBySortOrderAscNameAsc(product.getId()).stream()
+                .map(sizeOptionMapper::toResponse)
+                .toList();
         return productMapper.toResponse(product, inventory,
                 actorLookupService.resolve(product.getCreatedBy()),
-                actorLookupService.resolve(product.getUpdatedBy()));
+                actorLookupService.resolve(product.getUpdatedBy()),
+                sizeOptions);
     }
 
-    // Batches the createdBy/updatedBy lookups for a whole page instead of resolving each row
-    // individually, so listing N products costs one extra query instead of up to 2N.
+    // Batches the createdBy/updatedBy lookups and size options for a whole page instead of
+    // resolving each row individually, so listing N products costs a handful of extra queries
+    // instead of up to 3N.
     private Page<ProductResponse> toResponsePage(Page<Product> products) {
         Set<UUID> actorIds = new HashSet<>();
+        List<UUID> productIds = new ArrayList<>();
         for (Product product : products) {
             actorIds.add(product.getCreatedBy());
             actorIds.add(product.getUpdatedBy());
+            productIds.add(product.getId());
         }
         Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
 
+        Map<UUID, List<ProductSizeOptionResponse>> sizeOptionsByProduct = new HashMap<>();
+        for (ProductSizeOption sizeOption : sizeOptionRepository
+                .findByProductIdInAndStatusOrderBySortOrderAscNameAsc(productIds, Status.ACTIVE)) {
+            sizeOptionsByProduct.computeIfAbsent(sizeOption.getProduct().getId(), id -> new ArrayList<>())
+                    .add(sizeOptionMapper.toResponse(sizeOption));
+        }
+
         return products.map(product -> productMapper.toResponse(product, findInventory(product.getId()),
-                actors.get(product.getCreatedBy()), actors.get(product.getUpdatedBy())));
+                actors.get(product.getCreatedBy()), actors.get(product.getUpdatedBy()),
+                sizeOptionsByProduct.getOrDefault(product.getId(), List.of())));
     }
 }

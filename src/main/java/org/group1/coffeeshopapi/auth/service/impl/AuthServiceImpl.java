@@ -11,7 +11,7 @@ import org.group1.coffeeshopapi.auth.service.OtpService;
 import org.group1.coffeeshopapi.auth.service.TokenService;
 import org.group1.coffeeshopapi.common.enums.OtpPurpose;
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidCredentialsException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
@@ -67,7 +67,7 @@ public class AuthServiceImpl implements AuthService {
         customer.setPassword(passwordEncoder.encode(request.password()));
         customer.setPhoneNumber(request.phoneNumber());
         customer.setGender(request.gender());
-        customer.setStatus(Status.INACTIVE);
+        customer.setStatus(UserStatus.PENDING_VERIFICATION);
         customerRepository.saveAndFlush(customer);
         authUserSyncService.sync(customer);
 
@@ -81,12 +81,12 @@ public class AuthServiceImpl implements AuthService {
         Customer customer = customerRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
 
-        if (customer.getStatus() == Status.ACTIVE) {
+        if (customer.getStatus() == UserStatus.ACTIVE) {
             throw new DuplicateResourceException("This account has already been verified");
         }
 
         otpService.verify(email, OtpPurpose.REGISTER, request.otp());
-        customer.setStatus(Status.ACTIVE);
+        customer.setStatus(UserStatus.ACTIVE);
         customerRepository.save(customer);
         authUserSyncService.sync(customer);
     }
@@ -131,7 +131,7 @@ public class AuthServiceImpl implements AuthService {
                 String email = requireEmail(request);
                 Customer customer = customerRepository.findByEmail(email)
                         .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
-                if (customer.getStatus() == Status.ACTIVE) {
+                if (customer.getStatus() == UserStatus.ACTIVE) {
                     throw new DuplicateResourceException("This account has already been verified");
                 }
                 otpService.resend(email, customer.getFullName(), OtpPurpose.REGISTER);

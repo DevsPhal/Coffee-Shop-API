@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.group1.coffeeshopapi.common.enums.Gender;
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.UserStatus;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
@@ -53,8 +53,8 @@ public class AuthUser {
     private Gender gender;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Status status;
+    @Column(nullable = false, length = 20)
+    private UserStatus status;
 
     @Column
     private String telegramChatId;
