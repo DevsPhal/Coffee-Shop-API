@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.event.entity.Event;
 import org.group1.coffeeshopapi.event.mapper.EventMapper;
 import org.group1.coffeeshopapi.event.repository.EventRepository;
 import org.group1.coffeeshopapi.event.service.EventService;
+import org.group1.coffeeshopapi.telegram.service.TelegramEventService;
 import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
 import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
@@ -34,6 +35,7 @@ public class EventServiceImpl implements EventService {
     private final EventMapper eventMapper;
     private final FileStorageService fileStorageService;
     private final ActorLookupService actorLookupService;
+    private final TelegramEventService telegramEventService;
 
     @Override
     @Transactional
@@ -48,8 +50,11 @@ public class EventServiceImpl implements EventService {
         event.setStartAt(request.startAt());
         event.setEndAt(request.endAt());
         event.setCreatedBy(createdBy);
+        event = eventRepository.save(event);
 
-        return toResponse(eventRepository.save(event));
+        telegramEventService.announceNewEvent(event);
+
+        return toResponse(event);
     }
 
     @Override

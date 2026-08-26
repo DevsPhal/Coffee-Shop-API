@@ -23,6 +23,10 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    # Prevents Hibernate from auto-generating CHECK constraints on @Enumerated(STRING) columns —
+    # see NoEnumCheckPostgreSQLDialect for why: with no migration tool, ddl-auto: update never
+    # revisits those constraints when an enum's values change, so they silently go stale.
+    database-platform: org.group1.coffeeshopapi.config.NoEnumCheckPostgreSQLDialect
 
   mail:
     host: ${MAIL_HOST}
@@ -52,6 +56,12 @@ spring:
     multipart:
       max-file-size: 5MB
       max-request-size: 5MB
+
+  # LocalDateTime itself carries no zone, so the JVM default set in
+  # CoffeeShopApiApplication's static block is what actually fixes "now" everywhere — this just
+  # keeps Jackson consistent with that same zone for any zone-aware type (Instant/OffsetDateTime).
+  jackson:
+    time-zone: Asia/Phnom_Penh
 
 bakong:
   base-url: ${BAKONG_BASE_URL:https://api-bakong.nbc.gov.kh}

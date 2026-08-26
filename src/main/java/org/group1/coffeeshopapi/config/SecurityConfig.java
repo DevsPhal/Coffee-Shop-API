@@ -41,8 +41,10 @@ public class SecurityConfig {
      * controller there injects {@code @AuthenticationPrincipal CustomUserDetails} unconditionally.
      * The super admin's principal is {@code SuperAdminUserDetails}, a different type with no
      * backing row — letting it past the role check would just NPE on {@code currentUser.getId()}
-     * instead of failing cleanly. Admin-wide visibility into all orders is already available via
-     * the {@code /api/admin/orders/**} endpoints, which don't have this problem.
+     * instead of failing cleanly. The {@code /api/admin/orders/**} endpoints the super admin does
+     * reach this way (including its order-processing actions) use {@code CurrentActor} instead of
+     * {@code @AuthenticationPrincipal CustomUserDetails}, which resolves the super admin to its
+     * fixed id rather than NPE-ing — see {@code CurrentActor}'s javadoc.
      */
     @Bean
     public RoleHierarchy roleHierarchy() {
@@ -75,6 +77,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/products/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/inventory/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/events/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/attendance/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/orders/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/reports/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/banners/**").hasRole("ADMIN")
@@ -83,6 +86,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/bakong/**").hasRole("ADMIN")
                         .requestMatchers("/api/barista/orders/**").hasRole("BARISTA")
                         .requestMatchers("/api/barista/reports/**").hasRole("BARISTA")
+                        .requestMatchers("/api/barista/attendance/**").hasRole("BARISTA")
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

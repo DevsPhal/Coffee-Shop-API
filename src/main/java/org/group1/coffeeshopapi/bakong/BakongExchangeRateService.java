@@ -12,5 +12,6 @@ public interface BakongExchangeRateService {
 
     BakongExchangeRateResponse getRateInfo();
 
-    BakongExchangeRateResponse updateRate(BigDecimal khrPerUsdRate, UUID updatedByAdminId);
+    // marketRate is optional — pass null to leave the stored market rate unchanged.
+    BakongExchangeRateResponse updateRate(BigDecimal khrPerUsdRate, BigDecimal marketRate, UUID updatedByAdminId);
 }

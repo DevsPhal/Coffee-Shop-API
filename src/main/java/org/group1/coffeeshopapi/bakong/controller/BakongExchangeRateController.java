@@ -31,6 +31,6 @@ public class BakongExchangeRateController {
     @PutMapping
     public ApiResponse<BakongExchangeRateResponse> update(@Valid @RequestBody UpdateBakongExchangeRateRequest request) {
         return ApiResponse.of(HttpStatus.OK, "Exchange rate updated successfully.",
-                exchangeRateService.updateRate(request.khrPerUsdRate(), currentActor.id()));
+                exchangeRateService.updateRate(request.khrPerUsdRate(), request.marketRate(), currentActor.id()));
     }
 }

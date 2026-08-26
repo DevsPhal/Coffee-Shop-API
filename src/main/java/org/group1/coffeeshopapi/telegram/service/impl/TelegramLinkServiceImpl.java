@@ -6,6 +6,7 @@ import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
 import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
+import org.group1.coffeeshopapi.telegram.util.TelegramFormat;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.group1.coffeeshopapi.user.service.AuthUserSyncService;
@@ -15,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.SecureRandom;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -53,22 +55,27 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         Customer customer = customerRepository.findById(UUID.fromString(customerId))
                 .orElseThrow(() -> new ResourceNotFoundException("Account no longer exists"));
 
-        customerRepository.findByTelegramChatId(chatId.toString())
-                .filter(existing -> !existing.getId().equals(customer.getId()))
-                .ifPresent(existing -> {
-                    existing.setTelegramChatId(null);
-                    // Flush immediately: this chat id is still unique-constrained, so the old
-                    // owner's row must actually clear in the DB before the new owner's row below
-                    // claims it — otherwise Hibernate may flush both UPDATEs in the wrong order
-                    // and both rows briefly hold the same chat id, tripping the constraint.
-                    customerRepository.saveAndFlush(existing);
-                    authUserSyncService.sync(existing);
-                });
+        Optional<Customer> currentlyLinked = customerRepository.findByTelegramChatId(chatId.toString());
+        if (currentlyLinked.map(Customer::getId).filter(id -> id.equals(customer.getId())).isPresent()) {
+            // Re-sending a code for the account this chat is already linked to — nothing to do.
+            return "✅ You're already linked as " + TelegramFormat.escape(customer.getFullName()) + ".";
+        }
+
+        currentlyLinked.ifPresent(existing -> {
+            existing.setTelegramChatId(null);
+            // Flush immediately: this chat id is still unique-constrained, so the old
+            // owner's row must actually clear in the DB before the new owner's row below
+            // claims it — otherwise Hibernate may flush both UPDATEs in the wrong order
+            // and both rows briefly hold the same chat id, tripping the constraint.
+            customerRepository.saveAndFlush(existing);
+            authUserSyncService.sync(existing);
+        });
 
         customer.setTelegramChatId(chatId.toString());
         customerRepository.save(customer);
         authUserSyncService.sync(customer);
-        return "You're linked, " + customer.getFullName() + "! You'll receive order and login updates here.";
+        return "✅ <b>Linked!</b> Welcome, " + TelegramFormat.escape(customer.getFullName()) + ".\n\n"
+                + "You'll get your order receipts, new event alerts, and reminders here from now on.";
     }
 
     @Override
@@ -79,7 +86,13 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         customer.setTelegramChatId(null);
         customerRepository.save(customer);
         authUserSyncService.sync(customer);
-        return "Your account has been unlinked.";
+        return "👋 Your account has been unlinked. You can still browse with /menu, /categories, /discounts, "
+                + "/events and /rate — send /start <code> any time to link again.";
+    }
+
+    @Override
+    public Optional<String> linkedCustomerName(Long chatId) {
+        return customerRepository.findByTelegramChatId(chatId.toString()).map(Customer::getFullName);
     }
 
     private String generateCode() {

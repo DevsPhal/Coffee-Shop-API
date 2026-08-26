@@ -1,8 +1,10 @@
 package org.group1.coffeeshopapi.admin.dto.request;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Pattern;
+import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 import org.group1.coffeeshopapi.common.enums.Gender;
-import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.UserStatus;
 
 /**
  * Partial update — any field left {@code null} is left unchanged. Email and password are
@@ -11,10 +13,11 @@ import org.group1.coffeeshopapi.common.enums.Status;
 public record UpdateStaffRequest(
         String fullName,
 
-        @Pattern(regexp = "\\d{9,10}", message = "Phone number must be 9 or 10 digits")
+        @Pattern(regexp = ValidationPatterns.CAMBODIA_PHONE_REGEX, message = ValidationPatterns.CAMBODIA_PHONE_MESSAGE)
+        @Schema(example = "072 345 5674")
         String phoneNumber,
 
         Gender gender,
-        Status status
+        UserStatus status
 ) {
 }

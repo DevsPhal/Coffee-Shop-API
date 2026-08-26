@@ -2,7 +2,7 @@ package org.group1.coffeeshopapi.common.security;
 
 import lombok.Getter;
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.user.entity.User;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -57,8 +57,11 @@ public class CustomUserDetails implements UserDetails {
         return true;
     }
 
+    // Only an ACTIVE account can authenticate — PENDING_VERIFICATION, DEACTIVATED, SUSPENDED,
+    // BANNED, and DELETED all block login the same way (re-checked on every request, not just at
+    // login — see JwtAuthFilter).
     @Override
     public boolean isEnabled() {
-        return user.getStatus() == Status.ACTIVE;
+        return user.getStatus() == UserStatus.ACTIVE;
     }
 }

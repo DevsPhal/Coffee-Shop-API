@@ -12,11 +12,12 @@ import java.util.UUID;
 
 public record OrderResponse(
         UUID id,
-        // Who rang up/fulfilled this sale — set for a POS sale from the start, and also set on a
-        // customer order once a barista collects cash or confirms payment for it.
-        UUID baristaId,
-        String baristaName,
-        Role baristaRole,
+        // Who rang up/fulfilled/served this sale — an admin or a barista. Set for a POS sale from
+        // the start, and also set on a customer order once staff collects cash or confirms
+        // payment for it. See order/{id}/history for the full handling audit trail.
+        UUID handledById,
+        String handledByName,
+        Role handledByRole,
         // Who placed this order — null for a barista POS sale rung up for a walk-in customer.
         UUID customerId,
         String customerName,

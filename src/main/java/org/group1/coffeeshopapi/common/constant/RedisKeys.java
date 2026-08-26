@@ -11,6 +11,7 @@ public class RedisKeys {
     public static final String REFRESH_TOKEN_PREFIX = "refresh:";
     public static final String JWT_DENYLIST_PREFIX = "jwt:denylist:";
     public static final String TELEGRAM_LINK_CODE_PREFIX = "tg:link:";
+    public static final String TELEGRAM_EVENT_REMINDER_PREFIX = "tg:event-reminder:";
 
     public static String otpKey(String purpose, String email) {
         return OTP_PREFIX + purpose.toLowerCase() + ":" + email.toLowerCase();
