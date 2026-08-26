@@ -1,8 +1,6 @@
 package org.group1.coffeeshopapi.order.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.barista.entity.Barista;
-import org.group1.coffeeshopapi.barista.repository.BaristaRepository;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.order.dto.response.AdminDailyReportResponse;
@@ -10,6 +8,8 @@ import org.group1.coffeeshopapi.order.dto.response.DailyReportResponse;
 import org.group1.coffeeshopapi.order.entity.Order;
 import org.group1.coffeeshopapi.order.repository.OrderRepository;
 import org.group1.coffeeshopapi.order.service.ReportService;
+import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
+import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,14 +27,14 @@ import java.util.stream.Collectors;
 public class ReportServiceImpl implements ReportService {
 
     private final OrderRepository orderRepository;
-    private final BaristaRepository baristaRepository;
+    private final ActorLookupService actorLookupService;
 
     @Override
     public DailyReportResponse getOwnDailyReport(UUID baristaId, LocalDate date) {
-        List<Order> orders = orderRepository.findByBaristaIdAndStatusAndPaidAtBetween(
+        List<Order> orders = orderRepository.findByHandledByAndStatusAndPaidAtBetween(
                 baristaId, OrderStatus.COMPLETED, startOfDay(date), endOfDay(date));
-        String baristaName = baristaRepository.findById(baristaId).map(Barista::getFullName).orElse(null);
-        return summarize(baristaId, baristaName, date, orders);
+        ActorSummary actor = actorLookupService.resolve(baristaId);
+        return summarize(baristaId, actor != null ? actor.name() : null, date, orders);
     }
 
     @Override
@@ -42,18 +42,19 @@ public class ReportServiceImpl implements ReportService {
         List<Order> orders = orderRepository.findByStatusAndPaidAtBetween(
                 OrderStatus.COMPLETED, startOfDay(date), endOfDay(date));
 
-        // Self-service customer orders paid via Bakong have no barista attached — they still
+        // Self-service customer orders paid via Bakong have no staff attached — they still
         // count toward shop-wide totals below, but there's no one to attribute a report row to.
-        List<Order> baristaHandled = orders.stream().filter(order -> order.getBarista() != null).toList();
+        List<Order> staffHandled = orders.stream().filter(order -> order.getHandledBy() != null).toList();
 
-        Map<UUID, String> baristaNames = baristaRepository.findAllById(
-                        baristaHandled.stream().map(order -> order.getBarista().getId()).distinct().toList()).stream()
-                .collect(Collectors.toMap(Barista::getId, Barista::getFullName));
+        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(
+                staffHandled.stream().map(Order::getHandledBy).distinct().toList());
 
-        Map<UUID, List<Order>> byBarista = baristaHandled.stream()
-                .collect(Collectors.groupingBy(order -> order.getBarista().getId()));
-        List<DailyReportResponse> baristaReports = byBarista.entrySet().stream()
-                .map(entry -> summarize(entry.getKey(), baristaNames.get(entry.getKey()), date, entry.getValue()))
+        Map<UUID, List<Order>> byActor = staffHandled.stream()
+                .collect(Collectors.groupingBy(Order::getHandledBy));
+        List<DailyReportResponse> staffReports = byActor.entrySet().stream()
+                .map(entry -> summarize(entry.getKey(),
+                        actors.get(entry.getKey()) != null ? actors.get(entry.getKey()).name() : null,
+                        date, entry.getValue()))
                 .sorted((a, b) -> b.grandTotal().compareTo(a.grandTotal()))
                 .toList();
 
@@ -61,7 +62,7 @@ public class ReportServiceImpl implements ReportService {
         BigDecimal bakongTotal = sumByMethod(orders, PaymentMethod.BAKONG);
 
         return new AdminDailyReportResponse(
-                date, orders.size(), cashTotal, bakongTotal, cashTotal.add(bakongTotal), baristaReports);
+                date, orders.size(), cashTotal, bakongTotal, cashTotal.add(bakongTotal), staffReports);
     }
 
     private DailyReportResponse summarize(UUID baristaId, String baristaName, LocalDate date, List<Order> orders) {

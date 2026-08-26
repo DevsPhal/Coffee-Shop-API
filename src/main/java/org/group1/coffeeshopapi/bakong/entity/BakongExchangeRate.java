@@ -31,8 +31,15 @@ public class BakongExchangeRate {
     @Id
     private Integer id = SINGLETON_ID;
 
+    // What's actually used to convert order totals into KHR for the Bakong QR — admin's own
+    // working rate, which may deliberately differ from marketRate below.
     @Column(nullable = false, precision = 15, scale = 4)
     private BigDecimal khrPerUsdRate;
+
+    // The real-world market rate, kept purely as a reference point for admins to compare
+    // khrPerUsdRate against — entered by hand alongside it, never itself used for QR conversion.
+    @Column(precision = 15, scale = 4)
+    private BigDecimal marketRate;
 
     @Column
     private UUID updatedByAdminId;

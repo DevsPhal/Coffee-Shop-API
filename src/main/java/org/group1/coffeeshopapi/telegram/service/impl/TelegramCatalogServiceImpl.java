@@ -44,9 +44,9 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
                 .collect(Collectors.groupingBy(p -> p.getCategory().getName(),
                         () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER), Collectors.toList()));
 
-        StringBuilder sb = new StringBuilder("☕ <b>Menu</b>\n");
+        StringBuilder sb = new StringBuilder("🛒 <b>Menu</b>\n");
         for (Map.Entry<String, List<Product>> entry : byCategory.entrySet()) {
-            sb.append("\n<b>").append(TelegramFormat.escape(entry.getKey())).append("</b>\n");
+            sb.append("\n<b>").append(TelegramFormat.escape(TelegramFormat.titleCase(entry.getKey()))).append("</b>\n");
             entry.getValue().forEach(p -> appendProductLine(sb, p));
         }
         sb.append("\nSend /menu &lt;category&gt; to filter, or /discounts for today's deals.");
@@ -61,7 +61,7 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
         }
 
         StringBuilder sb = new StringBuilder("<b>Categories</b>\n\n");
-        categories.forEach(c -> sb.append("• ").append(TelegramFormat.escape(c.getName())).append('\n'));
+        categories.forEach(c -> sb.append("• ").append(TelegramFormat.escape(TelegramFormat.titleCase(c.getName()))).append('\n'));
         sb.append("\nSend /menu &lt;category name&gt; to view items, or /menu to see everything.");
         return sb.toString();
     }
@@ -88,18 +88,19 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
         }
 
         List<Product> products = productRepository.findByCategoryIdAndStatusOrderByNameAsc(category.getId(), Status.ACTIVE);
+        String displayCategoryName = TelegramFormat.escape(TelegramFormat.titleCase(category.getName()));
         if (products.isEmpty()) {
-            return "No items available in <b>" + TelegramFormat.escape(category.getName()) + "</b> right now.";
+            return "No items available in <b>" + displayCategoryName + "</b> right now.";
         }
 
-        StringBuilder sb = new StringBuilder("☕ <b>").append(TelegramFormat.escape(category.getName())).append("</b>\n\n");
+        StringBuilder sb = new StringBuilder("🛒 <b>").append(displayCategoryName).append("</b>\n\n");
         products.forEach(p -> appendProductLine(sb, p));
         return sb.toString();
     }
 
     private void appendProductLine(StringBuilder sb, Product product) {
         LocalDateTime now = LocalDateTime.now();
-        sb.append("• ").append(TelegramFormat.escape(product.getName())).append(" — ");
+        sb.append("• ").append(TelegramFormat.escape(TelegramFormat.titleCase(product.getName()))).append(" — ");
         if (product.isDiscountActive(now)) {
             sb.append("<s>").append(TelegramFormat.usd(product.getPrice())).append("</s> <b>")
                     .append(TelegramFormat.usd(product.getFinalPrice(now))).append("</b> ")
@@ -112,7 +113,7 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
 
     private String discountBadge(Product product) {
         return product.getDiscountType() == DiscountType.PERCENTAGE
-                ? "(" + product.getDiscountValue().stripTrailingZeros().toPlainString() + "% off)"
-                : "(" + TelegramFormat.usd(product.getDiscountValue()) + " off)";
+                ? "(" + product.getDiscountValue().stripTrailingZeros().toPlainString() + "% OFF)"
+                : "(" + TelegramFormat.usd(product.getDiscountValue()) + " OFF)";
     }
 }

@@ -6,6 +6,7 @@ import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 public record ProductResponse(
@@ -27,6 +28,9 @@ public record ProductResponse(
         LocalDateTime discountEndAt,
         boolean discountActive,
         BigDecimal finalPrice,
+        // Active size choices for this product (e.g. Small/Medium/Large), each with its own price
+        // add-on — empty for products that don't offer size variants.
+        List<ProductSizeOptionResponse> sizeOptions,
         UUID createdBy,
         String createdByName,
         Role createdByRole,

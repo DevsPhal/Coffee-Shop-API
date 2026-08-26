@@ -17,6 +17,11 @@ RUN ./gradlew build -x test --no-daemon
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
+# The app also fixes this at the JVM level (CoffeeShopApiApplication's static block), which is
+# what actually matters for LocalDateTime.now(); this just keeps container-level timestamps
+# (logs, file mtimes, ...) consistent with the same zone.
+ENV TZ=Asia/Phnom_Penh
+
 RUN addgroup -S spring && adduser -S spring -G spring
 USER spring:spring
 

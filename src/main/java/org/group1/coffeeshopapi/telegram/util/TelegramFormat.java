@@ -23,4 +23,40 @@ public final class TelegramFormat {
     public static String escape(String text) {
         return HtmlUtils.htmlEscape(text);
     }
+
+    /**
+     * Title-cases a name (e.g. a product, category, or event name) for display — "iced latte"
+     * becomes "Iced Latte" — regardless of how it was typed when created. Call this before
+     * {@link #escape(String)}.
+     */
+    public static String titleCase(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        String[] words = text.trim().toLowerCase().split("\\s+");
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < words.length; i++) {
+            if (i > 0) {
+                result.append(' ');
+            }
+            String word = words[i];
+            result.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+        }
+        return result.toString();
+    }
+
+    /**
+     * Normalizes free-text admin content (e.g. an event description) into a professional-looking
+     * sentence: capitalizes the first letter, collapses stray whitespace, and ensures it ends with
+     * terminal punctuation. Call this before {@link #escape(String)}.
+     */
+    public static String professionalize(String text) {
+        if (text == null || text.isBlank()) {
+            return text;
+        }
+        String normalized = text.trim().replaceAll("\\s+", " ");
+        String capitalized = Character.toUpperCase(normalized.charAt(0)) + normalized.substring(1);
+        char last = capitalized.charAt(capitalized.length() - 1);
+        return (last == '.' || last == '!' || last == '?') ? capitalized : capitalized + ".";
+    }
 }

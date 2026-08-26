@@ -14,13 +14,25 @@ public class HelpCommand implements TelegramCommand {
     @Override
     public String execute(TelegramMessage message, String argument) {
         return """
-                Available commands:
-                /menu - View the full menu
-                /menu <category> - View items in a category
-                /categories - List product categories
-                /discounts - See today's discounted items
-                /start <code> - Link your account
-                /unlink - Unlink your account
-                /help - Show this message""";
+                🤖 <b>Available Commands</b>
+
+                <b>Browse</b>
+                /menu — View the full menu
+                /menu &lt;category&gt; — View items in a category
+                /categories — List product categories
+                /discounts — See today's discounted items
+                /events — See upcoming events
+                /rate — Current USD → KHR exchange rate
+
+                <b>Account</b>
+                /start &lt;code&gt; — Link your account
+                /unlink — Unlink your account
+
+                /help — Show this message""";
+    }
+
+    @Override
+    public boolean useHtml() {
+        return true;
     }
 }

@@ -18,7 +18,10 @@ import org.group1.coffeeshopapi.product.entity.Product;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-// Audit trail entry for a single stock-in or stock-cut action, always attributed to the admin who performed it.
+// Audit trail entry for a single stock-in or stock-cut action. This is an internal/staff-only
+// process — the customer is never an attributable actor here, even for a self-service order that
+// completes with no staff involved (see OrderServiceImpl.confirmBakong, which attributes that
+// case to the Super Admin's id as the system-level actor instead).
 @Getter
 @Setter
 @Entity

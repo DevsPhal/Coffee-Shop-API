@@ -59,8 +59,8 @@ public class BaristaOrderController {
 
     // Visibility into every order in the system, not just ones this barista created or already
     // collected — so a barista can find a customer's pending cash-on-pickup order to accept via
-    // collectCash below. OrderResponse.baristaId/baristaName already show whether an order is
-    // still unclaimed (null) or has been handled by this barista or a different one.
+    // collectCash below. OrderResponse.handledById/handledByName already show whether an order is
+    // still unclaimed (null) or has been handled by this barista, an admin, or a different barista.
     @GetMapping("/all")
     public ApiResponse<PageResponse<OrderResponse>> listAll(
             @RequestParam(required = false) OrderStatus status,

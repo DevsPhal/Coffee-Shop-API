@@ -8,6 +8,8 @@ import java.util.UUID;
 
 public record BakongExchangeRateResponse(
         BigDecimal khrPerUsdRate,
+        // Reference-only real-world rate, kept for admins to compare khrPerUsdRate against.
+        BigDecimal marketRate,
         UUID updatedByAdminId,
         String updatedByAdminName,
         Role updatedByAdminRole,

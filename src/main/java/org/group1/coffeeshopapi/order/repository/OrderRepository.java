@@ -30,51 +30,48 @@ import java.util.UUID;
  */
 public interface OrderRepository extends JpaRepository<Order, UUID> {
 
-    @Query("select o from Order o where o.id = :id and o.barista.id = :baristaId")
-    Optional<Order> findByIdAndBaristaId(@Param("id") UUID id, @Param("baristaId") UUID baristaId);
+    @Query("select o from Order o where o.id = :id and o.handledBy = :handledBy")
+    Optional<Order> findByIdAndHandledBy(@Param("id") UUID id, @Param("handledBy") UUID handledBy);
 
-    @Query("select o from Order o left join fetch o.barista left join fetch o.customer "
-            + "where o.barista.id = :baristaId")
-    Page<Order> findByBaristaId(@Param("baristaId") UUID baristaId, Pageable pageable);
+    @Query("select o from Order o left join fetch o.customer where o.handledBy = :handledBy")
+    Page<Order> findByHandledBy(@Param("handledBy") UUID handledBy, Pageable pageable);
 
-    @Query("select o from Order o left join fetch o.barista left join fetch o.customer "
-            + "where o.barista.id = :baristaId and o.status = :status")
-    Page<Order> findByBaristaIdAndStatus(
-            @Param("baristaId") UUID baristaId, @Param("status") OrderStatus status, Pageable pageable);
+    @Query("select o from Order o left join fetch o.customer "
+            + "where o.handledBy = :handledBy and o.status = :status")
+    Page<Order> findByHandledByAndStatus(
+            @Param("handledBy") UUID handledBy, @Param("status") OrderStatus status, Pageable pageable);
 
     @Query("select o from Order o where o.id = :id and o.customer.id = :customerId")
     Optional<Order> findByIdAndCustomerId(@Param("id") UUID id, @Param("customerId") UUID customerId);
 
-    @Query("select o from Order o left join fetch o.barista left join fetch o.customer "
-            + "where o.customer.id = :customerId")
+    @Query("select o from Order o left join fetch o.customer where o.customer.id = :customerId")
     Page<Order> findByCustomerId(@Param("customerId") UUID customerId, Pageable pageable);
 
-    @Query("select o from Order o left join fetch o.barista left join fetch o.customer "
+    @Query("select o from Order o left join fetch o.customer "
             + "where o.customer.id = :customerId and o.status = :status")
     Page<Order> findByCustomerIdAndStatus(
             @Param("customerId") UUID customerId, @Param("status") OrderStatus status, Pageable pageable);
 
-    @Query("select o from Order o left join fetch o.barista left join fetch o.customer "
-            + "where o.status = :status")
+    @Query("select o from Order o left join fetch o.customer where o.status = :status")
     Page<Order> findByStatus(@Param("status") OrderStatus status, Pageable pageable);
 
-    @Query(value = "select o from Order o left join fetch o.barista left join fetch o.customer",
+    @Query(value = "select o from Order o left join fetch o.customer",
             countQuery = "select count(o) from Order o")
     Page<Order> findAllWithActors(Pageable pageable);
 
-    // The barista pickup/confirmation queue: a customer's self-service order, still PENDING, that
-    // no barista has claimed yet (see Order's javadoc on barista/customer). paymentMethod picks
-    // between the cash-on-pickup queue and the Bakong-confirmation queue.
-    @Query("select o from Order o left join fetch o.customer where o.customer is not null and o.barista is null "
+    // The staff pickup/confirmation queue: a customer's self-service order, still PENDING, that
+    // no admin/barista has claimed yet (see Order's javadoc on handledBy/customer). paymentMethod
+    // picks between the cash-on-pickup queue and the Bakong-confirmation queue.
+    @Query("select o from Order o left join fetch o.customer where o.customer is not null and o.handledBy is null "
             + "and o.status = :status and o.paymentMethod = :paymentMethod")
     Page<Order> findAwaitingBaristaClaim(
             @Param("status") OrderStatus status, @Param("paymentMethod") PaymentMethod paymentMethod, Pageable pageable);
 
     // Backs the daily report: completed sales for one barista within a day window.
-    @Query("select o from Order o where o.barista.id = :baristaId and o.status = :status "
+    @Query("select o from Order o where o.handledBy = :handledBy and o.status = :status "
             + "and o.paidAt between :start and :end")
-    List<Order> findByBaristaIdAndStatusAndPaidAtBetween(
-            @Param("baristaId") UUID baristaId, @Param("status") OrderStatus status,
+    List<Order> findByHandledByAndStatusAndPaidAtBetween(
+            @Param("handledBy") UUID handledBy, @Param("status") OrderStatus status,
             @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     // Backs the admin-wide daily report: completed sales across every barista within a day window.
