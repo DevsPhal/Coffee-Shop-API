@@ -66,6 +66,8 @@ spring:
 bakong:
   base-url: ${BAKONG_BASE_URL:https://api-bakong.nbc.gov.kh}
   token: ${BAKONG_TOKEN:}
+  # Only needed for automatic token renewal — see BakongTokenService.
+  email: ${BAKONG_EMAIL:}
   account-id: ${BAKONG_ACCOUNT_ID:}
   account-information: ${BAKONG_ACCOUNT_INFORMATION:}
   acquiring-bank: ${BAKONG_ACQUIRING_BANK:}
@@ -104,6 +106,11 @@ app:
   super-admin:
     email: ${SUPER_ADMIN_EMAIL:}
     password: ${SUPER_ADMIN_PASSWORD:}
+  cors:
+    # Browser origins allowed to call this API. The storefront and admin are separate apps on
+    # their own ports, so every request they make is cross-origin. Set CORS_ALLOWED_ORIGINS to
+    # a comma-separated list when deploying behind real hostnames.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}
 
 telegram:
   bot-token: ${TELEGRAM_BOT_TOKEN:}

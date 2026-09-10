@@ -23,7 +23,7 @@ public class Event extends BaseEntity {
     @Column(nullable = false)
     private String title;
 
-    @Column
+    @Column(columnDefinition = "TEXT")
     private String description;
 
     @Column

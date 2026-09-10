@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.order.dto.response;
 
 import org.group1.coffeeshopapi.common.enums.Currency;
+import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.Role;
@@ -33,6 +34,14 @@ public record OrderResponse(
         BigDecimal bakongAmount,
         String note,
         LocalDateTime paidAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        FulfillmentMethod fulfillmentMethod,
+        BigDecimal deliveryFee,
+        String deliveryAddress,
+        String contactName,
+        String contactPhone,
+        // Delivery leg timestamps; null for a pickup order.
+        LocalDateTime dispatchedAt,
+        LocalDateTime deliveredAt
 ) {
 }

@@ -5,8 +5,14 @@ import org.group1.coffeeshopapi.common.constant.SecurityConstants;
 import org.group1.coffeeshopapi.common.filter.JwtAuthFilter;
 import org.group1.coffeeshopapi.common.security.RestAccessDeniedHandler;
 import org.group1.coffeeshopapi.common.security.RestAuthenticationEntryPoint;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
 import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -26,9 +32,37 @@ public class SecurityConfig {
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final RestAccessDeniedHandler restAccessDeniedHandler;
 
+    /**
+     * Browser origins allowed to call this API. The storefront and admin are separate apps on
+     * their own ports, so every call they make is cross-origin and needs these headers —
+     * without them the browser blocks the request before it is sent and the client sees a
+     * network error rather than an HTTP status. Override with CORS_ALLOWED_ORIGINS (comma
+     * separated) when deploying behind real hostnames.
+     */
+    @Value("${app.cors.allowed-origins:http://localhost:3000,http://localhost:3001}")
+    private List<String> allowedOrigins;
+
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
+    }
+
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        // Explicit origins rather than "*": credentials are not used (the JWT travels in an
+        // Authorization header), but naming the two apps keeps the surface honest.
+        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        // The clients read nothing custom off responses today; listed for the tracing header
+        // the admin sends so it survives a stricter proxy later.
+        config.setExposedHeaders(List.of("X-Request-ID"));
+        config.setMaxAge(3600L);
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     /**
@@ -57,12 +91,19 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(restAuthenticationEntryPoint)
                         .accessDeniedHandler(restAccessDeniedHandler))
                 .authorizeHttpRequests(auth -> auth
+                        // Preflights carry no Authorization header, so they must be allowed
+                        // through before any rule below can reject them for being anonymous.
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(SecurityConstants.PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/events", "/api/shop/settings").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/contact-messages").permitAll()
+                        .requestMatchers("/api/admin/contact-messages/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/admins/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/users/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/baristas/**").hasRole("ADMIN")
@@ -85,8 +126,16 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/finance/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/bakong/**").hasRole("ADMIN")
                         .requestMatchers("/api/barista/orders/**").hasRole("BARISTA")
-                        .requestMatchers("/api/barista/reports/**").hasRole("BARISTA")
+                        .requestMatchers(HttpMethod.GET, "/api/barista/reports/**").hasRole("BARISTA")
                         .requestMatchers("/api/barista/attendance/**").hasRole("BARISTA")
+                        // New staff resources require an explicit permission rule above.
+                        .requestMatchers("/api/admin/**", "/api/barista/**").denyAll()
+                        // The storefront menu is readable without an account — a visitor has to
+                        // be able to see what is for sale before deciding to register. Only the
+                        // GETs open up; the cart, orders and every write below still require a
+                        // signed-in customer, and this controller exposes no principal-dependent
+                        // data (no prices per user, no stock levels).
+                        .requestMatchers(HttpMethod.GET, "/api/customer/products/**").permitAll()
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

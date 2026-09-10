@@ -27,6 +27,14 @@ import java.util.UUID;
 public class CustomerOrderController {
 
     private final OrderService orderService;
+    private final org.group1.coffeeshopapi.contact.ContactMessageService contactMessages;
+
+    @PostMapping("/{id}/request-assistance")
+    public ApiResponse<org.group1.coffeeshopapi.contact.ContactMessageResponse> requestAssistance(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Staff assistance requested",
+                contactMessages.requestAssistance(id, currentUser.getId()));
+    }
 
     @GetMapping
     public ApiResponse<PageResponse<OrderResponse>> list(

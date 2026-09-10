@@ -17,6 +17,7 @@ import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -60,5 +61,11 @@ public class BaristaController {
     public ApiResponse<Void> delete(@PathVariable UUID id) {
         staffService.delete(id, Role.BARISTA);
         return ApiResponse.of(HttpStatus.OK, "Barista account deleted successfully.", null);
+    }
+
+    @PostMapping(value = "/{id}/avatar", consumes = "multipart/form-data")
+    public ApiResponse<UserResponse> uploadAvatar(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return ApiResponse.of(HttpStatus.OK, "Profile photo updated successfully.",
+                staffService.uploadAvatar(id, file, Role.BARISTA));
     }
 }

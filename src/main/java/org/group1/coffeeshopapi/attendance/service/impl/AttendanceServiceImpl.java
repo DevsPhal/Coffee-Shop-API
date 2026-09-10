@@ -47,12 +47,16 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     @Transactional
     public AttendanceResponse checkIn(UUID baristaId) {
+        Barista barista = lockStaff(baristaId);
+        if (barista.getStatus() != org.group1.coffeeshopapi.common.enums.UserStatus.ACTIVE) {
+            throw new InvalidOperationException("Only active staff can check in");
+        }
         if (attendanceRepository.findByBaristaIdAndCheckOutAtIsNull(baristaId).isPresent()) {
             throw new InvalidOperationException("You already have an open shift — check out first");
         }
 
         Attendance attendance = new Attendance();
-        attendance.setBarista(baristaRepository.getReferenceById(baristaId));
+        attendance.setBarista(barista);
         attendance.setCheckInAt(LocalDateTime.now());
         attendance = attendanceRepository.save(attendance);
         logAudit(attendance, AttendanceAuditAction.CHECK_IN, baristaId, null);
@@ -63,6 +67,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     @Transactional
     public AttendanceResponse checkOut(UUID baristaId) {
+        lockStaff(baristaId);
         Attendance attendance = attendanceRepository.findByBaristaIdAndCheckOutAtIsNull(baristaId)
                 .orElseThrow(() -> new InvalidOperationException("No active shift to check out of"));
 
@@ -89,16 +94,16 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     @Override
     public Page<AttendanceResponse> listAll(UUID baristaId, LocalDateTime from, LocalDateTime to, Pageable pageable) {
-        Page<Attendance> records;
-        if (baristaId != null && from != null && to != null) {
-            records = attendanceRepository.findByBaristaIdAndCheckInAtBetween(baristaId, from, to, pageable);
-        } else if (baristaId != null) {
-            records = attendanceRepository.findByBaristaId(baristaId, pageable);
-        } else if (from != null && to != null) {
-            records = attendanceRepository.findByCheckInAtBetween(from, to, pageable);
-        } else {
-            records = attendanceRepository.findAll(pageable);
+        if (from != null && to != null && from.isAfter(to)) {
+            throw new InvalidOperationException("The start date must be before the end date");
         }
+        Page<Attendance> records = attendanceRepository.findAll((root, query, builder) -> {
+            var predicates = new java.util.ArrayList<jakarta.persistence.criteria.Predicate>();
+            if (baristaId != null) predicates.add(builder.equal(root.get("barista").get("id"), baristaId));
+            if (from != null) predicates.add(builder.greaterThanOrEqualTo(root.get("checkInAt"), from));
+            if (to != null) predicates.add(builder.lessThanOrEqualTo(root.get("checkInAt"), to));
+            return builder.and(predicates.toArray(jakarta.persistence.criteria.Predicate[]::new));
+        }, pageable);
         return records.map(attendanceMapper::toResponse);
     }
 
@@ -110,11 +115,8 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Override
     @Transactional
     public AttendanceResponse create(CreateAttendanceRequest request, UUID actorId) {
-        Barista barista = baristaRepository.findById(request.baristaId())
-                .orElseThrow(() -> new ResourceNotFoundException("Barista not found"));
-        if (request.checkOutAt() != null && !request.checkOutAt().isAfter(request.checkInAt())) {
-            throw new InvalidOperationException("Check-out time must be after the check-in time");
-        }
+        Barista barista = lockStaff(request.baristaId());
+        validateTimes(barista.getId(), null, request.checkInAt(), request.checkOutAt());
 
         Attendance attendance = new Attendance();
         attendance.setBarista(barista);
@@ -132,6 +134,7 @@ public class AttendanceServiceImpl implements AttendanceService {
     @Transactional
     public AttendanceResponse update(UUID id, UpdateAttendanceRequest request, UUID actorId) {
         Attendance attendance = findById(id);
+        lockStaff(attendance.getBarista().getId());
 
         if (request.checkInAt() != null) {
             attendance.setCheckInAt(request.checkInAt());
@@ -142,9 +145,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (request.note() != null) {
             attendance.setNote(request.note());
         }
-        if (attendance.getCheckOutAt() != null && !attendance.getCheckOutAt().isAfter(attendance.getCheckInAt())) {
-            throw new InvalidOperationException("Check-out time must be after the check-in time");
-        }
+        validateTimes(attendance.getBarista().getId(), attendance.getId(), attendance.getCheckInAt(), attendance.getCheckOutAt());
         attendance.setWorkedMinutes(computeWorkedMinutes(attendance.getCheckInAt(), attendance.getCheckOutAt()));
         attendance = attendanceRepository.save(attendance);
         logAudit(attendance, AttendanceAuditAction.ADMIN_CORRECTED, actorId, request.note());
@@ -170,6 +171,36 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     private Long computeWorkedMinutes(LocalDateTime checkInAt, LocalDateTime checkOutAt) {
         return checkOutAt != null ? Duration.between(checkInAt, checkOutAt).toMinutes() : null;
+    }
+
+    private Barista lockStaff(UUID id) {
+        return baristaRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Staff member not found"));
+    }
+
+    private void validateTimes(UUID staffId, UUID excludedId, LocalDateTime checkIn, LocalDateTime checkOut) {
+        LocalDateTime now = LocalDateTime.now();
+        if (checkIn == null) {
+            throw new InvalidOperationException("Check-in time is required");
+        }
+        // Attendance records what someone already worked, so neither end may be ahead of the
+        // clock. Naming the field matters: a shift entered just after midnight is entirely in
+        // tomorrow, and "attendance times" alone gave no clue which box to change.
+        if (checkIn.isAfter(now)) {
+            throw new InvalidOperationException(
+                    "Check-in time cannot be in the future — the shift has not started yet");
+        }
+        if (checkOut != null && checkOut.isAfter(now)) {
+            throw new InvalidOperationException(
+                    "Check-out time cannot be in the future — leave it empty for a shift that is still running");
+        }
+        if (checkOut != null && !checkOut.isAfter(checkIn)) {
+            throw new InvalidOperationException("Check-out time must be after the check-in time");
+        }
+        if (attendanceRepository.hasOverlap(staffId, excludedId == null ? new UUID(0, 0) : excludedId,
+                checkIn, checkOut == null ? LocalDateTime.of(9999, 12, 31, 23, 59) : checkOut)) {
+            throw new InvalidOperationException("This shift overlaps another attendance record for this staff member");
+        }
     }
 
     private Attendance findById(UUID id) {

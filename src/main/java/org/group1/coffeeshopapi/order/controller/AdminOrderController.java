@@ -93,10 +93,50 @@ public class AdminOrderController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, response);
     }
 
-    // Cancels any still-pending order (not scoped to one the admin themselves rang up).
+    // Cancels any still-unpaid order (not scoped to one the admin themselves rang up).
     @PostMapping("/{id}/cancel")
     public ApiResponse<OrderResponse> cancel(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order cancelled successfully.",
                 orderService.cancelAny(id, currentActor.id()));
     }
+
+    // --- Working the queue ---
+    // The admin mirror of the barista's start-preparing/complete, so a manager covering the bar
+    // can move orders along without a second account. Same service calls, same rules.
+
+    @PostMapping("/{id}/start-preparing")
+    public ApiResponse<OrderResponse> startPreparing(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Order marked as preparing.",
+                orderService.startPreparing(id, currentActor.id()));
+    }
+
+    @PostMapping("/{id}/complete")
+    public ApiResponse<OrderResponse> complete(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Order completed.",
+                orderService.markCompleted(id, currentActor.id()));
+    }
+
+    // The delivery board: orders that have left the shop but are not confirmed as arrived.
+    @GetMapping("/out-for-delivery")
+    public ApiResponse<PageResponse<OrderResponse>> listOutForDelivery(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
+                PageResponse.of(orderService.listOutForDelivery(PageUtil.buildPageable(page, size))));
+    }
+
+    // Hands a delivery order to a courier: it is made, paid for, and now off the premises.
+    @PostMapping("/{id}/dispatch")
+    public ApiResponse<OrderResponse> dispatch(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Order is out for delivery.",
+                orderService.markOutForDelivery(id, currentActor.id()));
+    }
+
+    // Confirms the courier reached the customer. Terminal for a delivery order.
+    @PostMapping("/{id}/delivered")
+    public ApiResponse<OrderResponse> delivered(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Order marked as delivered.",
+                orderService.markDelivered(id, currentActor.id()));
+    }
+
 }

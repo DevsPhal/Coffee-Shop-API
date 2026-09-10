@@ -100,11 +100,14 @@ public class BaristaOrderController {
                 orderService.confirmBakongPayment(id, currentUser.getId()));
     }
 
+    // Calls off an unpaid order — the customer who never came to the counter, or changed their
+    // mind. Not restricted to orders this barista rang up: a self-service order has no staff
+    // attached at all until someone claims it, and those are exactly the ones that get abandoned.
     @PostMapping("/{id}/cancel")
     public ApiResponse<OrderResponse> cancel(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, "Order cancelled successfully.",
-                orderService.cancel(id, currentUser.getId()));
+                orderService.cancelAny(id, currentUser.getId()));
     }
 
     // The pickup queue: customer cash-on-pickup orders no barista has claimed yet — what a
@@ -146,4 +149,48 @@ public class BaristaOrderController {
         OrderResponse response = orderService.acceptBakongPayment(id, currentUser.getId());
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, response);
     }
+
+    // --- Working the queue ---
+    // Both act on any paid order, whoever took the payment, so a barista can pick up a drink a
+    // customer paid for on their phone. The customer's own order screen follows the same status.
+
+    @PostMapping("/{id}/start-preparing")
+    public ApiResponse<OrderResponse> startPreparing(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Order marked as preparing.",
+                orderService.startPreparing(id, currentUser.getId()));
+    }
+
+    @PostMapping("/{id}/complete")
+    public ApiResponse<OrderResponse> complete(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Order completed.",
+                orderService.markCompleted(id, currentUser.getId()));
+    }
+
+    // The delivery board: orders that have left the shop but are not confirmed as arrived.
+    @GetMapping("/out-for-delivery")
+    public ApiResponse<PageResponse<OrderResponse>> listOutForDelivery(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
+                PageResponse.of(orderService.listOutForDelivery(PageUtil.buildPageable(page, size))));
+    }
+
+    // Hands a delivery order to a courier: it is made, paid for, and now off the premises.
+    @PostMapping("/{id}/dispatch")
+    public ApiResponse<OrderResponse> dispatch(@PathVariable UUID id,
+                                               @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Order is out for delivery.",
+                orderService.markOutForDelivery(id, currentUser.getId()));
+    }
+
+    // Confirms the courier reached the customer. Terminal for a delivery order.
+    @PostMapping("/{id}/delivered")
+    public ApiResponse<OrderResponse> delivered(@PathVariable UUID id,
+                                                @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Order marked as delivered.",
+                orderService.markDelivered(id, currentUser.getId()));
+    }
+
 }

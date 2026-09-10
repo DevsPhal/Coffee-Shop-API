@@ -1,8 +1,11 @@
 package org.group1.coffeeshopapi.common.exception;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.common.response.ErrorResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -19,6 +22,10 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
+
+import java.util.Arrays;
+import java.util.Objects;
+import java.util.stream.Collectors;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.util.stream.Collectors;
@@ -71,8 +78,27 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ErrorResponse> handleMalformedBody(HttpServletRequest request) {
+    public ResponseEntity<ErrorResponse> handleMalformedBody(HttpMessageNotReadableException ex,
+                                                             HttpServletRequest request) {
+        if (ex.getCause() instanceof InvalidFormatException cause) {
+            String field = cause.getPath().stream()
+                    .map(JsonMappingException.Reference::getFieldName)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.joining("."));
+            String message = "Invalid value " + formatValue(cause.getValue())
+                    + (field.isEmpty() ? "" : " for '" + field + "'");
+            Class<?> type = cause.getTargetType();
+            if (type != null && type.isEnum()) {
+                message += ". Accepted values: " + Arrays.stream(type.getEnumConstants())
+                        .map(String::valueOf).collect(Collectors.joining(", "));
+            }
+            return build(HttpStatus.BAD_REQUEST, message, request);
+        }
         return build(HttpStatus.BAD_REQUEST, "Malformed or missing request body", request);
+    }
+
+    private static String formatValue(Object value) {
+        return value == null ? "null" : "'" + value + "'";
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
@@ -98,6 +124,18 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST,
                 "Malformed multipart request — make sure the request body is sent as multipart/form-data "
                         + "with a valid boundary (let your HTTP client set this header automatically)", request);
+    }
+
+    // Safety net for a unique/foreign-key constraint a service forgot to check up front. The
+    // services that do check still return their own specific message; this only stops an
+    // unchecked one from surfacing as a bare 500.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex,
+                                                                      HttpServletRequest request) {
+        log.warn("Constraint violation on {} {}: {}", request.getMethod(), request.getRequestURI(),
+                ex.getMostSpecificCause().getMessage());
+        return build(HttpStatus.CONFLICT,
+                "That change conflicts with an existing record. Check for a duplicate value and try again.", request);
     }
 
     @ExceptionHandler(Exception.class)

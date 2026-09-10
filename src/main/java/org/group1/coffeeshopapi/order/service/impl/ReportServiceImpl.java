@@ -1,7 +1,6 @@
 package org.group1.coffeeshopapi.order.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.order.dto.response.AdminDailyReportResponse;
 import org.group1.coffeeshopapi.order.dto.response.DailyReportResponse;
@@ -31,16 +30,15 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public DailyReportResponse getOwnDailyReport(UUID baristaId, LocalDate date) {
-        List<Order> orders = orderRepository.findByHandledByAndStatusAndPaidAtBetween(
-                baristaId, OrderStatus.COMPLETED, startOfDay(date), endOfDay(date));
+        List<Order> orders = orderRepository.findByHandledByAndPaidAtBetween(
+                baristaId, startOfDay(date), endOfDay(date));
         ActorSummary actor = actorLookupService.resolve(baristaId);
         return summarize(baristaId, actor != null ? actor.name() : null, date, orders);
     }
 
     @Override
     public AdminDailyReportResponse getDailyReport(LocalDate date) {
-        List<Order> orders = orderRepository.findByStatusAndPaidAtBetween(
-                OrderStatus.COMPLETED, startOfDay(date), endOfDay(date));
+        List<Order> orders = orderRepository.findByPaidAtBetween(startOfDay(date), endOfDay(date));
 
         // Self-service customer orders paid via Bakong have no staff attached — they still
         // count toward shop-wide totals below, but there's no one to attribute a report row to.

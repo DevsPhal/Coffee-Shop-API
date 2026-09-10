@@ -9,12 +9,14 @@ import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.user.dto.request.UpdateUserStatusRequest;
+import org.group1.coffeeshopapi.user.dto.request.UpdateProfileRequest;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.user.mapper.UserMapper;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.group1.coffeeshopapi.user.service.AuthUserSyncService;
+import org.group1.coffeeshopapi.user.service.UserProfileService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -33,6 +35,7 @@ public class UserAdminServiceImpl implements UserAdminService {
     private final UserMapper userMapper;
     private final TokenService tokenService;
     private final AuthUserSyncService authUserSyncService;
+    private final UserProfileService userProfileService;
 
     @Override
     public Page<UserResponse> list(Role roleFilter, Pageable pageable) {
@@ -51,6 +54,19 @@ public class UserAdminServiceImpl implements UserAdminService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return userMapper.toResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse update(UUID id, UpdateProfileRequest request) {
+        return userProfileService.updateProfile(id, request);
+    }
+
+    @Override
+    @Transactional
+    public void delete(UUID id) {
+        // Retain order/attendance references while disabling login and existing sessions.
+        updateStatus(id, new UpdateUserStatusRequest(UserStatus.DELETED));
     }
 
     @Override

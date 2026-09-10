@@ -62,7 +62,7 @@ public class CartController {
 
     @PostMapping("/checkout")
     public ResponseEntity<ApiResponse<OrderResponse>> checkout(
-            @RequestBody(required = false) CheckoutRequest request,
+            @Valid @RequestBody(required = false) CheckoutRequest request,
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         CheckoutRequest checkoutRequest = request != null ? request : new CheckoutRequest(null);
         OrderResponse response = cartService.checkout(currentUser.getId(), checkoutRequest);

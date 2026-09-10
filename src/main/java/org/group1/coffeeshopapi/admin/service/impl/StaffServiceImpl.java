@@ -19,11 +19,13 @@ import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.user.mapper.UserMapper;
 import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.group1.coffeeshopapi.user.service.AuthUserSyncService;
+import org.group1.coffeeshopapi.user.service.UserProfileService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -39,6 +41,7 @@ public class StaffServiceImpl implements StaffService {
     private final SuperAdminProperties superAdminProperties;
     private final TokenService tokenService;
     private final AuthUserSyncService authUserSyncService;
+    private final UserProfileService userProfileService;
 
     @Override
     @Transactional
@@ -49,6 +52,9 @@ public class StaffServiceImpl implements StaffService {
         }
         if (userRepository.existsByEmail(email)) {
             throw new DuplicateResourceException("An account with this email already exists");
+        }
+        if (request.phoneNumber() != null && phoneTaken(role, request.phoneNumber(), null)) {
+            throw new DuplicateResourceException("An account with this phone number already exists");
         }
 
         User staff = switch (role) {
@@ -76,6 +82,18 @@ public class StaffServiceImpl implements StaffService {
         return userMapper.toResponse(staff);
     }
 
+    private boolean phoneTaken(Role role, String phoneNumber, UUID excludedId) {
+        return switch (role) {
+            case ADMIN -> excludedId == null
+                    ? adminRepository.existsByPhoneNumber(phoneNumber)
+                    : adminRepository.existsByPhoneNumberAndIdNot(phoneNumber, excludedId);
+            case BARISTA -> excludedId == null
+                    ? baristaRepository.existsByPhoneNumber(phoneNumber)
+                    : baristaRepository.existsByPhoneNumberAndIdNot(phoneNumber, excludedId);
+            default -> throw new IllegalArgumentException("Unsupported staff role: " + role);
+        };
+    }
+
     @Override
     public UserResponse getById(UUID id, Role role) {
         return userMapper.toResponse(findByIdAndRole(id, role));
@@ -99,6 +117,9 @@ public class StaffServiceImpl implements StaffService {
             staff.setFullName(request.fullName());
         }
         if (request.phoneNumber() != null) {
+            if (phoneTaken(role, request.phoneNumber(), staff.getId())) {
+                throw new DuplicateResourceException("An account with this phone number already exists");
+            }
             staff.setPhoneNumber(request.phoneNumber());
         }
         if (request.gender() != null) {
@@ -116,6 +137,15 @@ public class StaffServiceImpl implements StaffService {
         userRepository.save(staff);
         authUserSyncService.sync(staff);
         return userMapper.toResponse(staff);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse uploadAvatar(UUID id, MultipartFile file, Role role) {
+        // Verify the target role before delegating to the shared avatar storage logic.
+        // An admin must not modify an admin account by using its ID on the barista route.
+        User staff = findByIdAndRole(id, role);
+        return userProfileService.uploadAvatar(staff.getId(), file);
     }
 
     @Override

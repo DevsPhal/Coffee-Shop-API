@@ -47,6 +47,7 @@ public class CartServiceImpl implements CartService {
     private final OrderService orderService;
 
     @Override
+    @Transactional
     public CartResponse getCart(UUID customerId) {
         return toResponse(getOrCreateCart(customerId));
     }
@@ -134,7 +135,11 @@ public class CartServiceImpl implements CartService {
                         item.getSugarLevel(), item.getIceLevel(), item.getMilkType()))
                 .toList();
 
-        OrderResponse order = orderService.createForCustomer(new CreateOrderRequest(items, request.note()), customerId);
+        OrderResponse order = orderService.createForCustomer(
+                new CreateOrderRequest(items, request.note(), request.delivery()), customerId);
+        if (request.paymentMethod() == org.group1.coffeeshopapi.common.enums.PaymentMethod.CASH) {
+            order = orderService.selectCashOnPickup(order.id(), customerId);
+        }
 
         cart.getItems().clear();
         cartRepository.save(cart);

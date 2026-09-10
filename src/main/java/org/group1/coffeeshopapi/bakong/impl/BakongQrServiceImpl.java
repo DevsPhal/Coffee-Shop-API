@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 
 @Service
 @RequiredArgsConstructor
@@ -51,8 +54,9 @@ public class BakongQrServiceImpl implements BakongQrService {
         individualInfo.setTerminalLabel(bakongProperties.getTerminalLabel());
         individualInfo.setPurposeOfTransaction(bakongProperties.getPurposeOfTransaction());
         individualInfo.setMerchantCategoryCode(bakongProperties.getMerchantCategoryCode());
-        individualInfo.setExpirationTimestamp(
-                System.currentTimeMillis() + Duration.ofMinutes(bakongProperties.getExpirationMinutes()).toMillis());
+        long expiresAtMillis =
+                System.currentTimeMillis() + Duration.ofMinutes(bakongProperties.getExpirationMinutes()).toMillis();
+        individualInfo.setExpirationTimestamp(expiresAtMillis);
 
         KHQRResponse<KHQRData> response = BakongKHQR.generateIndividual(individualInfo);
         if (response.getKHQRStatus() == null || response.getKHQRStatus().getCode() != 0 || response.getData() == null) {
@@ -62,7 +66,13 @@ public class BakongQrServiceImpl implements BakongQrService {
             throw new InvalidOperationException("Unable to generate Bakong QR: " + message);
         }
 
-        return new BakongQrResult(response.getData().getQr(), response.getData().getMd5(), resolvedCurrency, encodedAmount);
+        // Same instant that went into the QR, expressed in the shop's zone so the client counts
+        // down to the moment the code really stops working.
+        LocalDateTime expiresAt = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(expiresAtMillis), ZoneId.systemDefault());
+
+        return new BakongQrResult(
+                response.getData().getQr(), response.getData().getMd5(), resolvedCurrency, encodedAmount, expiresAt);
     }
 
     /** Amounts are always priced/stored in USD; KHR has no minor unit, so the converted total must be a whole number. */

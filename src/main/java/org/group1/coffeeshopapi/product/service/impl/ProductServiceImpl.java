@@ -40,6 +40,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -80,6 +81,11 @@ public class ProductServiceImpl implements ProductService {
         product.setCategory(category);
         product.setCreatedBy(actorId);
         product.setUpdatedBy(actorId);
+        // A launch discount is optional — no discountValue means the product starts at full price.
+        if (request.discountValue() != null) {
+            applyDiscount(product, request.discountType(), request.discountValue(),
+                    request.discountStartAt(), request.discountEndAt());
+        }
         product = productRepository.save(product);
 
         // Every product gets exactly one inventory record the moment it's created, so stock-in/
@@ -166,20 +172,8 @@ public class ProductServiceImpl implements ProductService {
     @Transactional
     public ProductResponse setDiscount(UUID id, SetProductDiscountRequest request, UUID actorId) {
         Product product = findById(id);
-
-        if (request.discountType() == DiscountType.PERCENTAGE
-                && request.discountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
-            throw new InvalidOperationException("Percentage discount cannot exceed 100");
-        }
-        if (request.discountStartAt() != null && request.discountEndAt() != null
-                && !request.discountEndAt().isAfter(request.discountStartAt())) {
-            throw new InvalidOperationException("Discount end date must be after the start date");
-        }
-
-        product.setDiscountType(request.discountType());
-        product.setDiscountValue(request.discountValue());
-        product.setDiscountStartAt(request.discountStartAt());
-        product.setDiscountEndAt(request.discountEndAt());
+        applyDiscount(product, request.discountType(), request.discountValue(),
+                request.discountStartAt(), request.discountEndAt());
         product.setUpdatedBy(actorId);
         product = productRepository.save(product);
 
@@ -346,6 +340,26 @@ public class ProductServiceImpl implements ProductService {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    // Shared by create and setDiscount so a discount set at creation time is validated exactly
+    // the same way as one set later. A null type falls back to PERCENTAGE: it is the common case
+    // ("Coca 10% off") and the only shape the product form sends.
+    private void applyDiscount(Product product, DiscountType discountType, BigDecimal discountValue,
+            LocalDateTime discountStartAt, LocalDateTime discountEndAt) {
+        DiscountType type = discountType != null ? discountType : DiscountType.PERCENTAGE;
+
+        if (type == DiscountType.PERCENTAGE && discountValue.compareTo(BigDecimal.valueOf(100)) > 0) {
+            throw new InvalidOperationException("Percentage discount cannot exceed 100");
+        }
+        if (discountStartAt != null && discountEndAt != null && !discountEndAt.isAfter(discountStartAt)) {
+            throw new InvalidOperationException("Discount end date must be after the start date");
+        }
+
+        product.setDiscountType(type);
+        product.setDiscountValue(discountValue);
+        product.setDiscountStartAt(discountStartAt);
+        product.setDiscountEndAt(discountEndAt);
     }
 
     private Product findById(UUID id) {

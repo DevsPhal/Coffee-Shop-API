@@ -1,7 +1,6 @@
 package org.group1.coffeeshopapi.finance.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.finance.dto.response.FinanceSummaryResponse;
@@ -51,7 +50,7 @@ public class FinanceServiceImpl implements FinanceService {
         LocalDateTime start = startInclusive.atStartOfDay();
         LocalDateTime end = endExclusive.atStartOfDay();
 
-        List<Order> orders = orderRepository.findByStatusAndPaidAtBetween(OrderStatus.COMPLETED, start, end);
+        List<Order> orders = orderRepository.findByPaidAtBetween(start, end);
         BigDecimal cashIn = sumByMethod(orders, PaymentMethod.CASH);
         BigDecimal bakongIn = sumByMethod(orders, PaymentMethod.BAKONG);
         BigDecimal totalIn = cashIn.add(bakongIn);

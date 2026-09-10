@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.Role;
@@ -13,16 +14,21 @@ import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
+import org.group1.coffeeshopapi.user.dto.request.ChangePasswordRequest;
+import org.group1.coffeeshopapi.user.dto.request.UpdateProfileRequest;
 import org.group1.coffeeshopapi.user.dto.response.SuperAdminResponse;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.group1.coffeeshopapi.user.mapper.UserMapper;
+import org.group1.coffeeshopapi.superadmin.SuperAdminProfileService;
 import org.group1.coffeeshopapi.user.service.UserProfileService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -40,6 +46,7 @@ public class UserController {
     private final UserMapper userMapper;
     private final TelegramLinkService telegramLinkService;
     private final UserProfileService userProfileService;
+    private final SuperAdminProfileService superAdminProfileService;
 
     @GetMapping("/me")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
@@ -48,8 +55,34 @@ public class UserController {
     public ApiResponse<Object> me(@AuthenticationPrincipal UserDetails principal) {
         Object profile = principal instanceof CustomUserDetails customUserDetails
                 ? userMapper.toResponse(customUserDetails.getUser())
-                : ((SuperAdminUserDetails) principal).toResponse();
+                : superAdminProfileService.describe(principal.getUsername());
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, profile);
+    }
+
+    /**
+     * Self-service edit of your own name, phone and gender. Works for every role, so an admin
+     * or barista can maintain their own record without a super admin doing it for them —
+     * {@code /api/admin/admins/**} is SUPER_ADMIN-only by design.
+     */
+    @PatchMapping("/me")
+    public ApiResponse<Object> updateMe(
+            @Valid @RequestBody UpdateProfileRequest request,
+            @AuthenticationPrincipal UserDetails principal) {
+        Object updated = principal instanceof CustomUserDetails customUserDetails
+                ? userProfileService.updateProfile(customUserDetails.getId(), request)
+                : superAdminProfileService.updateProfile(request, principal.getUsername());
+        return ApiResponse.of(HttpStatus.OK, "Profile updated successfully.", updated);
+    }
+
+    @PostMapping("/me/change-password")
+    public ApiResponse<Void> changePassword(
+            @Valid @RequestBody ChangePasswordRequest request,
+            @AuthenticationPrincipal UserDetails principal) {
+        UUID userId = requireCustomUser(principal,
+                "The super admin signs in with SUPER_ADMIN_PASSWORD from the deployment configuration, "
+                        + "so its password is changed there rather than here").getId();
+        userProfileService.changePassword(userId, request);
+        return ApiResponse.of(HttpStatus.OK, "Password changed successfully.", null);
     }
 
     @PostMapping("/me/telegram/link-code")
@@ -62,22 +95,34 @@ public class UserController {
     }
 
     @PostMapping(value = "/me/avatar", consumes = "multipart/form-data")
-    public ApiResponse<UserResponse> uploadAvatar(
+    public ApiResponse<Object> uploadAvatar(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetails principal) {
-        UUID userId = requireCustomUser(principal).getId();
-        return ApiResponse.of(HttpStatus.OK, "Avatar uploaded successfully.", userProfileService.uploadAvatar(userId, file));
+        Object updated = principal instanceof CustomUserDetails customUserDetails
+                ? userProfileService.uploadAvatar(customUserDetails.getId(), file)
+                : superAdminProfileService.uploadAvatar(file, principal.getUsername());
+        return ApiResponse.of(HttpStatus.OK, "Avatar uploaded successfully.", updated);
     }
 
     @DeleteMapping("/me/avatar")
-    public ApiResponse<UserResponse> removeAvatar(@AuthenticationPrincipal UserDetails principal) {
-        UUID userId = requireCustomUser(principal).getId();
-        return ApiResponse.of(HttpStatus.OK, "Avatar removed successfully.", userProfileService.removeAvatar(userId));
+    public ApiResponse<Object> removeAvatar(@AuthenticationPrincipal UserDetails principal) {
+        Object updated = principal instanceof CustomUserDetails customUserDetails
+                ? userProfileService.removeAvatar(customUserDetails.getId())
+                : superAdminProfileService.removeAvatar(principal.getUsername());
+        return ApiResponse.of(HttpStatus.OK, "Avatar removed successfully.", updated);
     }
 
     private CustomUserDetails requireCustomUser(UserDetails principal) {
+        return requireCustomUser(principal, "Super admin does not have an avatar");
+    }
+
+    /**
+     * The super admin has no {@code User} row at all (see {@link SuperAdminUserDetails}), so
+     * every self-service write here has to turn it away with a reason the UI can show.
+     */
+    private CustomUserDetails requireCustomUser(UserDetails principal, String message) {
         if (!(principal instanceof CustomUserDetails customUserDetails)) {
-            throw new InvalidOperationException("Super admin does not have an avatar");
+            throw new InvalidOperationException(message);
         }
         return customUserDetails;
     }
