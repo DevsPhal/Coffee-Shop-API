@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.category.dto.response;
 
+import org.group1.coffeeshopapi.common.enums.CategoryGroup;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.Status;
 
@@ -11,6 +12,7 @@ public record CategoryResponse(
         String name,
         String description,
         Status status,
+        CategoryGroup categoryGroup,
         UUID createdBy,
         String createdByName,
         Role createdByRole,

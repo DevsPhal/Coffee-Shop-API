@@ -10,6 +10,7 @@ import org.group1.coffeeshopapi.auth.service.AuthService;
 import org.group1.coffeeshopapi.auth.service.OtpService;
 import org.group1.coffeeshopapi.auth.service.TokenService;
 import org.group1.coffeeshopapi.common.enums.OtpPurpose;
+import org.group1.coffeeshopapi.common.enums.RegisterType;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
@@ -18,7 +19,10 @@ import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.common.util.JwtUtil;
+import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
+import org.group1.coffeeshopapi.telegram.util.TelegramAccountUtil;
+import org.group1.coffeeshopapi.telegram.util.TelegramWidgetAuthVerifier;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
@@ -49,10 +53,16 @@ public class AuthServiceImpl implements AuthService {
     private final SuperAdminProperties superAdminProperties;
     private final AuthUserSyncService authUserSyncService;
     private final TelegramLinkService telegramLinkService;
+    private final TelegramProperties telegramProperties;
 
     @Override
     @Transactional
     public void register(RegisterRequest request) {
+        Customer customer = createPendingCustomer(request);
+        otpService.generateAndSend(customer.getEmail(), customer.getFullName(), OtpPurpose.REGISTER);
+    }
+
+    private Customer createPendingCustomer(RegisterRequest request) {
         String email = request.email().toLowerCase();
         if (superAdminProperties.matches(email)) {
             throw new DuplicateResourceException("This email is reserved");
@@ -68,27 +78,31 @@ public class AuthServiceImpl implements AuthService {
         customer.setPhoneNumber(request.phoneNumber());
         customer.setGender(request.gender());
         customer.setStatus(UserStatus.PENDING_VERIFICATION);
+        customer.setRegisterType(RegisterType.EMAIL);
         customerRepository.saveAndFlush(customer);
         authUserSyncService.sync(customer);
-
-        otpService.generateAndSend(email, customer.getFullName(), OtpPurpose.REGISTER);
+        return customer;
     }
 
     @Override
     @Transactional
     public void verifyRegistration(VerifyRegistrationRequest request) {
         String email = request.email().toLowerCase();
-        Customer customer = customerRepository.findByEmail(email)
+        // Customer-only: a staff account invited via Telegram (StaffServiceImpl
+        // #createViaTelegram) never has a real email to verify with — it goes
+        // PENDING_VERIFICATION -> ACTIVE via phone-number match instead, see
+        // TelegramLinkServiceImpl#verifyPendingContact.
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
 
-        if (customer.getStatus() == UserStatus.ACTIVE) {
+        if (user.getStatus() == UserStatus.ACTIVE) {
             throw new DuplicateResourceException("This account has already been verified");
         }
 
         otpService.verify(email, OtpPurpose.REGISTER, request.otp());
-        customer.setStatus(UserStatus.ACTIVE);
-        customerRepository.save(customer);
-        authUserSyncService.sync(customer);
+        user.setStatus(UserStatus.ACTIVE);
+        userRepository.save(user);
+        authUserSyncService.sync(user);
     }
 
     @Override
@@ -115,6 +129,50 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    @Transactional
+    public AuthTokenResponse loginViaTelegramWidget(TelegramWidgetAuthRequest request) {
+        if (!TelegramWidgetAuthVerifier.isFresh(request)) {
+            throw new InvalidCredentialsException("This Telegram login has expired — please try again");
+        }
+        if (!TelegramWidgetAuthVerifier.isValidSignature(request, telegramProperties.getBotToken())) {
+            throw new InvalidCredentialsException("Invalid Telegram login signature");
+        }
+
+        // Same value as User.telegramChatId for a private chat — Telegram's widget-signed user id
+        // and the bot's chat id are one and the same there, so this is already-linked-or-not
+        // exactly like every other Telegram flow in this app. Register-or-login: a signature that
+        // checks out is Telegram vouching for this identity, exactly as trustworthy as a staff
+        // invite's phone-number match (see StaffServiceImpl#buildInvitedStaff) — so an id nobody's
+        // seen before becomes a brand-new Customer instead of an error, active immediately with no
+        // email/password/OTP of its own. An existing staff/customer account (linked from its
+        // profile — see TelegramLinkService#generateLinkCode) just logs in as before.
+        User user = userRepository.findByTelegramChatId(String.valueOf(request.id()))
+                .orElseGet(() -> registerCustomerViaTelegram(request));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new InvalidCredentialsException("This account can't log in right now");
+        }
+        return issueTokens(user.getId(), user.getEmail(), user.getRole());
+    }
+
+    // Always Role.CUSTOMER: the widget payload carries no role of its own, and never should be
+    // trusted to grant one — ADMIN/BARISTA stay invite-only (StaffServiceImpl#createViaTelegram).
+    private Customer registerCustomerViaTelegram(TelegramWidgetAuthRequest request) {
+        Customer customer = new Customer();
+        customer.setFullName(request.lastName() != null
+                ? request.firstName() + " " + request.lastName()
+                : request.firstName());
+        customer.setEmail(TelegramAccountUtil.placeholderEmail());
+        customer.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        customer.setAvatarUrl(request.photoUrl());
+        customer.setStatus(UserStatus.ACTIVE);
+        customer.setRegisterType(RegisterType.TELEGRAM);
+        customer.setTelegramChatId(String.valueOf(request.id()));
+        customerRepository.saveAndFlush(customer);
+        authUserSyncService.sync(customer);
+        return customer;
+    }
+
+    @Override
     public AuthTokenResponse verifyLoginOtp(VerifyLoginOtpRequest request) {
         UUID userId = tokenService.consumeLoginTicket(request.loginTicket());
         User user = userRepository.findById(userId)
@@ -129,12 +187,22 @@ public class AuthServiceImpl implements AuthService {
         switch (request.purpose()) {
             case REGISTER -> {
                 String email = requireEmail(request);
-                Customer customer = customerRepository.findByEmail(email)
+                // Customer-only: a staff account invited via Telegram never registers an OTP here
+                // in the first place (see TelegramLinkServiceImpl#verifyPendingContact), and has
+                // no real email to look up by anyway.
+                User user = userRepository.findByEmail(email)
                         .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
-                if (customer.getStatus() == UserStatus.ACTIVE) {
+                if (user.getStatus() == UserStatus.ACTIVE) {
                     throw new DuplicateResourceException("This account has already been verified");
                 }
-                otpService.resend(email, customer.getFullName(), OtpPurpose.REGISTER);
+                // Already has a linked chat (registered/invited via Telegram, or linked it since)
+                // — keep resending there instead of switching back to email.
+                if (user.getTelegramChatId() != null) {
+                    otpService.resendViaTelegram(email, user.getFullName(), OtpPurpose.REGISTER,
+                            Long.parseLong(user.getTelegramChatId()));
+                } else {
+                    otpService.resend(email, user.getFullName(), OtpPurpose.REGISTER);
+                }
             }
             case LOGIN -> {
                 if (request.loginTicket() == null || request.loginTicket().isBlank()) {

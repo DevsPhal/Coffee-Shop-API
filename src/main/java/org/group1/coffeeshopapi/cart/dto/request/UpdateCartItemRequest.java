@@ -6,6 +6,7 @@ import org.group1.coffeeshopapi.common.enums.IceLevel;
 import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.SugarLevel;
 
+import java.util.List;
 import java.util.UUID;
 
 public record UpdateCartItemRequest(
@@ -19,6 +20,10 @@ public record UpdateCartItemRequest(
         UUID sizeOptionId,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
-        MilkType milkType
+        MilkType milkType,
+
+        // Extras (e.g. Pearl) to add — null means "leave unchanged", an empty list clears every
+        // extra off this item. Each id must be offered (and active) on the item's product.
+        List<UUID> extraIds
 ) {
 }

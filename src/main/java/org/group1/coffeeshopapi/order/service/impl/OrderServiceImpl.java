@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.order.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.bakong.BakongApiClient;
+import org.group1.coffeeshopapi.bakong.BakongExchangeRateService;
 import org.group1.coffeeshopapi.bakong.BakongQrService;
 import org.group1.coffeeshopapi.bakong.dto.BakongQrResult;
 import org.group1.coffeeshopapi.bakong.dto.BakongTransactionCheckResult;
@@ -13,7 +14,12 @@ import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.StockStrategy;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.properties.ShopLocationProperties;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
+import org.group1.coffeeshopapi.common.util.GeoUtil;
+import org.group1.coffeeshopapi.extra.entity.Extra;
+import org.group1.coffeeshopapi.extra.entity.ProductExtra;
+import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
@@ -25,6 +31,7 @@ import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.entity.Order;
 import org.group1.coffeeshopapi.order.entity.OrderAuditLog;
 import org.group1.coffeeshopapi.order.entity.OrderItem;
+import org.group1.coffeeshopapi.order.entity.OrderItemExtra;
 import org.group1.coffeeshopapi.order.mapper.OrderAuditLogMapper;
 import org.group1.coffeeshopapi.order.mapper.OrderMapper;
 import org.group1.coffeeshopapi.order.repository.OrderAuditLogRepository;
@@ -34,6 +41,9 @@ import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductSizeOptionRepository;
+import org.group1.coffeeshopapi.product.service.ProductExtraResolver;
+import org.group1.coffeeshopapi.product.service.ProductPriceResolver;
+import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoice;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoiceLineItem;
 import org.group1.coffeeshopapi.telegram.service.TelegramInvoiceService;
@@ -47,6 +57,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -63,16 +74,19 @@ public class OrderServiceImpl implements OrderService {
     private final OrderAuditLogRepository orderAuditLogRepository;
     private final ProductRepository productRepository;
     private final ProductSizeOptionRepository sizeOptionRepository;
+    private final ProductExtraRepository productExtraRepository;
     private final InventoryService inventoryService;
     private final OrderMapper orderMapper;
     private final OrderAuditLogMapper orderAuditLogMapper;
     private final BakongQrService bakongQrService;
     private final BakongApiClient bakongApiClient;
+    private final BakongExchangeRateService bakongExchangeRateService;
     private final TelegramInvoiceService telegramInvoiceService;
     private final CustomerRepository customerRepository;
     private final ActorLookupService actorLookupService;
+    private final ShopLocationProperties shopLocationProperties;
 
-    // ---------- Barista (POS) sales ----------
+    // ---------- Walk-in (POS) sales — barista or admin, ringing up their own sale ----------
 
     @Override
     @Transactional
@@ -158,13 +172,42 @@ public class OrderServiceImpl implements OrderService {
         return toResponsePage(orders);
     }
 
+    @Override
+    @Transactional
+    public OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId) {
+        Order order = requirePending(findAny(id));
+        if (!order.isDelivery()) {
+            throw new InvalidOperationException("This order has no pinned delivery location — it's a pickup order");
+        }
+        order.setDeliveryFee(fee);
+        recalculateTotal(order);
+        // A Bakong QR generated before the fee was evaluated encodes the pre-fee amount — discard
+        // it so a stale QR can't be paid against the wrong total; generateBakongQr must be called
+        // again to get one for the corrected total.
+        if (order.getBakongMd5Hash() != null) {
+            order.setBakongQrString(null);
+            order.setBakongMd5Hash(null);
+            order.setBakongCurrency(null);
+            order.setBakongAmount(null);
+        }
+        order = orderRepository.save(order);
+        logAudit(order, OrderAuditAction.DELIVERY_FEE_SET, actorId);
+        return toResponse(order);
+    }
+
     // ---------- Customer self-service orders ----------
 
     @Override
     @Transactional
-    public OrderResponse createForCustomer(CreateOrderRequest request, UUID customerId) {
+    public OrderResponse createForCustomer(CreateOrderRequest request, UUID customerId,
+            BigDecimal deliveryLatitude, BigDecimal deliveryLongitude) {
+        if ((deliveryLatitude == null) != (deliveryLongitude == null)) {
+            throw new InvalidOperationException("Delivery latitude and longitude must be given together");
+        }
         Order order = buildOrder(request);
         order.setCustomer(customerRef(customerId));
+        order.setDeliveryLatitude(deliveryLatitude);
+        order.setDeliveryLongitude(deliveryLongitude);
         order = orderRepository.save(order);
         logAudit(order, OrderAuditAction.CREATED, customerId);
         return toResponse(order);
@@ -271,7 +314,6 @@ public class OrderServiceImpl implements OrderService {
         Order order = new Order();
         order.setNote(request.note());
 
-        BigDecimal total = BigDecimal.ZERO;
         for (OrderItemRequest itemRequest : request.items()) {
             Product product = productRepository.findById(itemRequest.productId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + itemRequest.productId()));
@@ -279,17 +321,23 @@ public class OrderServiceImpl implements OrderService {
                 throw new InvalidOperationException("Product '" + product.getName() + "' is not available");
             }
 
-            ProductSizeOption sizeOption = null;
-            if (itemRequest.sizeOptionId() != null) {
-                sizeOption = sizeOptionRepository.findByIdAndProductId(itemRequest.sizeOptionId(), product.getId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Size option not found: " + itemRequest.sizeOptionId()));
-                if (sizeOption.getStatus() != Status.ACTIVE) {
-                    throw new InvalidOperationException("Size option '" + sizeOption.getName() + "' is not available");
-                }
+            ProductSizeOption explicitSizeOption = resolveExplicitSizeOption(product, itemRequest);
+
+            ProductVariantPolicy.validate(product, explicitSizeOption != null ? explicitSizeOption.getId() : null,
+                    itemRequest.sugarLevel(), itemRequest.iceLevel(), itemRequest.milkType());
+
+            ProductSizeOption sizeOption;
+            if (explicitSizeOption != null) {
+                sizeOption = explicitSizeOption;
+            } else {
+                List<ProductSizeOption> activeOptions = sizeOptionRepository
+                        .findByProductIdAndStatusOrderBySortOrderAscNameAsc(product.getId(), Status.ACTIVE);
+                sizeOption = ProductPriceResolver.resolveEffective(product, null, activeOptions);
             }
 
-            BigDecimal unitPrice = product.getFinalPrice(LocalDateTime.now())
-                    .add(sizeOption != null ? sizeOption.getPriceDelta() : BigDecimal.ZERO);
+            List<Extra> extras = resolveExtras(product, itemRequest.extraIds());
+            BigDecimal extrasTotal = extras.stream().map(Extra::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
+            BigDecimal unitPrice = product.getFinalPrice(sizeOption.getPrice(), LocalDateTime.now()).add(extrasTotal);
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(itemRequest.quantity()));
 
             OrderItem item = new OrderItem();
@@ -298,30 +346,99 @@ public class OrderServiceImpl implements OrderService {
             item.setQuantity(itemRequest.quantity());
             item.setUnitPrice(unitPrice);
             item.setSubtotal(subtotal);
-            item.setSizeOptionName(sizeOption != null ? sizeOption.getName() : null);
+            item.setSizeOption(sizeOption);
             item.setSugarLevel(itemRequest.sugarLevel());
             item.setIceLevel(itemRequest.iceLevel());
             item.setMilkType(itemRequest.milkType());
+            for (Extra extra : extras) {
+                OrderItemExtra orderItemExtra = new OrderItemExtra();
+                orderItemExtra.setExtra(extra);
+                orderItemExtra.setExtraName(extra.getName());
+                orderItemExtra.setExtraPrice(extra.getPrice());
+                item.addExtra(orderItemExtra);
+            }
             order.addItem(item);
-
-            total = total.add(subtotal);
         }
-        order.setTotalAmount(total);
+        recalculateTotal(order);
         return order;
     }
 
+    // Resolves whichever way the caller picked a size — sizeOptionId (already knows the option's
+    // UUID) or sizeOptionName (e.g. "Medium", matched case-insensitively — what a walk-up POS
+    // screen's button actually has, not a UUID; sizeOptionId wins if somehow both are given).
+    // Returns null if neither was given, meaning "let ProductPriceResolver auto-resolve it".
+    private ProductSizeOption resolveExplicitSizeOption(Product product, OrderItemRequest itemRequest) {
+        if (itemRequest.sizeOptionId() != null) {
+            return requireActiveSizeOption(sizeOptionRepository
+                    .findByIdAndProductId(itemRequest.sizeOptionId(), product.getId())
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Size option not found: " + itemRequest.sizeOptionId())));
+        }
+        if (itemRequest.sizeOptionName() != null && !itemRequest.sizeOptionName().isBlank()) {
+            String name = itemRequest.sizeOptionName().trim();
+            return requireActiveSizeOption(sizeOptionRepository
+                    .findByProductIdAndNameIgnoreCase(product.getId(), name)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Size option not found: '" + name + "' for '" + product.getName() + "'")));
+        }
+        return null;
+    }
+
+    private ProductSizeOption requireActiveSizeOption(ProductSizeOption sizeOption) {
+        if (sizeOption.getStatus() != Status.ACTIVE) {
+            throw new InvalidOperationException("Size option '" + sizeOption.getName() + "' is not available");
+        }
+        return sizeOption;
+    }
+
+    // Delegates the actual matching/validation to ProductExtraResolver (shared with
+    // CartServiceImpl) — this just supplies the product's currently active, attached extras.
+    private List<Extra> resolveExtras(Product product, List<UUID> extraIds) {
+        if (extraIds == null || extraIds.isEmpty()) {
+            return List.of();
+        }
+        List<ProductExtra> attached = productExtraRepository
+                .findByProductIdAndExtraIdInAndStatus(product.getId(), extraIds, Status.ACTIVE);
+        return ProductExtraResolver.resolve(product, extraIds, attached);
+    }
+
+    // Item subtotals plus delivery fee (if any) — the one place totalAmount gets computed, so a
+    // fresh order and a delivery fee set/revised later always agree on what it should be.
+    private void recalculateTotal(Order order) {
+        BigDecimal itemsTotal = order.getItems().stream()
+                .map(OrderItem::getSubtotal)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal deliveryFee = order.getDeliveryFee() != null ? order.getDeliveryFee() : BigDecimal.ZERO;
+        order.setTotalAmount(itemsTotal.add(deliveryFee));
+    }
+
     private Order chargeCash(Order order, CashPaymentRequest request, UUID fulfillingActorId) {
-        if (request.amountTendered().compareTo(order.getTotalAmount()) < 0) {
+        BigDecimal tenderedInUsd = request.currency() == Currency.KHR
+                ? khrToUsd(request.amountTendered())
+                : request.amountTendered();
+        if (tenderedInUsd.compareTo(order.getTotalAmount()) < 0) {
             throw new InvalidOperationException("Amount tendered is less than the order total");
         }
         order.setHandledBy(fulfillingActorId);
         order.setPaymentMethod(PaymentMethod.CASH);
         order.setAmountTendered(request.amountTendered());
-        order.setChangeDue(request.amountTendered().subtract(order.getTotalAmount()));
+        order.setAmountTenderedCurrency(request.currency());
+        order.setChangeDue(tenderedInUsd.subtract(order.getTotalAmount()));
         complete(order, fulfillingActorId);
         order = orderRepository.save(order);
         logAudit(order, OrderAuditAction.CASH_COLLECTED, fulfillingActorId);
         return order;
+    }
+
+    // Same conversion direction as BakongQrServiceImpl.toKhr, just inverted — prices/totals are
+    // always in USD, so KHR notes handed over as cash have to be converted back before they can
+    // be compared against the order total.
+    private BigDecimal khrToUsd(BigDecimal khrAmount) {
+        BigDecimal rate = bakongExchangeRateService.getCurrentRate();
+        if (rate == null || rate.signum() <= 0) {
+            throw new InvalidOperationException("USD-to-KHR exchange rate is not configured");
+        }
+        return khrAmount.divide(rate, 2, RoundingMode.HALF_UP);
     }
 
     private BakongQrResponse attachBakongQr(Order order, Currency currency) {
@@ -391,10 +508,11 @@ public class OrderServiceImpl implements OrderService {
 
     private OrderInvoice toInvoice(Order order) {
         List<OrderInvoiceLineItem> items = order.getItems().stream()
-                .map(item -> new OrderInvoiceLineItem(item.getProductName(), item.getQuantity(), item.getUnitPrice(), item.getSubtotal()))
+                .map(item -> new OrderInvoiceLineItem(item.getProductName(), item.getQuantity(), item.getUnitPrice(),
+                        item.getSubtotal(), item.getExtras().stream().map(OrderItemExtra::getExtraName).toList()))
                 .toList();
-        return new OrderInvoice(order.getId(), items, order.getTotalAmount(), order.getPaymentMethod(),
-                order.getBakongCurrency(), order.getBakongAmount(), order.getPaidAt());
+        return new OrderInvoice(order.getId(), items, order.getDeliveryFee(), order.getTotalAmount(),
+                order.getPaymentMethod(), order.getBakongCurrency(), order.getBakongAmount(), order.getPaidAt());
     }
 
     private Order requirePending(Order order) {
@@ -432,7 +550,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private OrderResponse toResponse(Order order) {
-        return orderMapper.toResponse(order, actorLookupService.resolve(order.getHandledBy()));
+        return orderMapper.toResponse(order, actorLookupService.resolve(order.getHandledBy()), distanceMeters(order));
     }
 
     private Page<OrderResponse> toResponsePage(Page<Order> orders) {
@@ -443,6 +561,14 @@ public class OrderServiceImpl implements OrderService {
             }
         }
         Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
-        return orders.map(order -> orderMapper.toResponse(order, actors.get(order.getHandledBy())));
+        return orders.map(order -> orderMapper.toResponse(order, actors.get(order.getHandledBy()), distanceMeters(order)));
+    }
+
+    private BigDecimal distanceMeters(Order order) {
+        if (!order.isDelivery() || !shopLocationProperties.isConfigured()) {
+            return null;
+        }
+        return GeoUtil.metersBetween(shopLocationProperties.getLatitude(), shopLocationProperties.getLongitude(),
+                order.getDeliveryLatitude(), order.getDeliveryLongitude());
     }
 }

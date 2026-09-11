@@ -34,7 +34,7 @@ public class ProductController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<ProductResponse>> create(@Valid @RequestBody CreateProductRequest request) {
-        ProductResponse product = productService.create(request, currentActor.id());
+        ProductResponse product = productService.create(request, currentActor.adminRef());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Product created successfully.", product));
     }
@@ -55,7 +55,7 @@ public class ProductController {
 
     @PatchMapping("/{id}")
     public ApiResponse<ProductResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateProductRequest request) {
-        return ApiResponse.of(HttpStatus.OK, "Product updated successfully.", productService.update(id, request, currentActor.id()));
+        return ApiResponse.of(HttpStatus.OK, "Product updated successfully.", productService.update(id, request, currentActor.adminRef()));
     }
 
     @DeleteMapping("/{id}")
@@ -68,32 +68,38 @@ public class ProductController {
     public ApiResponse<ProductResponse> setDiscount(
             @PathVariable UUID id, @Valid @RequestBody SetProductDiscountRequest request) {
         return ApiResponse.of(HttpStatus.OK, "Product discount set successfully.",
-                productService.setDiscount(id, request, currentActor.id()));
+                productService.setDiscount(id, request, currentActor.adminRef()));
     }
 
     @DeleteMapping("/{id}/discount")
     public ApiResponse<ProductResponse> clearDiscount(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Product discount cleared successfully.",
-                productService.clearDiscount(id, currentActor.id()));
+                productService.clearDiscount(id, currentActor.adminRef()));
     }
 
     @PostMapping(value = "/{id}/image", consumes = "multipart/form-data")
     public ApiResponse<ProductResponse> uploadImage(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
         return ApiResponse.of(HttpStatus.OK, "Product image uploaded successfully.",
-                productService.uploadImage(id, file, currentActor.id()));
+                productService.uploadImage(id, file, currentActor.adminRef()));
     }
 
     @DeleteMapping("/{id}/image")
     public ApiResponse<ProductResponse> removeImage(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Product image removed successfully.",
-                productService.removeImage(id, currentActor.id()));
+                productService.removeImage(id, currentActor.adminRef()));
     }
 
-    // Expected columns (row 1 = header, data from row 2): name, description, sku, unit, price,
-    // category name, reorder level (optional). Valid rows are created even if others fail.
+    // Expected columns (row 1 = header, data from row 2): name, description, sku, unit
+    // (stockUnit — PACK/BOX/CARTON/PIECE), price, category name, reorder level (optional), size
+    // options (optional — "name:price;name:price", e.g. "SMALL:1.25;MEDIUM:1.50;LARGE:1.75"; when
+    // given it replaces the single default MEDIUM size option price would otherwise seed, so
+    // price can be left blank), sell unit (optional — PLATE/BOTTLE/CAN/CUP/CARTON/PACKAGE/TANK/
+    // PIECE, defaults to CUP), units per stock (optional — how many sell units one stock unit
+    // yields, e.g. a CARTON of 24 CANs -> 24; defaults to 1). Valid rows are created even if
+    // others fail.
     @PostMapping(value = "/import", consumes = "multipart/form-data")
     public ApiResponse<ProductImportResponse> importExcel(@RequestParam("file") MultipartFile file) {
-        ProductImportResponse response = productService.importFromExcel(file, currentActor.id());
+        ProductImportResponse response = productService.importFromExcel(file, currentActor.adminRef());
         return ApiResponse.of(HttpStatus.OK, "Import completed.", response);
     }
 }

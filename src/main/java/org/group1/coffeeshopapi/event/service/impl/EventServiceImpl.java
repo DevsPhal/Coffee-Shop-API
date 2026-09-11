@@ -1,28 +1,28 @@
 package org.group1.coffeeshopapi.event.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.admin.entity.Admin;
+import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.storage.FileStorageService;
 import org.group1.coffeeshopapi.event.dto.request.CreateEventRequest;
 import org.group1.coffeeshopapi.event.dto.request.UpdateEventRequest;
+import org.group1.coffeeshopapi.event.dto.response.CustomerEventResponse;
 import org.group1.coffeeshopapi.event.dto.response.EventResponse;
 import org.group1.coffeeshopapi.event.entity.Event;
 import org.group1.coffeeshopapi.event.mapper.EventMapper;
 import org.group1.coffeeshopapi.event.repository.EventRepository;
 import org.group1.coffeeshopapi.event.service.EventService;
 import org.group1.coffeeshopapi.telegram.service.TelegramEventService;
-import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
-import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -34,12 +34,11 @@ public class EventServiceImpl implements EventService {
     private final EventRepository eventRepository;
     private final EventMapper eventMapper;
     private final FileStorageService fileStorageService;
-    private final ActorLookupService actorLookupService;
     private final TelegramEventService telegramEventService;
 
     @Override
     @Transactional
-    public EventResponse create(CreateEventRequest request, UUID createdBy) {
+    public EventResponse create(CreateEventRequest request, Admin actorAdmin) {
         if (!request.endAt().isAfter(request.startAt())) {
             throw new InvalidOperationException("Event end date must be after the start date");
         }
@@ -49,7 +48,7 @@ public class EventServiceImpl implements EventService {
         event.setDescription(request.description());
         event.setStartAt(request.startAt());
         event.setEndAt(request.endAt());
-        event.setCreatedBy(createdBy);
+        event.setCreatedByAdmin(actorAdmin);
         event = eventRepository.save(event);
 
         telegramEventService.announceNewEvent(event);
@@ -64,15 +63,8 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public Page<EventResponse> list(Pageable pageable) {
-        Page<Event> events = eventRepository.findAll(pageable);
-
-        Set<UUID> actorIds = new HashSet<>();
-        for (Event event : events) {
-            actorIds.add(event.getCreatedBy());
-        }
-        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
-
-        return events.map(event -> eventMapper.toResponse(event, actors.get(event.getCreatedBy())));
+        // createdByAdmin is batched by Hibernate itself — see Admin's @BatchSize.
+        return eventRepository.findAll(pageable).map(eventMapper::toResponse);
     }
 
     @Override
@@ -136,8 +128,25 @@ public class EventServiceImpl implements EventService {
         return toResponse(event);
     }
 
+    @Override
+    public List<CustomerEventResponse> listUpcoming() {
+        return eventRepository.findByStatusAndEndAtAfterOrderByStartAtAsc(Status.ACTIVE, LocalDateTime.now()).stream()
+                .map(eventMapper::toCustomerResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void expireEndedEvents() {
+        List<Event> ended = eventRepository.findByStatusAndEndAtBefore(Status.ACTIVE, LocalDateTime.now());
+        for (Event event : ended) {
+            event.setStatus(Status.INACTIVE);
+        }
+        eventRepository.saveAll(ended);
+    }
+
     private EventResponse toResponse(Event event) {
-        return eventMapper.toResponse(event, actorLookupService.resolve(event.getCreatedBy()));
+        return eventMapper.toResponse(event);
     }
 
     private Event findById(UUID id) {

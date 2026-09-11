@@ -10,7 +10,7 @@ import org.group1.coffeeshopapi.common.enums.Gender;
 
 public record CreateStaffRequest(
         @NotBlank(message = "Full name is required")
-        @Schema(example = "Sophal Nem")
+        @Schema(example = "Chanden Sok")
         String fullName,
 
         @NotBlank(message = "Email is required")

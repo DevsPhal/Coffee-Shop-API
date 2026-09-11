@@ -10,6 +10,6 @@ public interface InventoryMapper {
 
     @Mapping(target = "productId", source = "product.id")
     @Mapping(target = "productName", source = "product.name")
-    @Mapping(target = "unit", source = "product.unit")
+    @Mapping(target = "unit", source = "product.stockUnit")
     InventoryResponse toResponse(Inventory inventory);
 }

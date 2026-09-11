@@ -1,14 +1,21 @@
 package org.group1.coffeeshopapi.product.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.category.entity.Category;
 import org.group1.coffeeshopapi.category.repository.CategoryRepository;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.enums.DiscountType;
+import org.group1.coffeeshopapi.common.enums.SellUnit;
 import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.StockUnit;
 import org.group1.coffeeshopapi.common.storage.FileStorageService;
+import org.group1.coffeeshopapi.extra.dto.response.ProductExtraResponse;
+import org.group1.coffeeshopapi.extra.entity.ProductExtra;
+import org.group1.coffeeshopapi.extra.mapper.ProductExtraMapper;
+import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
 import org.apache.poi.ss.usermodel.DataFormatter;
@@ -30,8 +37,6 @@ import org.group1.coffeeshopapi.product.mapper.ProductSizeOptionMapper;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductSizeOptionRepository;
 import org.group1.coffeeshopapi.product.service.ProductService;
-import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
-import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -58,14 +63,15 @@ public class ProductServiceImpl implements ProductService {
     private final CategoryRepository categoryRepository;
     private final InventoryRepository inventoryRepository;
     private final ProductSizeOptionRepository sizeOptionRepository;
+    private final ProductExtraRepository productExtraRepository;
     private final ProductMapper productMapper;
     private final ProductSizeOptionMapper sizeOptionMapper;
+    private final ProductExtraMapper productExtraMapper;
     private final FileStorageService fileStorageService;
-    private final ActorLookupService actorLookupService;
 
     @Override
     @Transactional
-    public ProductResponse create(CreateProductRequest request, UUID actorId) {
+    public ProductResponse create(CreateProductRequest request, Admin actorAdmin) {
         if (productRepository.existsBySkuIgnoreCase(request.sku())) {
             throw new DuplicateResourceException("A product with this SKU already exists");
         }
@@ -75,11 +81,12 @@ public class ProductServiceImpl implements ProductService {
         product.setName(request.name());
         product.setDescription(request.description());
         product.setSku(request.sku());
-        product.setUnit(request.unit());
-        product.setPrice(request.price());
+        product.setStockUnit(request.stockUnit());
+        product.setSellUnit(request.sellUnit());
+        product.setUnitsPerStock(request.unitsPerStock() != null ? request.unitsPerStock() : BigDecimal.ONE);
         product.setCategory(category);
-        product.setCreatedBy(actorId);
-        product.setUpdatedBy(actorId);
+        product.setCreatedByAdmin(actorAdmin);
+        product.setUpdatedByAdmin(actorAdmin);
         product = productRepository.save(product);
 
         // Every product gets exactly one inventory record the moment it's created, so stock-in/
@@ -117,7 +124,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductResponse update(UUID id, UpdateProductRequest request, UUID actorId) {
+    public ProductResponse update(UUID id, UpdateProductRequest request, Admin actorAdmin) {
         Product product = findById(id);
 
         if (request.name() != null) {
@@ -126,11 +133,14 @@ public class ProductServiceImpl implements ProductService {
         if (request.description() != null) {
             product.setDescription(request.description());
         }
-        if (request.unit() != null) {
-            product.setUnit(request.unit());
+        if (request.stockUnit() != null) {
+            product.setStockUnit(request.stockUnit());
         }
-        if (request.price() != null) {
-            product.setPrice(request.price());
+        if (request.sellUnit() != null) {
+            product.setSellUnit(request.sellUnit());
+        }
+        if (request.unitsPerStock() != null) {
+            product.setUnitsPerStock(request.unitsPerStock());
         }
         if (request.categoryId() != null) {
             product.setCategory(findCategory(request.categoryId()));
@@ -138,7 +148,7 @@ public class ProductServiceImpl implements ProductService {
         if (request.status() != null) {
             product.setStatus(request.status());
         }
-        product.setUpdatedBy(actorId);
+        product.setUpdatedByAdmin(actorAdmin);
         product = productRepository.save(product);
 
         Inventory inventory = findInventory(product.getId());
@@ -164,7 +174,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductResponse setDiscount(UUID id, SetProductDiscountRequest request, UUID actorId) {
+    public ProductResponse setDiscount(UUID id, SetProductDiscountRequest request, Admin actorAdmin) {
         Product product = findById(id);
 
         if (request.discountType() == DiscountType.PERCENTAGE
@@ -180,7 +190,7 @@ public class ProductServiceImpl implements ProductService {
         product.setDiscountValue(request.discountValue());
         product.setDiscountStartAt(request.discountStartAt());
         product.setDiscountEndAt(request.discountEndAt());
-        product.setUpdatedBy(actorId);
+        product.setUpdatedByAdmin(actorAdmin);
         product = productRepository.save(product);
 
         return toResponse(product, findInventory(product.getId()));
@@ -188,13 +198,13 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductResponse clearDiscount(UUID id, UUID actorId) {
+    public ProductResponse clearDiscount(UUID id, Admin actorAdmin) {
         Product product = findById(id);
         product.setDiscountType(null);
         product.setDiscountValue(null);
         product.setDiscountStartAt(null);
         product.setDiscountEndAt(null);
-        product.setUpdatedBy(actorId);
+        product.setUpdatedByAdmin(actorAdmin);
         product = productRepository.save(product);
 
         return toResponse(product, findInventory(product.getId()));
@@ -202,12 +212,12 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductResponse uploadImage(UUID id, MultipartFile file, UUID actorId) {
+    public ProductResponse uploadImage(UUID id, MultipartFile file, Admin actorAdmin) {
         Product product = findById(id);
         String previousImageUrl = product.getImageUrl();
 
         product.setImageUrl(fileStorageService.uploadImage(file, IMAGE_FOLDER));
-        product.setUpdatedBy(actorId);
+        product.setUpdatedByAdmin(actorAdmin);
         product = productRepository.save(product);
 
         if (previousImageUrl != null) {
@@ -219,12 +229,12 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductResponse removeImage(UUID id, UUID actorId) {
+    public ProductResponse removeImage(UUID id, Admin actorAdmin) {
         Product product = findById(id);
         if (product.getImageUrl() != null) {
             fileStorageService.delete(product.getImageUrl());
             product.setImageUrl(null);
-            product.setUpdatedBy(actorId);
+            product.setUpdatedByAdmin(actorAdmin);
             product = productRepository.save(product);
         }
         return toResponse(product, findInventory(product.getId()));
@@ -232,7 +242,7 @@ public class ProductServiceImpl implements ProductService {
 
     @Override
     @Transactional
-    public ProductImportResponse importFromExcel(MultipartFile file, UUID actorId) {
+    public ProductImportResponse importFromExcel(MultipartFile file, Admin actorAdmin) {
         if (file == null || file.isEmpty()) {
             throw new InvalidOperationException("Excel file is required");
         }
@@ -246,7 +256,22 @@ public class ProductServiceImpl implements ProductService {
             Sheet sheet = workbook.getSheetAt(0);
             DataFormatter formatter = new DataFormatter();
 
-            // Row 0 is the header (name, description, sku, unit, price, category, reorderLevel).
+            // Row 0 is the header (name, description, sku, stockUnit, price, category,
+            // reorderLevel, sizeOptions, sellUnit, unitsPerStock). stockUnit must be one of
+            // StockUnit's names (PACK/BOX/CARTON/PIECE).
+            //
+            // sizeOptions (optional) lets one row seed more than the single default MEDIUM size
+            // (see parseSizeOptions): "SMALL:1.25;MEDIUM:1.50;LARGE:1.75". When given, it's the
+            // complete set of size options for the row — price is then optional/ignored, since
+            // each pair already carries its own price. When left blank, price is required and
+            // seeds a single "MEDIUM" size option, same as before this column existed.
+            //
+            // sellUnit (optional) must be one of SellUnit's names (PLATE/BOTTLE/CAN/CUP/CARTON/
+            // PACKAGE/TANK/PIECE) — defaults to CUP when blank, same default this column used to
+            // be hardcoded to (see db/add-product-sell-unit-columns.sql for the same default used
+            // when this column set was backfilled onto pre-existing rows). unitsPerStock
+            // (optional) is how many sellUnits one stockUnit yields, e.g. a CARTON of 24 CANs ->
+            // 24 — defaults to 1 when blank.
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
                 if (row == null || isRowEmpty(row, formatter)) {
@@ -258,21 +283,63 @@ public class ProductServiceImpl implements ProductService {
                 String name = formatter.formatCellValue(row.getCell(0)).trim();
                 String description = formatter.formatCellValue(row.getCell(1)).trim();
                 String sku = formatter.formatCellValue(row.getCell(2)).trim();
-                String unit = formatter.formatCellValue(row.getCell(3)).trim();
+                String unitText = formatter.formatCellValue(row.getCell(3)).trim();
                 String priceText = formatter.formatCellValue(row.getCell(4)).trim();
                 String categoryName = formatter.formatCellValue(row.getCell(5)).trim();
                 String reorderText = formatter.formatCellValue(row.getCell(6)).trim();
+                String sizeOptionsText = formatter.formatCellValue(row.getCell(7)).trim();
+                String sellUnitText = formatter.formatCellValue(row.getCell(8)).trim();
+                String unitsPerStockText = formatter.formatCellValue(row.getCell(9)).trim();
 
-                if (name.isBlank() || sku.isBlank() || unit.isBlank() || categoryName.isBlank()) {
+                if (name.isBlank() || sku.isBlank() || unitText.isBlank() || categoryName.isBlank()) {
                     errors.add(new ProductImportRowError(excelRowNumber, sku,
                             "name, sku, unit and category are required"));
                     continue;
                 }
 
-                BigDecimal price = parseDecimal(priceText);
-                if (price == null || price.signum() < 0) {
-                    errors.add(new ProductImportRowError(excelRowNumber, sku, "Invalid price: " + priceText));
+                StockUnit stockUnit;
+                try {
+                    stockUnit = StockUnit.valueOf(unitText.toUpperCase());
+                } catch (IllegalArgumentException e) {
+                    errors.add(new ProductImportRowError(excelRowNumber, sku, "Invalid unit: " + unitText));
                     continue;
+                }
+
+                SellUnit sellUnit = SellUnit.CUP;
+                if (!sellUnitText.isBlank()) {
+                    try {
+                        sellUnit = SellUnit.valueOf(sellUnitText.toUpperCase());
+                    } catch (IllegalArgumentException e) {
+                        errors.add(new ProductImportRowError(excelRowNumber, sku, "Invalid sell unit: " + sellUnitText));
+                        continue;
+                    }
+                }
+
+                BigDecimal unitsPerStock = BigDecimal.ONE;
+                if (!unitsPerStockText.isBlank()) {
+                    unitsPerStock = parseDecimal(unitsPerStockText);
+                    if (unitsPerStock == null || unitsPerStock.signum() <= 0) {
+                        errors.add(new ProductImportRowError(excelRowNumber, sku,
+                                "Invalid units per stock: " + unitsPerStockText));
+                        continue;
+                    }
+                }
+
+                List<ParsedSizeOption> sizeOptions;
+                if (!sizeOptionsText.isBlank()) {
+                    try {
+                        sizeOptions = parseSizeOptions(sizeOptionsText);
+                    } catch (IllegalArgumentException e) {
+                        errors.add(new ProductImportRowError(excelRowNumber, sku, e.getMessage()));
+                        continue;
+                    }
+                } else {
+                    BigDecimal price = parseDecimal(priceText);
+                    if (price == null || price.signum() < 0) {
+                        errors.add(new ProductImportRowError(excelRowNumber, sku, "Invalid price: " + priceText));
+                        continue;
+                    }
+                    sizeOptions = List.of(new ParsedSizeOption("MEDIUM", price));
                 }
 
                 BigDecimal reorderLevel = BigDecimal.ZERO;
@@ -306,12 +373,23 @@ public class ProductServiceImpl implements ProductService {
                 product.setName(name);
                 product.setDescription(description.isBlank() ? null : description);
                 product.setSku(sku);
-                product.setUnit(unit);
-                product.setPrice(price);
+                product.setStockUnit(stockUnit);
+                product.setSellUnit(sellUnit);
+                product.setUnitsPerStock(unitsPerStock);
                 product.setCategory(category);
-                product.setCreatedBy(actorId);
-                product.setUpdatedBy(actorId);
+                product.setCreatedByAdmin(actorAdmin);
+                product.setUpdatedByAdmin(actorAdmin);
                 product = productRepository.save(product);
+
+                for (int i = 0; i < sizeOptions.size(); i++) {
+                    ParsedSizeOption parsed = sizeOptions.get(i);
+                    ProductSizeOption sizeOption = new ProductSizeOption();
+                    sizeOption.setProduct(product);
+                    sizeOption.setName(parsed.name());
+                    sizeOption.setPrice(parsed.price());
+                    sizeOption.setSortOrder(i + 1);
+                    sizeOptionRepository.save(sizeOption);
+                }
 
                 Inventory inventory = new Inventory();
                 inventory.setProduct(product);
@@ -331,13 +409,48 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private boolean isRowEmpty(Row row, DataFormatter formatter) {
-        for (int cellIndex = 0; cellIndex < 7; cellIndex++) {
+        for (int cellIndex = 0; cellIndex < 10; cellIndex++) {
             String value = formatter.formatCellValue(row.getCell(cellIndex));
             if (value != null && !value.isBlank()) {
                 return false;
             }
         }
         return true;
+    }
+
+    private record ParsedSizeOption(String name, BigDecimal price) {
+    }
+
+    // "SMALL:1.25;MEDIUM:1.50;LARGE:1.75" -> one ProductSizeOption per "name:price" pair, in the
+    // order given (that order becomes each option's sortOrder — see the caller). Throws
+    // IllegalArgumentException with a row-error-ready message on anything malformed, so the
+    // caller can just surface it as a ProductImportRowError.
+    private List<ParsedSizeOption> parseSizeOptions(String text) {
+        List<ParsedSizeOption> parsed = new ArrayList<>();
+        Set<String> namesSeen = new HashSet<>();
+        for (String pair : text.split(";")) {
+            if (pair.isBlank()) {
+                continue;
+            }
+            String[] parts = pair.split(":", 2);
+            if (parts.length != 2) {
+                throw new IllegalArgumentException(
+                        "Invalid size options — expected \"name:price;name:price\", got: " + pair.trim());
+            }
+            String optionName = parts[0].trim();
+            BigDecimal optionPrice = parseDecimal(parts[1].trim());
+            if (optionName.isBlank() || optionPrice == null || optionPrice.signum() < 0) {
+                throw new IllegalArgumentException("Invalid size option: " + pair.trim());
+            }
+            if (!namesSeen.add(optionName.toUpperCase())) {
+                throw new IllegalArgumentException("Duplicate size option name: " + optionName);
+            }
+            parsed.add(new ParsedSizeOption(optionName, optionPrice));
+        }
+        if (parsed.isEmpty()) {
+            throw new IllegalArgumentException("Size options column is blank");
+        }
+        return parsed;
     }
 
     private BigDecimal parseDecimal(String text) {
@@ -368,24 +481,18 @@ public class ProductServiceImpl implements ProductService {
                 .findByProductIdOrderBySortOrderAscNameAsc(product.getId()).stream()
                 .map(sizeOptionMapper::toResponse)
                 .toList();
-        return productMapper.toResponse(product, inventory,
-                actorLookupService.resolve(product.getCreatedBy()),
-                actorLookupService.resolve(product.getUpdatedBy()),
-                sizeOptions);
+        List<ProductExtraResponse> extras = productExtraRepository
+                .findByProductIdOrderBySortOrderAscId(product.getId()).stream()
+                .map(productExtraMapper::toResponse)
+                .toList();
+        return productMapper.toResponse(product, inventory, sizeOptions, extras);
     }
 
-    // Batches the createdBy/updatedBy lookups and size options for a whole page instead of
-    // resolving each row individually, so listing N products costs a handful of extra queries
-    // instead of up to 3N.
+    // Batches size options/extras for a whole page instead of resolving each row individually.
+    // createdByAdmin/updatedByAdmin are batched too, but by Hibernate itself — see Admin's
+    // @BatchSize — rather than anything explicit here.
     private Page<ProductResponse> toResponsePage(Page<Product> products) {
-        Set<UUID> actorIds = new HashSet<>();
-        List<UUID> productIds = new ArrayList<>();
-        for (Product product : products) {
-            actorIds.add(product.getCreatedBy());
-            actorIds.add(product.getUpdatedBy());
-            productIds.add(product.getId());
-        }
-        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
+        List<UUID> productIds = products.stream().map(Product::getId).toList();
 
         Map<UUID, List<ProductSizeOptionResponse>> sizeOptionsByProduct = new HashMap<>();
         for (ProductSizeOption sizeOption : sizeOptionRepository
@@ -394,8 +501,15 @@ public class ProductServiceImpl implements ProductService {
                     .add(sizeOptionMapper.toResponse(sizeOption));
         }
 
+        Map<UUID, List<ProductExtraResponse>> extrasByProduct = new HashMap<>();
+        for (ProductExtra productExtra : productExtraRepository
+                .findByProductIdInAndStatusOrderBySortOrderAscId(productIds, Status.ACTIVE)) {
+            extrasByProduct.computeIfAbsent(productExtra.getProduct().getId(), id -> new ArrayList<>())
+                    .add(productExtraMapper.toResponse(productExtra));
+        }
+
         return products.map(product -> productMapper.toResponse(product, findInventory(product.getId()),
-                actors.get(product.getCreatedBy()), actors.get(product.getUpdatedBy()),
-                sizeOptionsByProduct.getOrDefault(product.getId(), List.of())));
+                sizeOptionsByProduct.getOrDefault(product.getId(), List.of()),
+                extrasByProduct.getOrDefault(product.getId(), List.of())));
     }
 }

@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.common.exception;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.common.response.ErrorResponse;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -21,6 +22,7 @@ import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.sql.SQLException;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -98,6 +100,34 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST,
                 "Malformed multipart request — make sure the request body is sent as multipart/form-data "
                         + "with a valid boundary (let your HTTP client set this header automatically)", request);
+    }
+
+    // Two distinct causes share this exception type: a unique-constraint hit on create/update
+    // (e.g. registering with a phone number already in use) vs. a delete blocked by a foreign key
+    // (e.g. a product still has size options, stock history, or order items). The SQLState tells
+    // them apart (23505 vs. everything else) so the client gets a message that actually matches
+    // what happened instead of always describing a blocked delete.
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex,
+                                                                       HttpServletRequest request) {
+        if ("23505".equals(sqlState(ex))) {
+            return build(HttpStatus.CONFLICT,
+                    "This information conflicts with an existing record — check for a duplicate value "
+                            + "(e.g. email or phone number)",
+                    request);
+        }
+        return build(HttpStatus.CONFLICT,
+                "This record can't be deleted because other data still refers to it — deactivate it instead",
+                request);
+    }
+
+    private String sqlState(Throwable ex) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sqlException) {
+                return sqlException.getSQLState();
+            }
+        }
+        return null;
     }
 
     @ExceptionHandler(Exception.class)

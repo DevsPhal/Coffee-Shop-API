@@ -13,6 +13,8 @@ import java.util.UUID;
 
 @Getter
 public class CustomUserDetails implements UserDetails {
+    private static final long serialVersionUID = 1L;
+
     private final User user;
 
     public CustomUserDetails(User user) {

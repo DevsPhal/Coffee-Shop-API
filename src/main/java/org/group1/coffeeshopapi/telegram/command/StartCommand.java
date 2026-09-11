@@ -33,7 +33,7 @@ public class StartCommand implements TelegramCommand {
 
         // No code given — behavior depends entirely on whether this chat is already linked.
         if (argument == null || argument.isBlank()) {
-            return telegramLinkService.linkedCustomerName(chatId)
+            return telegramLinkService.linkedUserName(chatId)
                     .map(this::welcomeBack)
                     .orElse(WELCOME_NOT_LINKED);
         }

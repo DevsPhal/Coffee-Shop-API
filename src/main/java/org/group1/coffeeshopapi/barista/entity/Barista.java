@@ -2,14 +2,16 @@ package org.group1.coffeeshopapi.barista.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
+import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.user.entity.User;
-
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -21,9 +23,12 @@ import java.util.UUID;
 })
 public class Barista extends User {
 
-    // Which admin/super admin created this account — null for pre-existing rows.
-    @Column
-    private UUID createdBy;
+    // Which admin created this account — null both for pre-existing rows and for one created by
+    // the Super Admin, which deliberately has no row in "admins" to reference (see
+    // CurrentActor.adminRef()).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private Admin createdByAdmin;
 
     @Override
     public Role getRole() {

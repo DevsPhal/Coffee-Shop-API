@@ -11,6 +11,12 @@ import java.util.UUID;
 public record OrderInvoice(
         UUID orderId,
         List<OrderInvoiceLineItem> items,
+
+        // Null for a walk-in/pickup order; set for a delivery order — shown as its own line
+        // alongside the items subtotal so totalAmount (which already includes it) never looks
+        // like it doesn't add up to what's itemized above it.
+        BigDecimal deliveryFee,
+
         BigDecimal totalAmount,
         PaymentMethod paymentMethod,
 

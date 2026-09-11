@@ -5,6 +5,7 @@ import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.SugarLevel;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 public record OrderItemResponse(
@@ -17,6 +18,8 @@ public record OrderItemResponse(
         String sizeOptionName,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
-        MilkType milkType
+        MilkType milkType,
+        // Extras (e.g. Pearl) added to this line — unitPrice/subtotal already include their price.
+        List<OrderItemExtraResponse> extras
 ) {
 }

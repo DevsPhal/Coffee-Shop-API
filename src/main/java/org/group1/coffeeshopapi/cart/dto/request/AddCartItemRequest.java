@@ -6,6 +6,7 @@ import org.group1.coffeeshopapi.common.enums.IceLevel;
 import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.SugarLevel;
 
+import java.util.List;
 import java.util.UUID;
 
 public record AddCartItemRequest(
@@ -20,6 +21,10 @@ public record AddCartItemRequest(
         UUID sizeOptionId,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
-        MilkType milkType
+        MilkType milkType,
+
+        // Extras (e.g. Pearl) to add — each must be offered (and active) on productId, see
+        // ProductExtra. Null/empty means none.
+        List<UUID> extraIds
 ) {
 }

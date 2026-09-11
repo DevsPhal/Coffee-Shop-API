@@ -13,6 +13,7 @@ public class SecurityConstants {
     public static final String[] PUBLIC_ENDPOINTS = {
             "/api/auth/**",
             "/api/banners/**",
+            "/api/events/**",
             TELEGRAM_WEBHOOK_PATH,
             "/swagger-ui.html",
             "/swagger-ui/**",
@@ -21,6 +22,9 @@ public class SecurityConstants {
             "/login",
             "/verify",
             "/css/**",
-            "/js/**"
+            "/js/**",
+            // Manual Telegram Login Widget test page (src/main/resources/static) — served at the
+            // root context path like any other static resource, not under /css or /js above.
+            "/telegramWidget.html"
     };
 }
