@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.user.dto.request.UpdateUserStatusRequest;
+import org.group1.coffeeshopapi.user.dto.request.UpdateProfileRequest;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
@@ -20,7 +21,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/admin/users")
 @RequiredArgsConstructor
-@Tag(name = "User Admin", description = "Super admin only: view accounts across every role")
+@Tag(name = "User Admin", description = "Super admin only: view, update and delete stored accounts across every role")
 @SecurityRequirement(name = "bearerAuth")
 public class UserAdminController {
 
@@ -38,6 +39,18 @@ public class UserAdminController {
     @GetMapping("/{id}")
     public ApiResponse<UserResponse> getById(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, userAdminService.getById(id));
+    }
+
+    @PatchMapping("/{id}")
+    public ApiResponse<UserResponse> update(
+            @PathVariable UUID id, @Valid @RequestBody UpdateProfileRequest request) {
+        return ApiResponse.of(HttpStatus.OK, "Account updated successfully.", userAdminService.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable UUID id) {
+        userAdminService.delete(id);
+        return ApiResponse.of(HttpStatus.OK, "Account deleted successfully.", null);
     }
 
     // Moderation action across any role — e.g. suspending/banning a customer, or soft-deleting

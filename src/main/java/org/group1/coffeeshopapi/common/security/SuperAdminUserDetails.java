@@ -63,6 +63,10 @@ public class SuperAdminUserDetails implements UserDetails {
         return true;
     }
 
+    /**
+     * The bare, configuration-only view. Callers that can reach the database should prefer
+     * {@code SuperAdminProfileService.describe(email)}, which layers the editable profile on top.
+     */
     public SuperAdminResponse toResponse() {
         return SuperAdminResponse.builder()
                 .id(ID)

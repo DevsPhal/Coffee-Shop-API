@@ -175,6 +175,9 @@ public class CartServiceImpl implements CartService {
     }
 
     private ProductSizeOption resolveSizeOption(UUID productId, UUID sizeOptionId) {
+        if (sizeOptionId == null) {
+            return null;
+        }
         ProductSizeOption sizeOption = sizeOptionRepository.findByIdAndProductId(sizeOptionId, productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Size option not found: " + sizeOptionId));
         if (sizeOption.getStatus() != Status.ACTIVE) {

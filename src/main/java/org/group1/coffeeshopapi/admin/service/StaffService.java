@@ -8,6 +8,7 @@ import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -40,5 +41,6 @@ public interface StaffService {
     UserResponse getById(UUID id, Role role);
     Page<UserResponse> list(Role role, Pageable pageable);
     UserResponse update(UUID id, UpdateStaffRequest request, Role role);
+    UserResponse uploadAvatar(UUID id, MultipartFile file, Role role);
     void delete(UUID id, Role role);
 }

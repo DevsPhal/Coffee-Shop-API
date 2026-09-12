@@ -65,10 +65,18 @@ public class AuthServiceImpl implements AuthService {
     private Customer createPendingCustomer(RegisterRequest request) {
         String email = request.email().toLowerCase();
         if (superAdminProperties.matches(email)) {
-            throw new DuplicateResourceException("This email is reserved");
+            throw new DuplicateResourceException(
+                    "This email is reserved for the administrator. Use a different email for a customer account.");
         }
         if (userRepository.existsByEmail(email)) {
             throw new DuplicateResourceException("An account with this email already exists");
+        }
+        // Phone numbers are unique too (uk_customers_phone_number). Without this check the
+        // insert below fails on the constraint and the caller gets an opaque 500 instead of
+        // being told which field to change.
+        if (request.phoneNumber() != null && !request.phoneNumber().isBlank()
+                && customerRepository.existsByPhoneNumber(request.phoneNumber())) {
+            throw new DuplicateResourceException("An account with this phone number already exists");
         }
 
         Customer customer = new Customer();

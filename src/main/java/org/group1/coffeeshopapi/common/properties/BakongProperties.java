@@ -10,9 +10,11 @@ import java.math.BigDecimal;
 
 /**
  * Config for generating Individual Bakong KHQR codes and checking payment status against the
- * Bakong Open API. {@code token} is a long-lived access token obtained once from NBC's developer
- * portal (registered by email) and stored as a static secret — simpler than the request/renew
- * token flow, and matches how a single-merchant shop is expected to integrate.
+ * Bakong Open API. {@code token} is the access token NBC issues to a registered {@code email},
+ * and it is only valid for about 90 days. Keeping the {@code email} alongside it lets
+ * {@code BakongTokenService} call {@code /v1/renew_token} and recover on its own the first time
+ * the API answers 401, instead of every payment confirmation quietly failing until someone
+ * notices and pastes in a new token by hand.
  * <p>
  * {@code currency} is only the fallback used when a QR is requested without an explicit currency.
  * Bakong KHQR itself supports both {@link Currency#USD} and {@link Currency#KHR} per transaction,
@@ -31,6 +33,8 @@ import java.math.BigDecimal;
 public class BakongProperties {
     private String baseUrl;
     private String token;
+    /** The address the token was registered to; required only for automatic renewal. */
+    private String email;
 
     private String accountId;
     private String accountInformation;
