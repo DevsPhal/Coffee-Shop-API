@@ -37,7 +37,7 @@ public class ProductSizeOptionServiceImpl implements ProductSizeOptionService {
         ProductSizeOption sizeOption = new ProductSizeOption();
         sizeOption.setProduct(product);
         sizeOption.setName(request.name());
-        sizeOption.setPriceDelta(request.priceDelta());
+        sizeOption.setPrice(request.price());
         sizeOption.setSortOrder(request.sortOrder());
 
         return sizeOptionMapper.toResponse(sizeOptionRepository.save(sizeOption));
@@ -63,8 +63,8 @@ public class ProductSizeOptionServiceImpl implements ProductSizeOptionService {
             }
             sizeOption.setName(request.name());
         }
-        if (request.priceDelta() != null) {
-            sizeOption.setPriceDelta(request.priceDelta());
+        if (request.price() != null) {
+            sizeOption.setPrice(request.price());
         }
         if (request.sortOrder() != null) {
             sizeOption.setSortOrder(request.sortOrder());

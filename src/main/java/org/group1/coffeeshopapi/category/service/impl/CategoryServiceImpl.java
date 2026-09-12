@@ -1,27 +1,26 @@
 package org.group1.coffeeshopapi.category.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.category.dto.request.CreateCategoryRequest;
 import org.group1.coffeeshopapi.category.dto.request.UpdateCategoryRequest;
 import org.group1.coffeeshopapi.category.dto.response.CategoryResponse;
+import org.group1.coffeeshopapi.category.dto.response.CustomerCategoryResponse;
 import org.group1.coffeeshopapi.category.entity.Category;
 import org.group1.coffeeshopapi.category.mapper.CategoryMapper;
 import org.group1.coffeeshopapi.category.repository.CategoryRepository;
 import org.group1.coffeeshopapi.category.service.CategoryService;
+import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
-import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
-import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -31,19 +30,19 @@ public class CategoryServiceImpl implements CategoryService {
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
     private final CategoryMapper categoryMapper;
-    private final ActorLookupService actorLookupService;
 
     @Override
     @Transactional
-    public CategoryResponse create(CreateCategoryRequest request, UUID actorId) {
+    public CategoryResponse create(CreateCategoryRequest request, Admin actorAdmin) {
         if (categoryRepository.existsByNameIgnoreCase(request.name())) {
             throw new DuplicateResourceException("A category with this name already exists");
         }
         Category category = new Category();
         category.setName(request.name());
         category.setDescription(request.description());
-        category.setCreatedBy(actorId);
-        category.setUpdatedBy(actorId);
+        category.setCategoryGroup(request.categoryGroup());
+        category.setCreatedByAdmin(actorAdmin);
+        category.setUpdatedByAdmin(actorAdmin);
         return toResponse(categoryRepository.save(category));
     }
 
@@ -54,22 +53,13 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public Page<CategoryResponse> list(Pageable pageable) {
-        Page<Category> categories = categoryRepository.findAll(pageable);
-
-        Set<UUID> actorIds = new HashSet<>();
-        for (Category category : categories) {
-            actorIds.add(category.getCreatedBy());
-            actorIds.add(category.getUpdatedBy());
-        }
-        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
-
-        return categories.map(category -> categoryMapper.toResponse(category,
-                actors.get(category.getCreatedBy()), actors.get(category.getUpdatedBy())));
+        // createdByAdmin/updatedByAdmin are batched by Hibernate itself — see Admin's @BatchSize.
+        return categoryRepository.findAll(pageable).map(categoryMapper::toResponse);
     }
 
     @Override
     @Transactional
-    public CategoryResponse update(UUID id, UpdateCategoryRequest request, UUID actorId) {
+    public CategoryResponse update(UUID id, UpdateCategoryRequest request, Admin actorAdmin) {
         Category category = findById(id);
 
         if (request.name() != null) {
@@ -84,7 +74,10 @@ public class CategoryServiceImpl implements CategoryService {
         if (request.status() != null) {
             category.setStatus(request.status());
         }
-        category.setUpdatedBy(actorId);
+        if (request.categoryGroup() != null) {
+            category.setCategoryGroup(request.categoryGroup());
+        }
+        category.setUpdatedByAdmin(actorAdmin);
 
         return toResponse(categoryRepository.save(category));
     }
@@ -99,10 +92,15 @@ public class CategoryServiceImpl implements CategoryService {
         categoryRepository.delete(category);
     }
 
+    @Override
+    public List<CustomerCategoryResponse> listActive() {
+        return categoryRepository.findByStatusOrderByNameAsc(Status.ACTIVE).stream()
+                .map(category -> categoryMapper.toCustomerResponse(toResponse(category)))
+                .toList();
+    }
+
     private CategoryResponse toResponse(Category category) {
-        return categoryMapper.toResponse(category,
-                actorLookupService.resolve(category.getCreatedBy()),
-                actorLookupService.resolve(category.getUpdatedBy()));
+        return categoryMapper.toResponse(category);
     }
 
     private Category findById(UUID id) {

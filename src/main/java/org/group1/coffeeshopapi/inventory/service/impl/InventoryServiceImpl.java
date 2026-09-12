@@ -1,6 +1,11 @@
 package org.group1.coffeeshopapi.inventory.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import org.apache.poi.ss.usermodel.DataFormatter;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
@@ -8,9 +13,12 @@ import org.group1.coffeeshopapi.inventory.dto.request.StockInRequest;
 import org.group1.coffeeshopapi.inventory.dto.response.BatchConsumptionResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.InventoryResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.StockCutResponse;
+import org.group1.coffeeshopapi.inventory.dto.response.StockInImportResponse;
+import org.group1.coffeeshopapi.inventory.dto.response.StockInImportRowError;
 import org.group1.coffeeshopapi.inventory.dto.response.StockMovementResponse;
 import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.inventory.entity.StockBatch;
+import org.group1.coffeeshopapi.inventory.entity.StockExpense;
 import org.group1.coffeeshopapi.inventory.entity.StockMovement;
 import org.group1.coffeeshopapi.common.enums.StockMovementType;
 import org.group1.coffeeshopapi.common.enums.StockStrategy;
@@ -18,17 +26,22 @@ import org.group1.coffeeshopapi.inventory.mapper.InventoryMapper;
 import org.group1.coffeeshopapi.inventory.mapper.StockMovementMapper;
 import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
 import org.group1.coffeeshopapi.inventory.repository.StockBatchRepository;
+import org.group1.coffeeshopapi.inventory.repository.StockExpenseRepository;
 import org.group1.coffeeshopapi.inventory.repository.StockMovementRepository;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.product.entity.Product;
+import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
 import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -44,6 +57,8 @@ public class InventoryServiceImpl implements InventoryService {
     private final InventoryRepository inventoryRepository;
     private final StockBatchRepository stockBatchRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final StockExpenseRepository stockExpenseRepository;
+    private final ProductRepository productRepository;
     private final InventoryMapper inventoryMapper;
     private final StockMovementMapper stockMovementMapper;
     private final ActorLookupService actorLookupService;
@@ -87,7 +102,109 @@ public class InventoryServiceImpl implements InventoryService {
         movement.setPerformedBy(performedBy);
         stockMovementRepository.save(movement);
 
+        recordStockPurchaseExpense(product, movement, request.quantity(), request.unitCost());
+
         return toResponse(movement);
+    }
+
+    // The "money out" side of a stock-in — every purchase becomes a StockExpense row so admin
+    // reporting (see ReportServiceImpl's monthly expense export) never has to re-derive spend from
+    // stock movements/batches by hand.
+    private void recordStockPurchaseExpense(Product product, StockMovement movement, BigDecimal quantity, BigDecimal unitCost) {
+        StockExpense expense = new StockExpense();
+        expense.setProduct(product);
+        expense.setStockMovement(movement);
+        expense.setQuantity(quantity);
+        expense.setUnitCost(unitCost);
+        expense.setAmount(quantity.multiply(unitCost));
+        expense.setExpenseDate(LocalDate.now());
+        stockExpenseRepository.save(expense);
+    }
+
+    @Override
+    @Transactional
+    public StockInImportResponse stockInFromExcel(MultipartFile file, UUID performedBy) {
+        if (file == null || file.isEmpty()) {
+            throw new InvalidOperationException("Excel file is required");
+        }
+
+        List<StockInImportRowError> errors = new ArrayList<>();
+        int totalRows = 0;
+        int created = 0;
+
+        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
+            DataFormatter formatter = new DataFormatter();
+
+            // Row 0 is the header (sku, quantity, unitCost, note). Each valid row runs through
+            // stockIn(...) exactly like one manual receipt — same new StockBatch, StockMovement
+            // and StockExpense side effects (see stockIn/recordStockPurchaseExpense above) — so a
+            // delivery invoice covering many products becomes one file instead of one form
+            // submission per line. Valid rows are recorded even if others fail.
+            for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
+                Row row = sheet.getRow(rowIndex);
+                if (row == null || isStockInRowEmpty(row, formatter)) {
+                    continue;
+                }
+                totalRows++;
+                int excelRowNumber = rowIndex + 1;
+
+                String sku = formatter.formatCellValue(row.getCell(0)).trim();
+                String quantityText = formatter.formatCellValue(row.getCell(1)).trim();
+                String unitCostText = formatter.formatCellValue(row.getCell(2)).trim();
+                String note = formatter.formatCellValue(row.getCell(3)).trim();
+
+                if (sku.isBlank()) {
+                    errors.add(new StockInImportRowError(excelRowNumber, sku, "sku is required"));
+                    continue;
+                }
+
+                Product product = productRepository.findBySkuIgnoreCase(sku).orElse(null);
+                if (product == null) {
+                    errors.add(new StockInImportRowError(excelRowNumber, sku, "Product not found for SKU: " + sku));
+                    continue;
+                }
+
+                BigDecimal quantity = parseDecimal(quantityText);
+                if (quantity == null || quantity.signum() <= 0) {
+                    errors.add(new StockInImportRowError(excelRowNumber, sku, "Invalid quantity: " + quantityText));
+                    continue;
+                }
+
+                BigDecimal unitCost = parseDecimal(unitCostText);
+                if (unitCost == null || unitCost.signum() < 0) {
+                    errors.add(new StockInImportRowError(excelRowNumber, sku, "Invalid unit cost: " + unitCostText));
+                    continue;
+                }
+
+                stockIn(new StockInRequest(product.getId(), quantity, unitCost, note.isBlank() ? null : note), performedBy);
+                created++;
+            }
+        } catch (IOException e) {
+            throw new InvalidOperationException("Unable to read Excel file: " + e.getMessage());
+        } catch (Exception e) {
+            throw new InvalidOperationException("Invalid Excel file: " + e.getMessage());
+        }
+
+        return new StockInImportResponse(totalRows, created, errors.size(), errors);
+    }
+
+    private boolean isStockInRowEmpty(Row row, DataFormatter formatter) {
+        for (int cellIndex = 0; cellIndex < 4; cellIndex++) {
+            String value = formatter.formatCellValue(row.getCell(cellIndex));
+            if (value != null && !value.isBlank()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private BigDecimal parseDecimal(String text) {
+        try {
+            return new BigDecimal(text);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @Override

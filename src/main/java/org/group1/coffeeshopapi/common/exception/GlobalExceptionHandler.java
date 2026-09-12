@@ -1,7 +1,5 @@
 package org.group1.coffeeshopapi.common.exception;
 
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.exc.InvalidFormatException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.common.response.ErrorResponse;
@@ -22,12 +20,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MultipartException;
 import org.springframework.web.multipart.support.MissingServletRequestPartException;
-
-import java.util.Arrays;
-import java.util.Objects;
-import java.util.stream.Collectors;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
+import java.sql.SQLException;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -78,27 +73,8 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
-    public ResponseEntity<ErrorResponse> handleMalformedBody(HttpMessageNotReadableException ex,
-                                                             HttpServletRequest request) {
-        if (ex.getCause() instanceof InvalidFormatException cause) {
-            String field = cause.getPath().stream()
-                    .map(JsonMappingException.Reference::getFieldName)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.joining("."));
-            String message = "Invalid value " + formatValue(cause.getValue())
-                    + (field.isEmpty() ? "" : " for '" + field + "'");
-            Class<?> type = cause.getTargetType();
-            if (type != null && type.isEnum()) {
-                message += ". Accepted values: " + Arrays.stream(type.getEnumConstants())
-                        .map(String::valueOf).collect(Collectors.joining(", "));
-            }
-            return build(HttpStatus.BAD_REQUEST, message, request);
-        }
+    public ResponseEntity<ErrorResponse> handleMalformedBody(HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, "Malformed or missing request body", request);
-    }
-
-    private static String formatValue(Object value) {
-        return value == null ? "null" : "'" + value + "'";
     }
 
     @ExceptionHandler(MissingServletRequestParameterException.class)
@@ -126,16 +102,32 @@ public class GlobalExceptionHandler {
                         + "with a valid boundary (let your HTTP client set this header automatically)", request);
     }
 
-    // Safety net for a unique/foreign-key constraint a service forgot to check up front. The
-    // services that do check still return their own specific message; this only stops an
-    // unchecked one from surfacing as a bare 500.
+    // Two distinct causes share this exception type: a unique-constraint hit on create/update
+    // (e.g. registering with a phone number already in use) vs. a delete blocked by a foreign key
+    // (e.g. a product still has size options, stock history, or order items). The SQLState tells
+    // them apart (23505 vs. everything else) so the client gets a message that actually matches
+    // what happened instead of always describing a blocked delete.
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex,
-                                                                      HttpServletRequest request) {
-        log.warn("Constraint violation on {} {}: {}", request.getMethod(), request.getRequestURI(),
-                ex.getMostSpecificCause().getMessage());
+                                                                       HttpServletRequest request) {
+        if ("23505".equals(sqlState(ex))) {
+            return build(HttpStatus.CONFLICT,
+                    "This information conflicts with an existing record — check for a duplicate value "
+                            + "(e.g. email or phone number)",
+                    request);
+        }
         return build(HttpStatus.CONFLICT,
-                "That change conflicts with an existing record. Check for a duplicate value and try again.", request);
+                "This record can't be deleted because other data still refers to it — deactivate it instead",
+                request);
+    }
+
+    private String sqlState(Throwable ex) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof SQLException sqlException) {
+                return sqlException.getSQLState();
+            }
+        }
+        return null;
     }
 
     @ExceptionHandler(Exception.class)

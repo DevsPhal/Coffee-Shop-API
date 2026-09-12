@@ -10,14 +10,16 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.category.entity.Category;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.DiscountType;
+import org.group1.coffeeshopapi.common.enums.SellUnit;
 import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.StockUnit;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -37,12 +39,24 @@ public class Product extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String sku;
 
-    // Unit of measure for stock quantities, e.g. "kg", "L", "pcs".
+    // Unit a stock batch is bought/counted in, e.g. a PACK or CARTON of the sell unit below.
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String unit;
+    private StockUnit stockUnit;
 
-    @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal price;
+    // Unit a single sale is rung up in, e.g. a CUP or PLATE — what the customer actually orders.
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private SellUnit sellUnit;
+
+    // How many sell units one stock unit yields, e.g. a CARTON of 24 CANs -> 24. Used to cut
+    // inventory by the right amount when an order sells sellUnit-denominated quantities.
+    @Column(nullable = false, precision = 12, scale = 3)
+    private BigDecimal unitsPerStock = BigDecimal.ONE;
+
+    // A product has no price of its own — every price comes from one of its ProductSizeOption
+    // rows (see ProductPriceResolver). Discount config below still lives here since it applies
+    // uniformly to whichever size option prices a given line.
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
@@ -66,13 +80,16 @@ public class Product extends BaseEntity {
     @Column
     private LocalDateTime discountEndAt;
 
-    // Which admin/super admin created or last modified this product — nullable so pre-existing
-    // rows (created before this tracking existed) don't need a backfill.
-    @Column
-    private UUID createdBy;
+    // Which admin created or last modified this product — null both for pre-existing rows (from
+    // before this tracking existed) and for a change made by the Super Admin, which deliberately
+    // has no row in "admins" to reference (see CurrentActor.adminRef()).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private Admin createdByAdmin;
 
-    @Column
-    private UUID updatedBy;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by")
+    private Admin updatedByAdmin;
 
     public boolean isDiscountActive(LocalDateTime at) {
         if (discountType == null || discountValue == null) {
@@ -84,14 +101,14 @@ public class Product extends BaseEntity {
         return discountEndAt == null || !at.isAfter(discountEndAt);
     }
 
-    public BigDecimal getFinalPrice(LocalDateTime at) {
+    public BigDecimal getFinalPrice(BigDecimal basePrice, LocalDateTime at) {
         if (!isDiscountActive(at)) {
-            return price;
+            return basePrice;
         }
         BigDecimal discounted = switch (discountType) {
-            case PERCENTAGE -> price.subtract(price.multiply(discountValue)
+            case PERCENTAGE -> basePrice.subtract(basePrice.multiply(discountValue)
                     .divide(BigDecimal.valueOf(100)));
-            case FIXED -> price.subtract(discountValue);
+            case FIXED -> basePrice.subtract(discountValue);
         };
         return discounted.max(BigDecimal.ZERO);
     }

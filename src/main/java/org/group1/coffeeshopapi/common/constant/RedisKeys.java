@@ -12,6 +12,9 @@ public class RedisKeys {
     public static final String JWT_DENYLIST_PREFIX = "jwt:denylist:";
     public static final String TELEGRAM_LINK_CODE_PREFIX = "tg:link:";
     public static final String TELEGRAM_EVENT_REMINDER_PREFIX = "tg:event-reminder:";
+    // chatId -> pending staff userId, set while a Telegram-invited staff member is being asked to
+    // share their contact so it can be matched against the phone number their admin entered.
+    public static final String TELEGRAM_PENDING_CONTACT_PREFIX = "tg:pending-contact:";
 
     public static String otpKey(String purpose, String email) {
         return OTP_PREFIX + purpose.toLowerCase() + ":" + email.toLowerCase();

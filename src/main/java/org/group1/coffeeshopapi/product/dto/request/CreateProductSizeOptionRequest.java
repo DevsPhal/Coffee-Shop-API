@@ -10,9 +10,9 @@ public record CreateProductSizeOptionRequest(
         @NotBlank(message = "Size name is required")
         String name,
 
-        @NotNull(message = "Price add-on is required")
-        @DecimalMin(value = "0.0", message = "Price add-on must not be negative")
-        BigDecimal priceDelta,
+        @NotNull(message = "Price is required")
+        @DecimalMin(value = "0.0", message = "Price must not be negative")
+        BigDecimal price,
 
         Integer sortOrder
 ) {

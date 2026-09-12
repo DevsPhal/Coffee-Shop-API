@@ -9,7 +9,8 @@ public record ProductSizeOptionResponse(
         UUID id,
         UUID productId,
         String name,
-        BigDecimal priceDelta,
+        BigDecimal price,
+        BigDecimal finalPrice,
         Integer sortOrder,
         Status status
 ) {

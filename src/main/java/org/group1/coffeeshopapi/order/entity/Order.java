@@ -97,8 +97,16 @@ public class Order extends BaseEntity {
     @Column(length = 20)
     private PaymentMethod paymentMethod;
 
-    @Column(precision = 12, scale = 2)
+    // How much cash was actually handed over, in whichever currency the customer paid with — a
+    // cash sale in Cambodia can be tendered in either (see CashPaymentRequest.currency). changeDue
+    // below is always the USD-equivalent excess, converted at the rate in effect when the payment
+    // was collected (see OrderServiceImpl.chargeCash).
+    @Column(precision = 15, scale = 2)
     private BigDecimal amountTendered;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 3)
+    private Currency amountTenderedCurrency;
 
     @Column(precision = 12, scale = 2)
     private BigDecimal changeDue;
@@ -133,6 +141,25 @@ public class Order extends BaseEntity {
 
     @Column
     private LocalDateTime paidAt;
+
+    // Where the customer pinned the shop to deliver to at checkout — null means this is a
+    // pickup order (a POS sale is always pickup, so these are only ever set via
+    // OrderService.createForCustomer). Both set together or not at all.
+    @Column(precision = 9, scale = 6)
+    private BigDecimal deliveryLatitude;
+
+    @Column(precision = 9, scale = 6)
+    private BigDecimal deliveryLongitude;
+
+    // Set by whichever admin/barista evaluates the delivery (see OrderService.setDeliveryFee) —
+    // null until they do, even for a delivery order. Included in totalAmount once set; see
+    // OrderServiceImpl.recalculateTotal.
+    @Column(precision = 12, scale = 2)
+    private BigDecimal deliveryFee;
+
+    public boolean isDelivery() {
+        return deliveryLatitude != null && deliveryLongitude != null;
+    }
 
     public void addItem(OrderItem item) {
         items.add(item);

@@ -31,6 +31,15 @@ public class TelegramApiClientImpl implements TelegramApiClient {
         send(chatId, Map.of("chat_id", chatId, "text", html, "parse_mode", "HTML"));
     }
 
+    @Override
+    public void sendContactRequest(Long chatId, String text) {
+        Map<String, Object> keyboard = Map.of(
+                "keyboard", List.of(List.of(Map.of("text", "📱 Share phone number", "request_contact", true))),
+                "one_time_keyboard", true,
+                "resize_keyboard", true);
+        send(chatId, Map.of("chat_id", chatId, "text", text, "reply_markup", keyboard));
+    }
+
     private void send(Long chatId, Map<String, ?> body) {
         if (!hasToken()) {
             return;

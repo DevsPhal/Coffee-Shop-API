@@ -7,16 +7,22 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
 import org.group1.coffeeshopapi.common.security.CustomUserDetails;
+import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
+import org.group1.coffeeshopapi.common.util.QrImageUtil;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
+import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
+import org.group1.coffeeshopapi.order.service.ReceiptService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -30,7 +36,11 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearerAuth")
 public class BaristaOrderController {
 
+    // A 300x300 PNG scans reliably on a phone camera without being needlessly large to transfer.
+    private static final int QR_IMAGE_SIZE = 300;
+
     private final OrderService orderService;
+    private final ReceiptService receiptService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> create(
@@ -55,6 +65,17 @@ public class BaristaOrderController {
     public ApiResponse<OrderResponse> getById(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, orderService.getOwn(id, currentUser.getId()));
+    }
+
+    // The printable receipt for a walk-in sale this barista rang up/collected — what they hand
+    // (or print) to the customer in person once the order is COMPLETED. Scoped to this barista's
+    // own orders the same way getById above is; getOwn throws if they didn't handle it.
+    @GetMapping(value = "/{id}/receipt", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> getReceipt(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        orderService.getOwn(id, currentUser.getId());
+        byte[] pdf = receiptService.generateReceiptPdf(id);
+        return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
     // Visibility into every order in the system, not just ones this barista created or already
@@ -100,14 +121,24 @@ public class BaristaOrderController {
                 orderService.confirmBakongPayment(id, currentUser.getId()));
     }
 
-    // Calls off an unpaid order — the customer who never came to the counter, or changed their
-    // mind. Not restricted to orders this barista rang up: a self-service order has no staff
-    // attached at all until someone claims it, and those are exactly the ones that get abandoned.
+    // A scannable rendering of the QR string generateBakongQr above already produced (and stored
+    // on the order) — that endpoint returns raw payload text a banking app can't scan directly.
+    @GetMapping(value = "/{id}/pay/bakong/qr/image", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getBakongQrImage(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        OrderResponse order = orderService.getOwn(id, currentUser.getId());
+        if (order.bakongQrString() == null) {
+            throw new InvalidOperationException("No Bakong QR has been generated for this order yet");
+        }
+        byte[] png = QrImageUtil.toPng(order.bakongQrString(), QR_IMAGE_SIZE);
+        return FileResponseUtil.respond(png, MediaType.IMAGE_PNG, "order-" + id + "-qr.png", true);
+    }
+
     @PostMapping("/{id}/cancel")
     public ApiResponse<OrderResponse> cancel(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, "Order cancelled successfully.",
-                orderService.cancelAny(id, currentUser.getId()));
+                orderService.cancel(id, currentUser.getId()));
     }
 
     // The pickup queue: customer cash-on-pickup orders no barista has claimed yet — what a
@@ -150,47 +181,15 @@ public class BaristaOrderController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, response);
     }
 
-    // --- Working the queue ---
-    // Both act on any paid order, whoever took the payment, so a barista can pick up a drink a
-    // customer paid for on their phone. The customer's own order screen follows the same status.
-
-    @PostMapping("/{id}/start-preparing")
-    public ApiResponse<OrderResponse> startPreparing(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
-        return ApiResponse.of(HttpStatus.OK, "Order marked as preparing.",
-                orderService.startPreparing(id, currentUser.getId()));
+    // Sets (or revises) the delivery fee for a customer's delivery order — see
+    // OrderResponse.deliveryLatitude/deliveryLongitude/distanceMeters for what a barista has to
+    // go on when evaluating it. Immediately reflected in totalAmount. Not scoped to one this
+    // barista has claimed — any still-pending delivery order can be evaluated.
+    @PostMapping("/{id}/delivery-fee")
+    public ApiResponse<OrderResponse> setDeliveryFee(
+            @PathVariable UUID id, @Valid @RequestBody DeliveryFeeRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        OrderResponse response = orderService.setDeliveryFee(id, request.fee(), currentUser.getId());
+        return ApiResponse.of(HttpStatus.OK, "Delivery fee set successfully.", response);
     }
-
-    @PostMapping("/{id}/complete")
-    public ApiResponse<OrderResponse> complete(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
-        return ApiResponse.of(HttpStatus.OK, "Order completed.",
-                orderService.markCompleted(id, currentUser.getId()));
-    }
-
-    // The delivery board: orders that have left the shop but are not confirmed as arrived.
-    @GetMapping("/out-for-delivery")
-    public ApiResponse<PageResponse<OrderResponse>> listOutForDelivery(
-            @RequestParam(required = false) Integer page,
-            @RequestParam(required = false) Integer size) {
-        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
-                PageResponse.of(orderService.listOutForDelivery(PageUtil.buildPageable(page, size))));
-    }
-
-    // Hands a delivery order to a courier: it is made, paid for, and now off the premises.
-    @PostMapping("/{id}/dispatch")
-    public ApiResponse<OrderResponse> dispatch(@PathVariable UUID id,
-                                               @AuthenticationPrincipal CustomUserDetails currentUser) {
-        return ApiResponse.of(HttpStatus.OK, "Order is out for delivery.",
-                orderService.markOutForDelivery(id, currentUser.getId()));
-    }
-
-    // Confirms the courier reached the customer. Terminal for a delivery order.
-    @PostMapping("/{id}/delivered")
-    public ApiResponse<OrderResponse> delivered(@PathVariable UUID id,
-                                                @AuthenticationPrincipal CustomUserDetails currentUser) {
-        return ApiResponse.of(HttpStatus.OK, "Order marked as delivered.",
-                orderService.markDelivered(id, currentUser.getId()));
-    }
-
 }

@@ -9,6 +9,8 @@ import org.group1.coffeeshopapi.common.exception.InvalidOtpException;
 import org.group1.coffeeshopapi.common.exception.TooManyRequestsException;
 import org.group1.coffeeshopapi.common.properties.OtpProperties;
 import org.group1.coffeeshopapi.mail.MailService;
+import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
+import org.group1.coffeeshopapi.telegram.util.TelegramFormat;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,32 +29,51 @@ public class OtpServiceImpl implements OtpService {
     private final PasswordEncoder passwordEncoder;
     private final OtpProperties otpProperties;
     private final MailService mailService;
+    private final TelegramApiClient telegramApiClient;
 
     @Override
     public void generateAndSend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink) {
-        String cooldownKey = RedisKeys.otpCooldownKey(purpose.name(), email);
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
+        if (isOnCooldown(email, purpose)) {
             // A still-valid code was already issued moments ago (e.g. a prior login attempt) —
             // reuse it silently rather than failing a legitimate flow.
             return;
         }
-        send(email, fullName, purpose, telegramDeepLink);
+        String otp = generateAndStore(email, purpose);
+        mailService.sendOtpEmail(email, fullName, otp, otpProperties.getOtpExpiryMinutes(), purpose.label(),
+                telegramDeepLink);
     }
 
     @Override
     public void resend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink) {
-        String cooldownKey = RedisKeys.otpCooldownKey(purpose.name(), email);
-        if (Boolean.TRUE.equals(redisTemplate.hasKey(cooldownKey))) {
+        if (isOnCooldown(email, purpose)) {
             throw new TooManyRequestsException("Please wait before requesting another code");
         }
-        send(email, fullName, purpose, telegramDeepLink);
+        String otp = generateAndStore(email, purpose);
+        mailService.sendOtpEmail(email, fullName, otp, otpProperties.getOtpExpiryMinutes(), purpose.label(),
+                telegramDeepLink);
     }
 
-    private void send(String email, String fullName, OtpPurpose purpose, String telegramDeepLink) {
-        String cooldownKey = RedisKeys.otpCooldownKey(purpose.name(), email);
+    @Override
+    public void resendViaTelegram(String email, String fullName, OtpPurpose purpose, Long chatId) {
+        if (isOnCooldown(email, purpose)) {
+            throw new TooManyRequestsException("Please wait before requesting another code");
+        }
+        String otp = generateAndStore(email, purpose);
+        sendTelegramOtp(chatId, fullName, otp, purpose);
+    }
+
+    private boolean isOnCooldown(String email, OtpPurpose purpose) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(RedisKeys.otpCooldownKey(purpose.name(), email)));
+    }
+
+    // Generates a fresh code and does all the Redis bookkeeping (storage, attempts reset,
+    // cooldown) shared by every delivery channel — email or Telegram alike look up/verify the
+    // same code the same way, keyed by email+purpose regardless of how it was delivered.
+    private String generateAndStore(String email, OtpPurpose purpose) {
         String otp = String.valueOf(100000 + RANDOM.nextInt(900000));
         String otpKey = RedisKeys.otpKey(purpose.name(), email);
         String attemptsKey = RedisKeys.otpAttemptsKey(purpose.name(), email);
+        String cooldownKey = RedisKeys.otpCooldownKey(purpose.name(), email);
         Duration ttl = Duration.ofMinutes(otpProperties.getOtpExpiryMinutes());
 
         redisTemplate.opsForValue().set(otpKey, passwordEncoder.encode(otp), ttl);
@@ -62,9 +83,14 @@ public class OtpServiceImpl implements OtpService {
         if (otpProperties.isLogOtp()) {
             log.warn("[DEV] OTP for {} ({}): {}", email, purpose, otp);
         }
+        return otp;
+    }
 
-        mailService.sendOtpEmail(email, fullName, otp, otpProperties.getOtpExpiryMinutes(), purpose.label(),
-                telegramDeepLink);
+    private void sendTelegramOtp(Long chatId, String fullName, String otp, OtpPurpose purpose) {
+        String html = "👋 Hi " + TelegramFormat.escape(fullName) + ",\n\n"
+                + "Your <b>" + TelegramFormat.escape(purpose.label()) + "</b> code is:\n\n<b>" + otp + "</b>\n\n"
+                + "It expires in " + otpProperties.getOtpExpiryMinutes() + " minutes. Never share this code with anyone.";
+        telegramApiClient.sendHtmlMessage(chatId, html);
     }
 
     @Override

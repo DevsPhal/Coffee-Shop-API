@@ -4,14 +4,17 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 // Admin-created promotional/announcement entry, e.g. a seasonal sale window or in-store event.
 @Getter
@@ -23,7 +26,7 @@ public class Event extends BaseEntity {
     @Column(nullable = false)
     private String title;
 
-    @Column(columnDefinition = "TEXT")
+    @Column
     private String description;
 
     @Column
@@ -39,6 +42,9 @@ public class Event extends BaseEntity {
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
 
-    @Column(nullable = false)
-    private UUID createdBy;
+    // Null for a change made by the Super Admin, which deliberately has no row in "admins" to
+    // reference (see CurrentActor.adminRef()).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private Admin createdByAdmin;
 }

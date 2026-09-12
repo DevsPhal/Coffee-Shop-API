@@ -81,6 +81,14 @@ bakong:
   expiration-minutes: ${BAKONG_EXPIRATION_MINUTES:15}
   khr-per-usd-rate: ${BAKONG_KHR_PER_USD_RATE:4100}
 
+# The shop's own pinned coordinates, so a delivery order's distance can be shown to whichever
+# admin/barista is evaluating its delivery fee (see OrderResponse.distanceMeters). Blank until
+# set — distance is simply omitted (not estimated) until an admin configures it.
+shop:
+  location:
+    latitude: ${SHOP_LATITUDE:}
+    longitude: ${SHOP_LONGITUDE:}
+
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
   public-endpoint: ${MINIO_PUBLIC_ENDPOINT:${MINIO_ENDPOINT:http://localhost:9000}}

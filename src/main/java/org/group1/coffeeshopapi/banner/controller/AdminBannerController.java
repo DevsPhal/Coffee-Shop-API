@@ -32,7 +32,7 @@ public class AdminBannerController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<BannerResponse>> create(@Valid @RequestBody CreateBannerRequest request) {
-        BannerResponse response = bannerService.create(request, currentActor.id());
+        BannerResponse response = bannerService.create(request, currentActor.adminRef());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Banner created successfully.", response));
     }
@@ -53,7 +53,7 @@ public class AdminBannerController {
     @PatchMapping("/{id}")
     public ApiResponse<BannerResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateBannerRequest request) {
         return ApiResponse.of(HttpStatus.OK, "Banner updated successfully.",
-                bannerService.update(id, request, currentActor.id()));
+                bannerService.update(id, request, currentActor.adminRef()));
     }
 
     @DeleteMapping("/{id}")
@@ -65,12 +65,12 @@ public class AdminBannerController {
     @PostMapping(value = "/{id}/image", consumes = "multipart/form-data")
     public ApiResponse<BannerResponse> uploadImage(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
         return ApiResponse.of(HttpStatus.OK, "Banner image uploaded successfully.",
-                bannerService.uploadImage(id, file, currentActor.id()));
+                bannerService.uploadImage(id, file, currentActor.adminRef()));
     }
 
     @DeleteMapping("/{id}/image")
     public ApiResponse<BannerResponse> removeImage(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Banner image removed successfully.",
-                bannerService.removeImage(id, currentActor.id()));
+                bannerService.removeImage(id, currentActor.adminRef()));
     }
 }

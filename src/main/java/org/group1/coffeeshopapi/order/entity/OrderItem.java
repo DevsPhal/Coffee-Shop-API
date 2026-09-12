@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.order.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,6 +8,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
@@ -15,8 +17,11 @@ import org.group1.coffeeshopapi.common.enums.IceLevel;
 import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.SugarLevel;
 import org.group1.coffeeshopapi.product.entity.Product;
+import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 
 @Getter
 @Setter
@@ -46,11 +51,14 @@ public class OrderItem extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal subtotal;
 
-    // Variant selection, snapshotted at sale time (like productName) rather than a live relation
-    // to ProductSizeOption, so a past order stays readable even if the size option is later
-    // renamed/removed. All optional, since not every product is a customizable drink.
-    @Column
-    private String sizeOptionName;
+    // Live relation to the chosen size option — same as CartItem.sizeOption. Optional, since not
+    // every product is a customizable drink. Unlike productName, this is not also snapshotted as
+    // a string: a size option can't be deleted while any order still references it (a delete
+    // attempt is rejected — see GlobalExceptionHandler's DataIntegrityViolationException handler),
+    // so the relation can't dangle; renaming one does change how past orders display it.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "size_option_id")
+    private ProductSizeOption sizeOption;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
@@ -63,4 +71,14 @@ public class OrderItem extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private MilkType milkType;
+
+    // Extras (e.g. Pearl) the customer added — snapshotted per row, same reasoning as productName
+    // above. unitPrice/subtotal already include each extra's price (see OrderServiceImpl.buildOrder).
+    @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderItemExtra> extras = new ArrayList<>();
+
+    public void addExtra(OrderItemExtra extra) {
+        extras.add(extra);
+        extra.setOrderItem(this);
+    }
 }

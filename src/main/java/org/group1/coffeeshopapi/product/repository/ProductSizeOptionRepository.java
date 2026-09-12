@@ -16,5 +16,6 @@ public interface ProductSizeOptionRepository extends JpaRepository<ProductSizeOp
     List<ProductSizeOption> findByProductIdInAndStatusOrderBySortOrderAscNameAsc(List<UUID> productIds, Status status);
 
     Optional<ProductSizeOption> findByIdAndProductId(UUID id, UUID productId);
+    Optional<ProductSizeOption> findByProductIdAndNameIgnoreCase(UUID productId, String name);
     boolean existsByProductIdAndNameIgnoreCase(UUID productId, String name);
 }

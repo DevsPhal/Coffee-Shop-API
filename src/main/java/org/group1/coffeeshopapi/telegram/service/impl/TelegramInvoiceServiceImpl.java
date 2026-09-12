@@ -13,6 +13,7 @@ import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
@@ -48,12 +49,27 @@ public class TelegramInvoiceServiceImpl implements TelegramInvoiceService {
 
         for (OrderInvoiceLineItem item : invoice.items()) {
             sb.append("• ").append(TelegramFormat.escape(TelegramFormat.titleCase(item.productName())))
-                    .append(" × ").append(item.quantity())
-                    .append(" — ").append(TelegramFormat.usd(item.subtotal()))
+                    .append(" × ").append(item.quantity());
+            if (!item.extraNames().isEmpty()) {
+                sb.append(" (+ ").append(TelegramFormat.escape(String.join(", ", item.extraNames()))).append(")");
+            }
+            sb.append(" — ").append(TelegramFormat.usd(item.subtotal()))
                     .append('\n');
         }
+        sb.append('\n');
 
-        sb.append("\n<b>Total: ").append(TelegramFormat.usd(invoice.totalAmount())).append("</b>\n");
+        // Delivery fee is already folded into totalAmount (see OrderServiceImpl.recalculateTotal)
+        // — broken out as its own line, same as the shop's printed receipt does (ReceiptServiceImpl),
+        // so the total here never looks like it doesn't add up to what's itemized above it.
+        if (invoice.deliveryFee() != null) {
+            BigDecimal itemsSubtotal = invoice.items().stream()
+                    .map(OrderInvoiceLineItem::subtotal)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            sb.append("Subtotal: ").append(TelegramFormat.usd(itemsSubtotal)).append('\n');
+            sb.append("Delivery Fee: ").append(TelegramFormat.usd(invoice.deliveryFee())).append('\n');
+        }
+
+        sb.append("<b>Total: ").append(TelegramFormat.usd(invoice.totalAmount())).append("</b>\n");
         sb.append("Payment: ").append(paymentSummary(invoice)).append('\n');
         if (invoice.paidAt() != null) {
             sb.append("Paid at: ").append(invoice.paidAt().format(PAID_AT_FORMAT)).append('\n');

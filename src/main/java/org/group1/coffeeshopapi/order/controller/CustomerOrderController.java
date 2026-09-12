@@ -6,14 +6,20 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
 import org.group1.coffeeshopapi.common.security.CustomUserDetails;
+import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
+import org.group1.coffeeshopapi.common.util.QrImageUtil;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
+import org.group1.coffeeshopapi.order.service.ReceiptService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -26,15 +32,11 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearerAuth")
 public class CustomerOrderController {
 
-    private final OrderService orderService;
-    private final org.group1.coffeeshopapi.contact.ContactMessageService contactMessages;
+    // A 300x300 PNG scans reliably on a phone camera without being needlessly large to transfer.
+    private static final int QR_IMAGE_SIZE = 300;
 
-    @PostMapping("/{id}/request-assistance")
-    public ApiResponse<org.group1.coffeeshopapi.contact.ContactMessageResponse> requestAssistance(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
-        return ApiResponse.of(HttpStatus.OK, "Staff assistance requested",
-                contactMessages.requestAssistance(id, currentUser.getId()));
-    }
+    private final OrderService orderService;
+    private final ReceiptService receiptService;
 
     @GetMapping
     public ApiResponse<PageResponse<OrderResponse>> list(
@@ -51,6 +53,16 @@ public class CustomerOrderController {
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
                 orderService.getOwnForCustomer(id, currentUser.getId()));
+    }
+
+    // The downloadable "link" to this order's receipt once it's COMPLETED — for a customer who
+    // placed the order themselves rather than being handed a printed one in person.
+    @GetMapping(value = "/{id}/receipt", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> getReceipt(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        orderService.getOwnForCustomer(id, currentUser.getId());
+        byte[] pdf = receiptService.generateReceiptPdf(id);
+        return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
     @PostMapping("/{id}/pay/cash-on-pickup")
@@ -74,6 +86,19 @@ public class CustomerOrderController {
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
                 orderService.confirmBakongPaymentForCustomer(id, currentUser.getId()));
+    }
+
+    // A scannable rendering of the QR string generateBakongQr above already produced (and stored
+    // on the order) — that endpoint returns raw payload text a banking app can't scan directly.
+    @GetMapping(value = "/{id}/pay/bakong/qr/image", produces = MediaType.IMAGE_PNG_VALUE)
+    public ResponseEntity<byte[]> getBakongQrImage(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        OrderResponse order = orderService.getOwnForCustomer(id, currentUser.getId());
+        if (order.bakongQrString() == null) {
+            throw new InvalidOperationException("No Bakong QR has been generated for this order yet");
+        }
+        byte[] png = QrImageUtil.toPng(order.bakongQrString(), QR_IMAGE_SIZE);
+        return FileResponseUtil.respond(png, MediaType.IMAGE_PNG, "order-" + id + "-qr.png", true);
     }
 
     @PostMapping("/{id}/cancel")

@@ -10,12 +10,13 @@ import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 public interface OrderService {
 
-    // --- Barista (POS) sales ---
+    // --- Walk-in (POS) sales — barista or admin, ringing up their own sale ---
 
     OrderResponse create(CreateOrderRequest request, UUID baristaId);
 
@@ -29,6 +30,8 @@ public interface OrderService {
     BakongQrResponse generateBakongQr(UUID id, UUID baristaId, Currency currency);
 
     OrderResponse confirmBakongPayment(UUID id, UUID baristaId);
+
+    OrderResponse cancel(UUID id, UUID baristaId);
 
     // Staff (barista or admin) collecting cash in person for a customer's cash-on-pickup order
     // (not one they created).
@@ -47,34 +50,17 @@ public interface OrderService {
     // still PENDING, that no staff member has claimed yet.
     Page<OrderResponse> listAwaitingBakongConfirmation(Pageable pageable);
 
-    // --- Fulfillment (barista or admin working through the drink) ---
-
-    // Neither of these is scoped to the caller's own orders, the way getOwn/listOwn are: the
-    // whole point is that a barista picks up work placed by a customer or rung up at another
-    // till. Both stamp handledBy with whoever acted, so the board always shows who has the order.
-
-    // PAID -> PREPARING. Rejects an unpaid order: nothing gets made before it is paid for.
-    OrderResponse startPreparing(UUID id, UUID actorId);
-
-    // PAID or PREPARING -> COMPLETED, the drink handed over at the counter. PAID is allowed
-    // directly so a barista who made something on the spot isn't forced through a bookkeeping
-    // tap first. Rejects a delivery order: that one finishes at DELIVERED, not here.
-    OrderResponse markCompleted(UUID id, UUID actorId);
-
-    // --- Delivery leg (delivery orders only) ---
-
-    // PAID or PREPARING -> OUT_FOR_DELIVERY, the order handed to a courier and off the premises.
-    OrderResponse markOutForDelivery(UUID id, UUID actorId);
-
-    // OUT_FOR_DELIVERY -> DELIVERED, the courier confirming it reached the customer. Terminal.
-    OrderResponse markDelivered(UUID id, UUID actorId);
-
-    // Everything currently with a courier.
-    Page<OrderResponse> listOutForDelivery(Pageable pageable);
+    // Staff (barista or admin) evaluating/revising the delivery fee for any still-PENDING delivery
+    // order (not scoped to one they've claimed) — folded into totalAmount immediately. Rejects an
+    // order with no pinned delivery location (see Order.isDelivery) or one already paid for.
+    OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId);
 
     // --- Customer self-service orders ---
 
-    OrderResponse createForCustomer(CreateOrderRequest request, UUID customerId);
+    // deliveryLatitude/deliveryLongitude are optional and must both be given together — null for
+    // both means a pickup order, the shop's default.
+    OrderResponse createForCustomer(CreateOrderRequest request, UUID customerId,
+            BigDecimal deliveryLatitude, BigDecimal deliveryLongitude);
 
     OrderResponse getOwnForCustomer(UUID id, UUID customerId);
 
@@ -95,11 +81,8 @@ public interface OrderService {
 
     Page<OrderResponse> listAll(UUID baristaId, UUID customerId, OrderStatus status, Pageable pageable);
 
-    // Staff (barista or admin) calling off an order that has not been paid for — the walk-away
-    // case, where the customer never turns up to pay or changes their mind at the counter.
-    // Deliberately not scoped to orders the caller rang up: the orders most likely to need
-    // cancelling are self-service ones with no staff attached at all. Refuses once the order is
-    // paid, since taking money back is a refund, which this app does not model.
+    // An admin cancelling any pending order (not scoped to one they created), unlike cancel()
+    // above which only cancels orders the caller themselves rang up.
     OrderResponse cancelAny(UUID id, UUID actorId);
 
     // The full handling audit trail for one order — created / cash collected / Bakong confirmed /

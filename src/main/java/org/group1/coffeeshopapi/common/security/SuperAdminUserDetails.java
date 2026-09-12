@@ -16,6 +16,7 @@ import java.util.UUID;
  * can never be locked out, deleted, or discovered via the database.
  */
 public class SuperAdminUserDetails implements UserDetails {
+    private static final long serialVersionUID = 1L;
 
     public static final UUID ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
