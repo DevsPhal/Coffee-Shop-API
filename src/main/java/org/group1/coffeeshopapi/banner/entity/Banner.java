@@ -4,13 +4,15 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
-
-import java.util.UUID;
 
 // A promotional image shown on the storefront landing page, ordered by sortOrder ascending.
 @Getter
@@ -37,11 +39,14 @@ public class Banner extends BaseEntity {
     private Status status = Status.ACTIVE;
 
     // Banners are only ever touched by ADMIN/SUPER_ADMIN, so this is named for that specific
-    // relation rather than a generic "createdBy" — nullable so pre-existing rows don't need a
-    // backfill.
-    @Column
-    private UUID adminId;
+    // relation rather than a generic "createdBy" — null both for pre-existing rows and for a
+    // change made by the Super Admin, which deliberately has no row in "admins" to reference
+    // (see CurrentActor.adminRef()).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "admin_id")
+    private Admin admin;
 
-    @Column
-    private UUID updatedByAdminId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by_admin_id")
+    private Admin updatedByAdmin;
 }

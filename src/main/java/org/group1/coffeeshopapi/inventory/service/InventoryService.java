@@ -4,9 +4,11 @@ import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
 import org.group1.coffeeshopapi.inventory.dto.request.StockInRequest;
 import org.group1.coffeeshopapi.inventory.dto.response.InventoryResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.StockCutResponse;
+import org.group1.coffeeshopapi.inventory.dto.response.StockInImportResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.StockMovementResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -20,6 +22,10 @@ public interface InventoryService {
 
     StockMovementResponse stockIn(StockInRequest request, UUID performedBy);
     StockCutResponse stockCut(StockCutRequest request, UUID performedBy);
+
+    // Bulk stock-in from a delivery invoice's worth of products in one file, instead of one
+    // stockIn(...) call per line — see InventoryServiceImpl for the expected columns.
+    StockInImportResponse stockInFromExcel(MultipartFile file, UUID performedBy);
 
     Page<StockMovementResponse> listMovements(UUID productId, Pageable pageable);
 }

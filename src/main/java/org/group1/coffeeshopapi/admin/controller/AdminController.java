@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.admin.dto.request.CreateStaffRequest;
+import org.group1.coffeeshopapi.admin.dto.request.InviteStaffRequest;
 import org.group1.coffeeshopapi.admin.dto.request.UpdateStaffRequest;
 import org.group1.coffeeshopapi.admin.service.StaffService;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
@@ -13,10 +14,12 @@ import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
 import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.util.PageUtil;
+import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
@@ -35,6 +38,22 @@ public class AdminController {
         UserResponse admin = staffService.create(request, Role.ADMIN, currentActor.id());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Admin account created successfully.", admin));
+    }
+
+    @PostMapping("/telegram")
+    public ResponseEntity<ApiResponse<TelegramLinkCodeResponse>> createViaTelegram(
+            @Valid @RequestBody InviteStaffRequest request) {
+        TelegramLinkCodeResponse response = staffService.createViaTelegram(request, Role.ADMIN, currentActor.id());
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(HttpStatus.CREATED,
+                "Almost done — have them open the link in Telegram and share their phone number to activate the account.",
+                response));
+    }
+
+    @PostMapping("/{id}/telegram/resend")
+    public ApiResponse<TelegramLinkCodeResponse> resendTelegramInvite(@PathVariable UUID id) {
+        TelegramLinkCodeResponse response = staffService.resendTelegramInvite(id, Role.ADMIN);
+        return ApiResponse.of(HttpStatus.OK,
+                "A new invite link has been generated — have them open it in Telegram to continue.", response);
     }
 
     @GetMapping
@@ -60,5 +79,11 @@ public class AdminController {
     public ApiResponse<Void> delete(@PathVariable UUID id) {
         staffService.delete(id, Role.ADMIN);
         return ApiResponse.of(HttpStatus.OK, "Admin account deleted successfully.", null);
+    }
+
+    @PostMapping(value = "/{id}/avatar", consumes = "multipart/form-data")
+    public ApiResponse<UserResponse> uploadAvatar(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return ApiResponse.of(HttpStatus.OK, "Profile photo updated successfully.",
+                staffService.uploadAvatar(id, file, Role.ADMIN));
     }
 }

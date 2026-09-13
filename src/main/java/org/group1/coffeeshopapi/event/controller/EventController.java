@@ -32,7 +32,7 @@ public class EventController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<EventResponse>> create(@Valid @RequestBody CreateEventRequest request) {
-        EventResponse event = eventService.create(request, currentActor.id());
+        EventResponse event = eventService.create(request, currentActor.adminRef());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Event created successfully.", event));
     }

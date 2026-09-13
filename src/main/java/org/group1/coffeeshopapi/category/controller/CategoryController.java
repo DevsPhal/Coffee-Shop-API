@@ -31,7 +31,7 @@ public class CategoryController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<CategoryResponse>> create(@Valid @RequestBody CreateCategoryRequest request) {
-        CategoryResponse category = categoryService.create(request, currentActor.id());
+        CategoryResponse category = categoryService.create(request, currentActor.adminRef());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Category created successfully.", category));
     }
@@ -52,7 +52,7 @@ public class CategoryController {
     @PatchMapping("/{id}")
     public ApiResponse<CategoryResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateCategoryRequest request) {
         return ApiResponse.of(HttpStatus.OK, "Category updated successfully.",
-                categoryService.update(id, request, currentActor.id()));
+                categoryService.update(id, request, currentActor.adminRef()));
     }
 
     @DeleteMapping("/{id}")

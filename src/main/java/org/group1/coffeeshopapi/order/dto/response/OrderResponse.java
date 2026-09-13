@@ -26,6 +26,7 @@ public record OrderResponse(
         BigDecimal totalAmount,
         PaymentMethod paymentMethod,
         BigDecimal amountTendered,
+        Currency amountTenderedCurrency,
         BigDecimal changeDue,
         String bakongQrString,
         String bakongMd5Hash,
@@ -33,6 +34,17 @@ public record OrderResponse(
         BigDecimal bakongAmount,
         String note,
         LocalDateTime paidAt,
-        LocalDateTime createdAt
+        LocalDateTime createdAt,
+        // Null for a pickup order (every POS sale, or a customer order that didn't pin a
+        // location). Both set together or not at all — see Order.isDelivery.
+        BigDecimal deliveryLatitude,
+        BigDecimal deliveryLongitude,
+        // Null until an admin/barista evaluates it (see OrderService.setDeliveryFee), even for a
+        // delivery order. Already folded into totalAmount once set.
+        BigDecimal deliveryFee,
+        // Straight-line distance from the shop to deliveryLatitude/deliveryLongitude, for whoever
+        // is evaluating the fee above — null for a pickup order, or if shop.location isn't
+        // configured (see ShopLocationProperties).
+        BigDecimal distanceMeters
 ) {
 }

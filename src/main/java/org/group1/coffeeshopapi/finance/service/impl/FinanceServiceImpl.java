@@ -1,13 +1,14 @@
 package org.group1.coffeeshopapi.finance.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.finance.dto.response.FinanceSummaryResponse;
 import org.group1.coffeeshopapi.finance.entity.Expense;
 import org.group1.coffeeshopapi.finance.repository.ExpenseRepository;
 import org.group1.coffeeshopapi.finance.service.FinanceService;
+import org.group1.coffeeshopapi.inventory.entity.StockExpense;
+import org.group1.coffeeshopapi.inventory.repository.StockExpenseRepository;
 import org.group1.coffeeshopapi.order.entity.Order;
 import org.group1.coffeeshopapi.order.repository.OrderRepository;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class FinanceServiceImpl implements FinanceService {
 
     private final OrderRepository orderRepository;
     private final ExpenseRepository expenseRepository;
+    private final StockExpenseRepository stockExpenseRepository;
 
     @Override
     public FinanceSummaryResponse getDaily(LocalDate date) {
@@ -51,17 +53,27 @@ public class FinanceServiceImpl implements FinanceService {
         LocalDateTime start = startInclusive.atStartOfDay();
         LocalDateTime end = endExclusive.atStartOfDay();
 
-        List<Order> orders = orderRepository.findByStatusAndPaidAtBetween(OrderStatus.COMPLETED, start, end);
+        List<Order> orders = orderRepository.findByPaidAtBetween(start, end);
         BigDecimal cashIn = sumByMethod(orders, PaymentMethod.CASH);
         BigDecimal bakongIn = sumByMethod(orders, PaymentMethod.BAKONG);
         BigDecimal totalIn = cashIn.add(bakongIn);
 
+        // "Money out" is two separate streams that were never merged into one table: manual
+        // entries (rent, wages, ...) via Expense, and auto-recorded stock-purchase costs via
+        // StockExpense (see InventoryServiceImpl.recordStockPurchaseExpense) — both count.
         List<Expense> expenses = expenseRepository.findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(
                 startInclusive, endExclusive);
-        BigDecimal totalOut = expenses.stream().map(Expense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal manualOut = expenses.stream().map(Expense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<StockExpense> stockExpenses = stockExpenseRepository
+                .findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(startInclusive, endExclusive);
+        BigDecimal stockPurchaseOut = stockExpenses.stream().map(StockExpense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalOut = manualOut.add(stockPurchaseOut);
 
         return new FinanceSummaryResponse(
-                startInclusive, endExclusive.minusDays(1), cashIn, bakongIn, totalIn, totalOut, totalIn.subtract(totalOut));
+                startInclusive, endExclusive.minusDays(1), cashIn, bakongIn, totalIn,
+                manualOut, stockPurchaseOut, totalOut, totalIn.subtract(totalOut));
     }
 
     private BigDecimal sumByMethod(List<Order> orders, PaymentMethod method) {

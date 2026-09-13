@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Telegram Login Widget Test</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; }
+        h1 { font-size: 1.25rem; }
+        pre { background: #f4f4f5; padding: 12px; border-radius: 6px; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+        .ok { color: #15803d; }
+        .err { color: #b91c1c; }
+        .hint { color: #666; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+<h1>Telegram Login Widget Test</h1>
+<p class="hint">
+    Tests the real login endpoint (<code>POST /api/auth/login/telegram</code>) with whatever the widget
+    hands back — same payload shape a real frontend would send (<code>TelegramWidgetAuthRequest</code>).
+    Register-or-login: a Telegram account never seen before gets a brand-new Customer account created on
+    the spot; one already linked (a returning customer, or a staff account that finished its invite) just
+    logs in. Only a staff invite still pending phone-number verification gets an error here, same as a
+    real client would see.
+</p>
+
+<script
+        async
+        src="https://telegram.org/js/telegram-widget.js?22"
+        data-telegram-login="FiveNinetyStCafeBot"
+        data-size="large"
+        data-onauth="onTelegramAuth(user)"
+        data-request-access="write"
+></script>
+
+<div id="result"></div>
+
+<script>
+    async function onTelegramAuth(user) {
+        const resultEl = document.getElementById("result");
+        resultEl.innerHTML =
+            "<p>Widget payload received, calling <code>/api/auth/login/telegram</code>…</p>" +
+            "<pre>" + JSON.stringify(user, null, 2) + "</pre>";
+
+        // Forwarded straight through unchanged — Telegram already omits any field it didn't sign
+        // (lastName/username/photoUrl), and TelegramWidgetAuthRequest expects exactly that.
+        try {
+            const response = await fetch("/api/auth/login/telegram", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    // Free ngrok tunnels show an interstitial warning page to any request that
+                    // doesn't send this — without it, this fetch could get back ngrok's HTML
+                    // splash page instead of the API's JSON response.
+                    "ngrok-skip-browser-warning": "true",
+                },
+                body: JSON.stringify(user),
+            });
+            const contentType = response.headers.get("content-type") || "";
+            if (!contentType.includes("application/json")) {
+                throw new Error("Expected JSON but got " + contentType + " — check you clicked through any " +
+                        "ngrok warning page first, and reloaded telegramWidget.html afterward.");
+            }
+            const body = await response.json();
+
+            if (response.ok) {
+                const tokens = body.data;
+                resultEl.innerHTML +=
+                    '<p class="ok">✅ ' + escapeHtml(body.message) + "</p>" +
+                    "<pre>" + JSON.stringify(tokens, null, 2) + "</pre>" +
+                    '<p class="hint">Expires in ' + escapeHtml(tokens.expiresInReadable) + ".</p>";
+            } else {
+                resultEl.innerHTML +=
+                    '<p class="err">❌ (' + response.status + ") " + escapeHtml(body.message) + "</p>";
+            }
+        } catch (err) {
+            resultEl.innerHTML += '<p class="err">❌ Request failed: ' + escapeHtml(String(err)) + "</p>";
+        }
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text == null ? "" : text;
+        return div.innerHTML;
+    }
+</script>
+</body>
+</html>

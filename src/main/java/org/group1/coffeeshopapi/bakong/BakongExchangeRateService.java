@@ -1,9 +1,9 @@
 package org.group1.coffeeshopapi.bakong;
 
+import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.bakong.dto.response.BakongExchangeRateResponse;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 public interface BakongExchangeRateService {
 
@@ -12,6 +12,7 @@ public interface BakongExchangeRateService {
 
     BakongExchangeRateResponse getRateInfo();
 
-    // marketRate is optional — pass null to leave the stored market rate unchanged.
-    BakongExchangeRateResponse updateRate(BigDecimal khrPerUsdRate, BigDecimal marketRate, UUID updatedByAdminId);
+    // marketRate is optional — pass null to leave the stored market rate unchanged. actorAdmin
+    // is null when the Super Admin is the one acting — see CurrentActor.adminRef().
+    BakongExchangeRateResponse updateRate(BigDecimal khrPerUsdRate, BigDecimal marketRate, Admin actorAdmin);
 }

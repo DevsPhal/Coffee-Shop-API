@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.admin.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.admin.dto.request.CreateStaffRequest;
+import org.group1.coffeeshopapi.admin.dto.request.InviteStaffRequest;
 import org.group1.coffeeshopapi.admin.dto.request.UpdateStaffRequest;
 import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.admin.repository.AdminRepository;
@@ -9,11 +10,16 @@ import org.group1.coffeeshopapi.admin.service.StaffService;
 import org.group1.coffeeshopapi.auth.service.TokenService;
 import org.group1.coffeeshopapi.barista.entity.Barista;
 import org.group1.coffeeshopapi.barista.repository.BaristaRepository;
+import org.group1.coffeeshopapi.common.enums.RegisterType;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
+import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
+import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
+import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
+import org.group1.coffeeshopapi.telegram.util.TelegramAccountUtil;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.user.mapper.UserMapper;
@@ -39,10 +45,44 @@ public class StaffServiceImpl implements StaffService {
     private final SuperAdminProperties superAdminProperties;
     private final TokenService tokenService;
     private final AuthUserSyncService authUserSyncService;
+    private final TelegramLinkService telegramLinkService;
 
     @Override
     @Transactional
     public UserResponse create(CreateStaffRequest request, Role role, UUID createdBy) {
+        // Created directly by a higher-privileged role, so it's trusted — active immediately, no
+        // OTP verification (unlike createViaTelegram, which isn't trusted until the invitee
+        // proves they own that Telegram chat).
+        User staff = buildStaff(request, role, createdBy, UserStatus.ACTIVE, RegisterType.EMAIL);
+        authUserSyncService.sync(staff);
+        return userMapper.toResponse(staff);
+    }
+
+    @Override
+    @Transactional
+    public TelegramLinkCodeResponse createViaTelegram(InviteStaffRequest request, Role role, UUID createdBy) {
+        User staff = buildInvitedStaff(request, role, createdBy);
+        authUserSyncService.sync(staff);
+        // Can't verify them yet — Telegram only allows messaging a chat the invitee has opened.
+        // Returning a link code instead; opening it is what actually prompts them to share their
+        // contact for phone-number verification (see TelegramLinkServiceImpl#resolveLinkCode).
+        return telegramLinkService.generateLinkCode(staff.getId());
+    }
+
+    @Override
+    public TelegramLinkCodeResponse resendTelegramInvite(UUID id, Role role) {
+        User staff = findByIdAndRole(id, role);
+        if (staff.getRegisterType() != RegisterType.TELEGRAM) {
+            throw new InvalidOperationException("This account wasn't created via a Telegram invite");
+        }
+        if (staff.getStatus() != UserStatus.PENDING_VERIFICATION) {
+            throw new DuplicateResourceException("This account has already been verified");
+        }
+        return telegramLinkService.generateLinkCode(staff.getId());
+    }
+
+    private User buildStaff(CreateStaffRequest request, Role role, UUID createdBy, UserStatus status,
+                             RegisterType registerType) {
         String email = request.email().toLowerCase();
         if (superAdminProperties.matches(email)) {
             throw new DuplicateResourceException("This email is reserved");
@@ -61,19 +101,47 @@ public class StaffServiceImpl implements StaffService {
         staff.setPassword(passwordEncoder.encode(request.password()));
         staff.setPhoneNumber(request.phoneNumber());
         staff.setGender(request.gender());
-        // Created directly by a higher-privileged role, so it's trusted — active immediately, no OTP verification.
-        staff.setStatus(UserStatus.ACTIVE);
+        staff.setStatus(status);
+        staff.setRegisterType(registerType);
 
         if (staff instanceof Admin admin) {
             admin.setCreatedBy(createdBy);
             adminRepository.save(admin);
         } else {
             Barista barista = (Barista) staff;
-            barista.setCreatedBy(createdBy);
+            barista.setCreatedByAdmin(adminRepository.referenceOrNull(createdBy));
             baristaRepository.save(barista);
         }
-        authUserSyncService.sync(staff);
-        return userMapper.toResponse(staff);
+        return staff;
+    }
+
+    private User buildInvitedStaff(InviteStaffRequest request, Role role, UUID createdBy) {
+        User staff = switch (role) {
+            case ADMIN -> new Admin();
+            case BARISTA -> new Barista();
+            default -> throw new IllegalArgumentException("Unsupported staff role: " + role);
+        };
+        staff.setFullName(request.fullName());
+        // No email/password collected for an invite — login is Telegram-widget-only afterward
+        // (AuthServiceImpl#loginViaTelegramWidget). See TelegramAccountUtil for why both still get
+        // an unguessable placeholder. UserMapper#toResponse hides the placeholder email from API
+        // responses.
+        staff.setEmail(TelegramAccountUtil.placeholderEmail());
+        staff.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
+        staff.setPhoneNumber(request.phoneNumber());
+        staff.setGender(request.gender());
+        staff.setStatus(UserStatus.PENDING_VERIFICATION);
+        staff.setRegisterType(RegisterType.TELEGRAM);
+
+        if (staff instanceof Admin admin) {
+            admin.setCreatedBy(createdBy);
+            adminRepository.save(admin);
+        } else {
+            Barista barista = (Barista) staff;
+            barista.setCreatedByAdmin(adminRepository.referenceOrNull(createdBy));
+            baristaRepository.save(barista);
+        }
+        return staff;
     }
 
     @Override

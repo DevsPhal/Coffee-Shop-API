@@ -15,4 +15,7 @@ public interface EventRepository extends JpaRepository<Event, UUID> {
 
     // Backs the 24h-before reminder scan — events whose startAt falls in the scheduler's lookahead window.
     List<Event> findByStatusAndStartAtBetween(Status status, LocalDateTime start, LocalDateTime end);
+
+    // Backs EventExpiryScheduler — still-ACTIVE events whose endAt has already passed.
+    List<Event> findByStatusAndEndAtBefore(Status status, LocalDateTime now);
 }

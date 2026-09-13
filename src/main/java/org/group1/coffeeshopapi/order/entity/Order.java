@@ -14,6 +14,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Currency;
+import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.user.entity.Customer;
@@ -39,9 +40,11 @@ import java.util.UUID;
  * {@code handledBy} alone is overwritten each time a different staff member touches the order and
  * so can't answer "who did what and when" on its own.
  * <p>
- * Stock is only cut from inventory once the order reaches {@link OrderStatus#COMPLETED}
- * (payment confirmed) — a still-{@code PENDING} order that gets cancelled never touched
- * inventory, so cancellation needs no restock logic.
+ * Stock is only cut from inventory once the order reaches {@link OrderStatus#PAID} — a
+ * still-{@code PENDING} order that gets cancelled never touched inventory, so cancellation needs
+ * no restock logic. Everything after PAID ({@link OrderStatus#PREPARING},
+ * {@link OrderStatus#COMPLETED}) is the barista working through the drink: it moves no stock and
+ * no money. See {@link OrderStatus} for the full lifecycle.
  */
 @Getter
 @Setter
@@ -70,10 +73,40 @@ public class Order extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private PaymentMethod paymentMethod;
+    private FulfillmentMethod fulfillmentMethod = FulfillmentMethod.PICKUP;
 
     @Column(precision = 12, scale = 2)
+    private BigDecimal deliveryFee = BigDecimal.ZERO;
+
+    @Column(length = 500)
+    private String deliveryAddress;
+
+    @Column(length = 120)
+    private String contactName;
+
+    @Column(length = 30)
+    private String contactPhone;
+
+    // Stamped when a delivery order leaves the shop, and when the courier confirms it arrived.
+    // Both stay null for a pickup order, which never enters the delivery leg.
+    private LocalDateTime dispatchedAt;
+
+    private LocalDateTime deliveredAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private PaymentMethod paymentMethod;
+
+    // How much cash was actually handed over, in whichever currency the customer paid with — a
+    // cash sale in Cambodia can be tendered in either (see CashPaymentRequest.currency). changeDue
+    // below is always the USD-equivalent excess, converted at the rate in effect when the payment
+    // was collected (see OrderServiceImpl.chargeCash).
+    @Column(precision = 15, scale = 2)
     private BigDecimal amountTendered;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 3)
+    private Currency amountTenderedCurrency;
 
     @Column(precision = 12, scale = 2)
     private BigDecimal changeDue;
@@ -97,10 +130,36 @@ public class Order extends BaseEntity {
     private String bakongTransactionHash;
 
     @Column
+    private LocalDateTime bakongExpiresAt;
+
+    // Two lines: whatever the customer typed for the barista, then the pickup/delivery
+    // logistics composed at checkout. TEXT rather than the default varchar(255) because a
+    // delivery address plus a free-text request overruns 255 easily — and losing the note is
+    // losing an instruction about what to actually make.
+    @Column(columnDefinition = "TEXT")
     private String note;
 
     @Column
     private LocalDateTime paidAt;
+
+    // Where the customer pinned the shop to deliver to at checkout — null means this is a
+    // pickup order (a POS sale is always pickup, so these are only ever set via
+    // OrderService.createForCustomer). Both set together or not at all.
+    @Column(precision = 9, scale = 6)
+    private BigDecimal deliveryLatitude;
+
+    @Column(precision = 9, scale = 6)
+    private BigDecimal deliveryLongitude;
+
+    // Set by whichever admin/barista evaluates the delivery (see OrderService.setDeliveryFee) —
+    // null until they do, even for a delivery order. Included in totalAmount once set; see
+    // OrderServiceImpl.recalculateTotal.
+    @Column(precision = 12, scale = 2)
+    private BigDecimal deliveryFee;
+
+    public boolean isDelivery() {
+        return deliveryLatitude != null && deliveryLongitude != null;
+    }
 
     public void addItem(OrderItem item) {
         items.add(item);

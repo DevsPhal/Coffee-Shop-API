@@ -30,5 +30,15 @@ public interface OtpService {
     /** Same as {@link #resend(String, String, OtpPurpose)}, with an optional Telegram deep link. */
     void resend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink);
 
+    /**
+     * Same code/cooldown/attempts bookkeeping as {@link #resend}, but delivered as a Telegram chat
+     * message instead of an email — used to resend a customer's registration code once they've
+     * linked Telegram mid-registration (see AuthServiceImpl#resendOtp). Telegram is never a
+     * registration path of its own: a staff account invited via Telegram
+     * (StaffServiceImpl#createViaTelegram) is verified by phone-number match instead of an OTP —
+     * see TelegramLinkServiceImpl#verifyPendingContact.
+     */
+    void resendViaTelegram(String email, String fullName, OtpPurpose purpose, Long chatId);
+
     void verify(String email, OtpPurpose purpose, String code);
 }

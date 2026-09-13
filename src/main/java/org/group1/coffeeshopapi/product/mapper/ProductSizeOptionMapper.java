@@ -9,5 +9,7 @@ import org.mapstruct.Mapping;
 public interface ProductSizeOptionMapper {
 
     @Mapping(target = "productId", source = "product.id")
+    @Mapping(target = "finalPrice",
+            expression = "java(sizeOption.getProduct().getFinalPrice(sizeOption.getPrice(), java.time.LocalDateTime.now()))")
     ProductSizeOptionResponse toResponse(ProductSizeOption sizeOption);
 }

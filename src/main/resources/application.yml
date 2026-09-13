@@ -66,6 +66,8 @@ spring:
 bakong:
   base-url: ${BAKONG_BASE_URL:https://api-bakong.nbc.gov.kh}
   token: ${BAKONG_TOKEN:}
+  # Only needed for automatic token renewal — see BakongTokenService.
+  email: ${BAKONG_EMAIL:}
   account-id: ${BAKONG_ACCOUNT_ID:}
   account-information: ${BAKONG_ACCOUNT_INFORMATION:}
   acquiring-bank: ${BAKONG_ACQUIRING_BANK:}
@@ -78,6 +80,14 @@ bakong:
   currency: ${BAKONG_CURRENCY:USD}
   expiration-minutes: ${BAKONG_EXPIRATION_MINUTES:15}
   khr-per-usd-rate: ${BAKONG_KHR_PER_USD_RATE:4100}
+
+# The shop's own pinned coordinates, so a delivery order's distance can be shown to whichever
+# admin/barista is evaluating its delivery fee (see OrderResponse.distanceMeters). Blank until
+# set — distance is simply omitted (not estimated) until an admin configures it.
+shop:
+  location:
+    latitude: ${SHOP_LATITUDE:}
+    longitude: ${SHOP_LONGITUDE:}
 
 minio:
   endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
@@ -104,6 +114,11 @@ app:
   super-admin:
     email: ${SUPER_ADMIN_EMAIL:}
     password: ${SUPER_ADMIN_PASSWORD:}
+  cors:
+    # Browser origins allowed to call this API. The storefront and admin are separate apps on
+    # their own ports, so every request they make is cross-origin. Set CORS_ALLOWED_ORIGINS to
+    # a comma-separated list when deploying behind real hostnames.
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001}
 
 telegram:
   bot-token: ${TELEGRAM_BOT_TOKEN:}

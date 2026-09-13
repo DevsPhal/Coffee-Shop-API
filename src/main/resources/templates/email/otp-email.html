@@ -67,19 +67,17 @@
                             </tr>
                             <tr>
                                 <td align="center" style="padding:0 0 16px;">
-                                    <!--[if mso]>
-                                    <table role="presentation" cellpadding="0" cellspacing="0"><tr><td>
-                                    <![endif]-->
-                                    <div class="otp-box"
-                                         style="display:inline-block; border:2px dashed #a9743c; border-radius:8px; padding:16px 32px; background-color:#fbf7ef;">
-                                        <span th:text="${otp}" class="otp-code"
-                                              style="font-size:32px; font-weight:700; letter-spacing:8px; color:#241811; font-family:Consolas, 'Courier New', monospace;">
-                                            000000
-                                        </span>
-                                    </div>
-                                    <!--[if mso]>
-                                    </td></tr></table>
-                                    <![endif]-->
+                                    <!-- Keep the code as real text in a presentation table for email clients. -->
+                                    <table role="presentation" align="center" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td class="otp-box" align="center" bgcolor="#fbf7ef"
+                                                style="border:2px dashed #a9743c; border-radius:8px; padding:16px 24px; background-color:#fbf7ef; color:#241811; text-align:center;">
+                                                <p style="margin:0 0 8px; color:#241811; font-size:12px; line-height:18px;">Your verification code</p>
+                                                <p th:text="${otp}" class="otp-code"
+                                                   style="margin:0; color:#241811; font-size:32px; line-height:40px; font-weight:700; letter-spacing:6px; white-space:nowrap; font-family:Consolas, 'Courier New', monospace;">000000</p>
+                                            </td>
+                                        </tr>
+                                    </table>
                                 </td>
                             </tr>
 

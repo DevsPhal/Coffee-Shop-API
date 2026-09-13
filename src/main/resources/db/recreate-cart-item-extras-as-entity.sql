@@ -1,0 +1,12 @@
+-- CartItem.extras moved from a raw @ManyToMany/@JoinTable to an explicit CartItemExtra entity
+-- (its own id/created_at/updated_at, same as ProductExtra and OrderItemExtra) — keeps every
+-- "who's linked to this extra" relation in the extras feature modeled the same consistent way
+-- instead of this one being a bare join table. The old join table's shape (a composite primary key
+-- on cart_item_id+extra_id, no id/timestamp columns) doesn't match the new entity, and ddl-auto:
+-- update can't reshape an existing table's primary key — drop it so it gets recreated fresh (with
+-- the new shape) on next boot. Cart line items are always transient — cleared the moment a cart is
+-- checked out or emptied, see Cart's javadoc — so nothing of value is ever lost here.
+--
+-- Safe to run more than once. Run against every database that already has this table: local dev
+-- DB and production.
+DROP TABLE IF EXISTS cart_item_extras;

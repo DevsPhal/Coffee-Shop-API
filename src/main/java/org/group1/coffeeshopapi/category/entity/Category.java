@@ -4,13 +4,16 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
+import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
+import org.group1.coffeeshopapi.common.enums.CategoryGroup;
 import org.group1.coffeeshopapi.common.enums.Status;
-
-import java.util.UUID;
 
 @Getter
 @Setter
@@ -28,11 +31,18 @@ public class Category extends BaseEntity {
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
 
-    // Which admin/super admin created or last modified this category — nullable so pre-existing
-    // rows (created before this tracking existed) don't need a backfill.
+    @Enumerated(EnumType.STRING)
     @Column
-    private UUID createdBy;
+    private CategoryGroup categoryGroup;
 
-    @Column
-    private UUID updatedBy;
+    // Which admin created or last modified this category — null both for pre-existing rows (from
+    // before this tracking existed) and for a change made by the Super Admin, which deliberately
+    // has no row in "admins" to reference (see CurrentActor.adminRef()).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "created_by")
+    private Admin createdByAdmin;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "updated_by")
+    private Admin updatedByAdmin;
 }

@@ -1,12 +1,16 @@
 package org.group1.coffeeshopapi.order.mapper;
 
+import org.group1.coffeeshopapi.order.dto.response.OrderItemExtraResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderItemResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.entity.Order;
 import org.group1.coffeeshopapi.order.entity.OrderItem;
+import org.group1.coffeeshopapi.order.entity.OrderItemExtra;
 import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+
+import java.math.BigDecimal;
 
 @Mapper(componentModel = "spring")
 public interface OrderMapper {
@@ -21,8 +25,15 @@ public interface OrderMapper {
     @Mapping(target = "handledByRole", source = "handledByActor.role")
     @Mapping(target = "customerId", source = "order.customer.id")
     @Mapping(target = "customerName", source = "order.customer.fullName")
-    OrderResponse toResponse(Order order, ActorSummary handledByActor);
+    @Mapping(target = "distanceMeters", source = "distanceMeters")
+    OrderResponse toResponse(Order order, ActorSummary handledByActor, BigDecimal distanceMeters);
 
     @Mapping(target = "productId", source = "product.id")
+    @Mapping(target = "sizeOptionName", source = "sizeOption.name")
     OrderItemResponse toItemResponse(OrderItem item);
+
+    @Mapping(target = "extraId", source = "extra.id")
+    @Mapping(target = "name", source = "extraName")
+    @Mapping(target = "price", source = "extraPrice")
+    OrderItemExtraResponse toItemExtraResponse(OrderItemExtra extra);
 }

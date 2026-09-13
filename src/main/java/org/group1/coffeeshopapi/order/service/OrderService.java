@@ -10,12 +10,13 @@ import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 public interface OrderService {
 
-    // --- Barista (POS) sales ---
+    // --- Walk-in (POS) sales — barista or admin, ringing up their own sale ---
 
     OrderResponse create(CreateOrderRequest request, UUID baristaId);
 
@@ -49,9 +50,17 @@ public interface OrderService {
     // still PENDING, that no staff member has claimed yet.
     Page<OrderResponse> listAwaitingBakongConfirmation(Pageable pageable);
 
+    // Staff (barista or admin) evaluating/revising the delivery fee for any still-PENDING delivery
+    // order (not scoped to one they've claimed) — folded into totalAmount immediately. Rejects an
+    // order with no pinned delivery location (see Order.isDelivery) or one already paid for.
+    OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId);
+
     // --- Customer self-service orders ---
 
-    OrderResponse createForCustomer(CreateOrderRequest request, UUID customerId);
+    // deliveryLatitude/deliveryLongitude are optional and must both be given together — null for
+    // both means a pickup order, the shop's default.
+    OrderResponse createForCustomer(CreateOrderRequest request, UUID customerId,
+            BigDecimal deliveryLatitude, BigDecimal deliveryLongitude);
 
     OrderResponse getOwnForCustomer(UUID id, UUID customerId);
 

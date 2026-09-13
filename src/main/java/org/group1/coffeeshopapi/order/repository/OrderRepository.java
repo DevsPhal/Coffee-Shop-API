@@ -6,6 +6,8 @@ import org.group1.coffeeshopapi.order.entity.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -29,6 +31,18 @@ import java.util.UUID;
  * </ul>
  */
 public interface OrderRepository extends JpaRepository<Order, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.id = :id")
+    Optional<Order> findByIdForUpdate(@Param("id") UUID id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.id = :id and o.customer.id = :customerId")
+    Optional<Order> findByCustomerForUpdate(@Param("id") UUID id, @Param("customerId") UUID customerId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from Order o where o.id = :id and o.handledBy = :handledBy")
+    Optional<Order> findByHandledByForUpdate(@Param("id") UUID id, @Param("handledBy") UUID handledBy);
 
     @Query("select o from Order o where o.id = :id and o.handledBy = :handledBy")
     Optional<Order> findByIdAndHandledBy(@Param("id") UUID id, @Param("handledBy") UUID handledBy);
@@ -67,13 +81,25 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findAwaitingBaristaClaim(
             @Param("status") OrderStatus status, @Param("paymentMethod") PaymentMethod paymentMethod, Pageable pageable);
 
-    // Backs the daily report: completed sales for one barista within a day window.
-    @Query("select o from Order o where o.handledBy = :handledBy and o.status = :status "
+    // The delivery board: everything currently with a courier, oldest dispatch first so the
+    // longest-outstanding drop is dealt with first.
+    @Query("select o from Order o left join fetch o.customer where o.status = :status "
+            + "order by o.dispatchedAt asc")
+    Page<Order> findByStatusForDeliveryBoard(@Param("status") OrderStatus status, Pageable pageable);
+
+    // Backs the daily report: paid sales for one barista within a day window.
+    //
+    // Both report queries filter on paidAt alone rather than also pinning status to COMPLETED.
+    // paidAt is stamped exactly once, when payment clears, and an order can only be cancelled
+    // while it is still unpaid — so a non-null paidAt already means "this sale really happened",
+    // whether the drink has since been made or is still sitting in the barista queue. Pinning
+    // status here would quietly drop the day's most recent takings from the day's takings.
+    @Query("select o from Order o where o.handledBy = :handledBy "
             + "and o.paidAt between :start and :end")
-    List<Order> findByHandledByAndStatusAndPaidAtBetween(
-            @Param("handledBy") UUID handledBy, @Param("status") OrderStatus status,
+    List<Order> findByHandledByAndPaidAtBetween(
+            @Param("handledBy") UUID handledBy,
             @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    // Backs the admin-wide daily report: completed sales across every barista within a day window.
-    List<Order> findByStatusAndPaidAtBetween(OrderStatus status, LocalDateTime start, LocalDateTime end);
+    // Backs the admin-wide daily report: paid sales across every barista within a day window.
+    List<Order> findByPaidAtBetween(LocalDateTime start, LocalDateTime end);
 }

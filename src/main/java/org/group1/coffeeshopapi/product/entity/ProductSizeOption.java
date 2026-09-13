@@ -16,9 +16,10 @@ import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.math.BigDecimal;
 
-// A per-product size choice (e.g. Small/Medium/Large), each with its own price add-on — unlike
-// sugar level/ice level/milk type (see CartItem/OrderItem), size pricing varies by drink so it
-// can't be a single global fixed list.
+// A per-product variant choice (e.g. Medium/Large, or a per-piece item), each with its own
+// absolute price — unlike sugar level/ice level/milk type (see CartItem/OrderItem), size pricing
+// varies by drink so it can't be a single global fixed list. A product has no price of its own;
+// every price comes from one of these rows (see ProductPriceResolver).
 @Getter
 @Setter
 @Entity
@@ -34,10 +35,9 @@ public class ProductSizeOption extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
-    // Added to the product's final price when this size is selected. Can be zero (e.g. the
-    // product's base/default size) but never negative.
+    // The absolute price charged when this variant is selected. Never negative.
     @Column(nullable = false, precision = 12, scale = 2)
-    private BigDecimal priceDelta = BigDecimal.ZERO;
+    private BigDecimal price = BigDecimal.ZERO;
 
     @Column
     private Integer sortOrder;

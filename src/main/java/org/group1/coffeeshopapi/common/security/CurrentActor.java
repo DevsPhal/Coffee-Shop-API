@@ -1,5 +1,8 @@
 package org.group1.coffeeshopapi.common.security;
 
+import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.admin.entity.Admin;
+import org.group1.coffeeshopapi.admin.repository.AdminRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -16,7 +19,10 @@ import java.util.UUID;
  * for the Super Admin and NPEs the moment {@code .getId()} is called.
  */
 @Component
+@RequiredArgsConstructor
 public class CurrentActor {
+
+    private final AdminRepository adminRepository;
 
     public UUID id() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -28,5 +34,14 @@ public class CurrentActor {
             return SuperAdminUserDetails.ID;
         }
         throw new IllegalStateException("Unsupported principal type: " + principal.getClass());
+    }
+
+    // A lazy reference to the acting Admin, for entities that track "which admin did this" as a
+    // real @ManyToOne relation — null when the actor is the Super Admin (see
+    // AdminRepository.referenceOrNull). Only call this on an endpoint that's actually
+    // ADMIN/SUPER_ADMIN-only — a Barista's id isn't in "admins" either and getReferenceById won't
+    // fail until the proxy is touched, so misuse here fails far from the actual bug.
+    public Admin adminRef() {
+        return adminRepository.referenceOrNull(id());
     }
 }

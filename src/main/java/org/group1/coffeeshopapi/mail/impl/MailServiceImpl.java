@@ -50,13 +50,29 @@ public class MailServiceImpl implements MailService {
             }
 
             String html = templateEngine.process("email/otp-email", context);
+            String plainText = """
+                    Hi %s,
+
+                    Your %s code is: %s
+
+                    This code expires in %d minutes.
+                    Enter it in the verification form to continue.
+
+                    Didn't request this code? You can safely ignore this email.
+
+                    Need help? Contact us at %s
+                    """.formatted(fullName, purposeLabel, otp, expiryMinutes, shopEmail);
+            if (telegramDeepLink != null && !telegramDeepLink.isBlank()) {
+                plainText += "\nConnect Telegram: " + telegramDeepLink + "\n";
+            }
 
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
             helper.setFrom(shopEmail);
             helper.setSubject(purposeLabel + " Verification Code");
-            helper.setText(html, true);
+            // Let the email client choose HTML or plain text; both contain the same code.
+            helper.setText(plainText, html);
             if (logoAvailable) {
                 helper.addInline(LOGO_CONTENT_ID, logo);
             }
