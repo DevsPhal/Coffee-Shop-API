@@ -64,7 +64,7 @@ public class CartController {
     public ResponseEntity<ApiResponse<OrderResponse>> checkout(
             @Valid @RequestBody(required = false) CheckoutRequest request,
             @AuthenticationPrincipal CustomUserDetails currentUser) {
-        CheckoutRequest checkoutRequest = request != null ? request : new CheckoutRequest(null, null, null);
+        CheckoutRequest checkoutRequest = request != null ? request : new CheckoutRequest(null, null, null, null);
         OrderResponse response = cartService.checkout(currentUser.getId(), checkoutRequest);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Order placed successfully.", response));

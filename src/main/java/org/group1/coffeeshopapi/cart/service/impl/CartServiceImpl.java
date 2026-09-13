@@ -165,7 +165,8 @@ public class CartServiceImpl implements CartService {
                         item.getSelectedExtras().stream().map(Extra::getId).toList()))
                 .toList();
 
-        OrderResponse order = orderService.createForCustomer(new CreateOrderRequest(items, request.note()), customerId,
+        OrderResponse order = orderService.createForCustomer(
+                new CreateOrderRequest(items, request.note(), request.delivery()), customerId,
                 request.deliveryLatitude(), request.deliveryLongitude());
 
         cart.getItems().clear();

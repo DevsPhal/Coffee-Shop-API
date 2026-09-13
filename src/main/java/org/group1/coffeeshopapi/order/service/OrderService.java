@@ -55,6 +55,29 @@ public interface OrderService {
     // order with no pinned delivery location (see Order.isDelivery) or one already paid for.
     OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId);
 
+    // --- Post-payment fulfillment (barista or admin, not scoped to who collected payment — see
+    // OrderStatus for the full lifecycle each of these moves an order through) ---
+
+    // PAID -> PREPARING: a barista has picked the order up and started making it.
+    OrderResponse startPreparing(UUID id, UUID actorId);
+
+    // PREPARING -> OUT_FOR_DELIVERY: the order has left the shop with a courier. Delivery orders
+    // only — rejects a pickup order (see Order.isDelivery).
+    OrderResponse dispatchForDelivery(UUID id, UUID actorId);
+
+    // OUT_FOR_DELIVERY -> DELIVERED: the courier confirms it arrived. Terminal.
+    OrderResponse markDelivered(UUID id, UUID actorId);
+
+    // PREPARING -> COMPLETED: handed to the customer at the counter. Pickup orders only — rejects
+    // a delivery order (dispatch/deliver it instead). Terminal.
+    OrderResponse completePickup(UUID id, UUID actorId);
+
+    // The kitchen queue: orders just paid for, nobody's started making yet.
+    Page<OrderResponse> listAwaitingPreparation(Pageable pageable);
+
+    // The delivery board: everything currently out with a courier, oldest dispatch first.
+    Page<OrderResponse> listDeliveryBoard(Pageable pageable);
+
     // --- Customer self-service orders ---
 
     // deliveryLatitude/deliveryLongitude are optional and must both be given together — null for

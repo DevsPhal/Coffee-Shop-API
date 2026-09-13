@@ -75,6 +75,9 @@ public class Order extends BaseEntity {
     @Column(length = 20)
     private FulfillmentMethod fulfillmentMethod = FulfillmentMethod.PICKUP;
 
+    // Set by whichever admin/barista evaluates the delivery (see OrderService.setDeliveryFee) —
+    // zero until they do, even for a delivery order. Included in totalAmount once set; see
+    // OrderServiceImpl.recalculateTotal.
     @Column(precision = 12, scale = 2)
     private BigDecimal deliveryFee = BigDecimal.ZERO;
 
@@ -151,14 +154,11 @@ public class Order extends BaseEntity {
     @Column(precision = 9, scale = 6)
     private BigDecimal deliveryLongitude;
 
-    // Set by whichever admin/barista evaluates the delivery (see OrderService.setDeliveryFee) —
-    // null until they do, even for a delivery order. Included in totalAmount once set; see
-    // OrderServiceImpl.recalculateTotal.
-    @Column(precision = 12, scale = 2)
-    private BigDecimal deliveryFee;
-
+    // True if either signal says this is a delivery: the explicit fulfillmentMethod (set at
+    // checkout via CheckoutDetailsRequest — the authoritative one going forward), or a pinned GPS
+    // location (the older signal, kept for orders/callers that only ever set that).
     public boolean isDelivery() {
-        return deliveryLatitude != null && deliveryLongitude != null;
+        return fulfillmentMethod == FulfillmentMethod.DELIVERY || (deliveryLatitude != null && deliveryLongitude != null);
     }
 
     public void addItem(OrderItem item) {
