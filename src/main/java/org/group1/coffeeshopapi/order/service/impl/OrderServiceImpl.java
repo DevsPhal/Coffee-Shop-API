@@ -7,6 +7,7 @@ import org.group1.coffeeshopapi.bakong.BakongQrService;
 import org.group1.coffeeshopapi.bakong.dto.BakongQrResult;
 import org.group1.coffeeshopapi.bakong.dto.BakongTransactionCheckResult;
 import org.group1.coffeeshopapi.common.enums.Currency;
+import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
@@ -14,6 +15,7 @@ import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.StockStrategy;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.properties.BakongProperties;
 import org.group1.coffeeshopapi.common.properties.ShopLocationProperties;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.common.util.GeoUtil;
@@ -23,6 +25,7 @@ import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
+import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
@@ -85,6 +88,7 @@ public class OrderServiceImpl implements OrderService {
     private final CustomerRepository customerRepository;
     private final ActorLookupService actorLookupService;
     private final ShopLocationProperties shopLocationProperties;
+    private final BakongProperties bakongProperties;
 
     // ---------- Walk-in (POS) sales — barista or admin, ringing up their own sale ----------
 
@@ -189,10 +193,71 @@ public class OrderServiceImpl implements OrderService {
             order.setBakongMd5Hash(null);
             order.setBakongCurrency(null);
             order.setBakongAmount(null);
+            order.setBakongExpiresAt(null);
         }
         order = orderRepository.save(order);
         logAudit(order, OrderAuditAction.DELIVERY_FEE_SET, actorId);
         return toResponse(order);
+    }
+
+    // ---------- Post-payment fulfillment ----------
+
+    @Override
+    @Transactional
+    public OrderResponse startPreparing(UUID id, UUID actorId) {
+        Order order = requireStatus(findAny(id), OrderStatus.PAID);
+        order.setStatus(OrderStatus.PREPARING);
+        order = orderRepository.save(order);
+        logAudit(order, OrderAuditAction.PREPARING, actorId);
+        return toResponse(order);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse dispatchForDelivery(UUID id, UUID actorId) {
+        Order order = requireStatus(findAny(id), OrderStatus.PREPARING);
+        if (!order.isDelivery()) {
+            throw new InvalidOperationException("This is a pickup order — use complete instead");
+        }
+        order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
+        order.setDispatchedAt(LocalDateTime.now());
+        order = orderRepository.save(order);
+        logAudit(order, OrderAuditAction.OUT_FOR_DELIVERY, actorId);
+        return toResponse(order);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse markDelivered(UUID id, UUID actorId) {
+        Order order = requireStatus(findAny(id), OrderStatus.OUT_FOR_DELIVERY);
+        order.setStatus(OrderStatus.DELIVERED);
+        order.setDeliveredAt(LocalDateTime.now());
+        order = orderRepository.save(order);
+        logAudit(order, OrderAuditAction.DELIVERED, actorId);
+        return toResponse(order);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse completePickup(UUID id, UUID actorId) {
+        Order order = requireStatus(findAny(id), OrderStatus.PREPARING);
+        if (order.isDelivery()) {
+            throw new InvalidOperationException("This is a delivery order — dispatch/deliver it instead");
+        }
+        order.setStatus(OrderStatus.COMPLETED);
+        order = orderRepository.save(order);
+        logAudit(order, OrderAuditAction.COMPLETED, actorId);
+        return toResponse(order);
+    }
+
+    @Override
+    public Page<OrderResponse> listAwaitingPreparation(Pageable pageable) {
+        return toResponsePage(orderRepository.findByStatus(OrderStatus.PAID, pageable));
+    }
+
+    @Override
+    public Page<OrderResponse> listDeliveryBoard(Pageable pageable) {
+        return toResponsePage(orderRepository.findByStatusForDeliveryBoard(OrderStatus.OUT_FOR_DELIVERY, pageable));
     }
 
     // ---------- Customer self-service orders ----------
@@ -313,6 +378,7 @@ public class OrderServiceImpl implements OrderService {
     private Order buildOrder(CreateOrderRequest request) {
         Order order = new Order();
         order.setNote(request.note());
+        applyFulfillmentDetails(order, request.delivery());
 
         for (OrderItemRequest itemRequest : request.items()) {
             Product product = productRepository.findById(itemRequest.productId())
@@ -361,6 +427,22 @@ public class OrderServiceImpl implements OrderService {
         }
         recalculateTotal(order);
         return order;
+    }
+
+    // Applies the checkout-time fulfillment choice — null means "not given", so the order stays a
+    // pickup (FulfillmentMethod's default on the entity), same as before this field existed.
+    private void applyFulfillmentDetails(Order order, CheckoutDetailsRequest delivery) {
+        if (delivery == null) {
+            return;
+        }
+        if (delivery.method() == FulfillmentMethod.DELIVERY
+                && (delivery.address() == null || delivery.address().isBlank())) {
+            throw new InvalidOperationException("A delivery address is required for delivery orders");
+        }
+        order.setFulfillmentMethod(delivery.method());
+        order.setContactName(delivery.contactName());
+        order.setContactPhone(delivery.contactPhone());
+        order.setDeliveryAddress(delivery.address());
     }
 
     // Resolves whichever way the caller picked a size — sizeOptionId (already knows the option's
@@ -424,7 +506,7 @@ public class OrderServiceImpl implements OrderService {
         order.setAmountTendered(request.amountTendered());
         order.setAmountTenderedCurrency(request.currency());
         order.setChangeDue(tenderedInUsd.subtract(order.getTotalAmount()));
-        complete(order, fulfillingActorId);
+        markPaid(order, fulfillingActorId);
         order = orderRepository.save(order);
         logAudit(order, OrderAuditAction.CASH_COLLECTED, fulfillingActorId);
         return order;
@@ -445,14 +527,22 @@ public class OrderServiceImpl implements OrderService {
         String billNumber = "ORD-" + order.getId().toString().substring(0, 8).toUpperCase();
         BakongQrResult qr = bakongQrService.generateQr(order.getTotalAmount(), billNumber, currency);
 
+        // Same deadline BakongQrServiceImpl already encoded into the QR itself (see its
+        // expirationTimestamp) — kept here too so the API can tell the client when to stop
+        // polling/showing this QR without having to decode it back out of the KHQR payload.
+        long expiresInSeconds = bakongProperties.getExpirationMinutes() * 60;
+        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(expiresInSeconds);
+
         order.setPaymentMethod(PaymentMethod.BAKONG);
         order.setBakongQrString(qr.qrString());
         order.setBakongMd5Hash(qr.md5Hash());
         order.setBakongCurrency(qr.currency());
         order.setBakongAmount(qr.amount());
+        order.setBakongExpiresAt(expiresAt);
         orderRepository.save(order);
 
-        return new BakongQrResponse(order.getId(), qr.qrString(), qr.md5Hash(), qr.amount(), qr.currency());
+        return new BakongQrResponse(order.getId(), qr.qrString(), qr.md5Hash(), qr.amount(), qr.currency(),
+                expiresAt, expiresInSeconds);
     }
 
     // performedBy is the admin/barista confirming this — a POS sale (confirmBakongPayment), or a
@@ -462,11 +552,12 @@ public class OrderServiceImpl implements OrderService {
     // stock movements are an internal process (see StockMovement) — falling back to the Super
     // Admin's id when no staff was actually involved.
     private Order confirmBakong(Order order, UUID performedBy) {
-        if (order.getStatus() == OrderStatus.COMPLETED) {
-            return order;
-        }
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new InvalidOperationException("Order has been cancelled");
+        }
+        if (order.getStatus() != OrderStatus.PENDING) {
+            // Already paid (or further along the lifecycle since) — idempotent re-confirm.
+            return order;
         }
         if (order.getBakongMd5Hash() == null) {
             throw new InvalidOperationException("Generate a Bakong QR for this order first");
@@ -481,16 +572,19 @@ public class OrderServiceImpl implements OrderService {
             UUID customerId = order.getCustomer() != null ? order.getCustomer().getId() : null;
             UUID stockActorId = performedBy != null ? performedBy : SuperAdminUserDetails.ID;
             UUID auditActorId = performedBy != null ? performedBy : customerId;
-            complete(order, stockActorId);
+            markPaid(order, stockActorId);
             order = orderRepository.save(order);
             logAudit(order, OrderAuditAction.BAKONG_CONFIRMED, auditActorId);
         }
         return order;
     }
 
-    // Cuts inventory only at the point a sale is actually paid for, so a never-paid PENDING
-    // order that gets cancelled leaves stock untouched.
-    private void complete(Order order, UUID stockActorId) {
+    // Cuts inventory and stamps paidAt only at the point a sale is actually paid for, so a
+    // never-paid PENDING order that gets cancelled leaves stock untouched. This is PAID, not
+    // COMPLETED — see OrderStatus: what's left is the barista preparing it (startPreparing) and,
+    // for a pickup order, handing it over (completePickup) or, for delivery, dispatching and
+    // confirming arrival (dispatchForDelivery/markDelivered).
+    private void markPaid(Order order, UUID stockActorId) {
         for (OrderItem item : order.getItems()) {
             inventoryService.stockCut(new StockCutRequest(
                     item.getProduct().getId(),
@@ -498,7 +592,7 @@ public class OrderServiceImpl implements OrderService {
                     StockStrategy.FIFO,
                     "Sold in order " + order.getId()), stockActorId);
         }
-        order.setStatus(OrderStatus.COMPLETED);
+        order.setStatus(OrderStatus.PAID);
         order.setPaidAt(LocalDateTime.now());
 
         if (order.getCustomer() != null) {
@@ -516,8 +610,13 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private Order requirePending(Order order) {
-        if (order.getStatus() != OrderStatus.PENDING) {
-            throw new InvalidOperationException("Order is not pending");
+        return requireStatus(order, OrderStatus.PENDING);
+    }
+
+    private Order requireStatus(Order order, OrderStatus expected) {
+        if (order.getStatus() != expected) {
+            throw new InvalidOperationException(
+                    "Order is not " + expected.name().toLowerCase() + " (currently " + order.getStatus().name().toLowerCase() + ")");
         }
         return order;
     }

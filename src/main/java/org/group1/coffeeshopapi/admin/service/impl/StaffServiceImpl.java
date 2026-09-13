@@ -17,6 +17,7 @@ import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
+import org.group1.coffeeshopapi.common.storage.FileStorageService;
 import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
 import org.group1.coffeeshopapi.telegram.util.TelegramAccountUtil;
@@ -30,12 +31,15 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class StaffServiceImpl implements StaffService {
+
+    private static final String AVATAR_FOLDER = "avatars";
 
     private final UserRepository userRepository;
     private final AdminRepository adminRepository;
@@ -46,6 +50,7 @@ public class StaffServiceImpl implements StaffService {
     private final TokenService tokenService;
     private final AuthUserSyncService authUserSyncService;
     private final TelegramLinkService telegramLinkService;
+    private final FileStorageService fileStorageService;
 
     @Override
     @Transactional
@@ -183,6 +188,21 @@ public class StaffServiceImpl implements StaffService {
 
         userRepository.save(staff);
         authUserSyncService.sync(staff);
+        return userMapper.toResponse(staff);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse uploadAvatar(UUID id, MultipartFile file, Role role) {
+        User staff = findByIdAndRole(id, role);
+        String previousAvatarUrl = staff.getAvatarUrl();
+
+        staff.setAvatarUrl(fileStorageService.uploadImage(file, AVATAR_FOLDER));
+        userRepository.save(staff);
+
+        if (previousAvatarUrl != null) {
+            fileStorageService.delete(previousAvatarUrl);
+        }
         return userMapper.toResponse(staff);
     }
 

@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.order.dto.response;
 
 import org.group1.coffeeshopapi.common.enums.Currency;
+import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.Role;
@@ -24,6 +25,15 @@ public record OrderResponse(
         OrderStatus status,
         List<OrderItemResponse> items,
         BigDecimal totalAmount,
+        // How this order is fulfilled, and — for DELIVERY — the human-facing address/contact a
+        // courier needs (set at checkout via CheckoutDetailsRequest). dispatchedAt/deliveredAt
+        // stay null until the order actually reaches OUT_FOR_DELIVERY/DELIVERED — see OrderStatus.
+        FulfillmentMethod fulfillmentMethod,
+        String deliveryAddress,
+        String contactName,
+        String contactPhone,
+        LocalDateTime dispatchedAt,
+        LocalDateTime deliveredAt,
         PaymentMethod paymentMethod,
         BigDecimal amountTendered,
         Currency amountTenderedCurrency,

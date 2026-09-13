@@ -177,4 +177,55 @@ public class AdminOrderController {
         OrderResponse response = orderService.setDeliveryFee(id, request.fee(), currentActor.id());
         return ApiResponse.of(HttpStatus.OK, "Delivery fee set successfully.", response);
     }
+
+    // The kitchen queue: orders just paid for, nobody's started making yet — what an admin browses
+    // to find one to start via prepare below.
+    @GetMapping("/awaiting-preparation")
+    public ApiResponse<PageResponse<OrderResponse>> listAwaitingPreparation(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
+                PageResponse.of(orderService.listAwaitingPreparation(PageUtil.buildPageable(page, size))));
+    }
+
+    // PAID -> PREPARING. Not scoped to who collected payment — any admin/barista can start on any
+    // paid order sitting in the queue above.
+    @PostMapping("/{id}/prepare")
+    public ApiResponse<OrderResponse> startPreparing(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Order marked as preparing.",
+                orderService.startPreparing(id, currentActor.id()));
+    }
+
+    // PREPARING -> COMPLETED — handed to the customer at the counter. Pickup orders only; a
+    // delivery order goes through dispatch/deliver below instead.
+    @PostMapping("/{id}/complete")
+    public ApiResponse<OrderResponse> completePickup(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Order completed successfully.",
+                orderService.completePickup(id, currentActor.id()));
+    }
+
+    // PREPARING -> OUT_FOR_DELIVERY — the order has left the shop with a courier. Delivery orders
+    // only.
+    @PostMapping("/{id}/dispatch")
+    public ApiResponse<OrderResponse> dispatchForDelivery(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Order dispatched for delivery.",
+                orderService.dispatchForDelivery(id, currentActor.id()));
+    }
+
+    // OUT_FOR_DELIVERY -> DELIVERED — the courier confirms it arrived.
+    @PostMapping("/{id}/deliver")
+    public ApiResponse<OrderResponse> markDelivered(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Order marked as delivered.",
+                orderService.markDelivered(id, currentActor.id()));
+    }
+
+    // The delivery board: everything currently out with a courier, oldest dispatch first — what
+    // an admin browses to find one to confirm via deliver above.
+    @GetMapping("/delivery-board")
+    public ApiResponse<PageResponse<OrderResponse>> listDeliveryBoard(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
+                PageResponse.of(orderService.listDeliveryBoard(PageUtil.buildPageable(page, size))));
+    }
 }
