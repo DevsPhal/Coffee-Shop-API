@@ -3,13 +3,13 @@ package org.group1.coffeeshopapi.mail.impl;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.group1.coffeeshopapi.common.exception.MailDeliveryException;
 import org.group1.coffeeshopapi.mail.MailService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -30,8 +30,12 @@ public class MailServiceImpl implements MailService {
     @Value("${mail.shop.email}")
     private String shopEmail;
 
+    // Synchronous, deliberately: an OTP is the one thing standing between the caller and
+    // register/login actually succeeding, so a failure here must reach them as a real error
+    // instead of a false "check your email" — see MailDeliveryException. (This used to be
+    // @Async, firing the send in the background and swallowing any failure into a log line no
+    // caller ever saw — the request looked successful even when no email ever went out.)
     @Override
-    @Async("mailTaskExecutor")
     public void sendOtpEmail(String to, String fullName, String otp, int expiryMinutes, String purposeLabel,
                               String telegramDeepLink) {
         try {
@@ -80,6 +84,8 @@ public class MailServiceImpl implements MailService {
             mailSender.send(message);
         } catch (Exception ex) {
             log.error("Failed to send OTP email to {}", to, ex);
+            throw new MailDeliveryException(
+                    "Couldn't send the verification email right now — please try again in a moment", ex);
         }
     }
 }

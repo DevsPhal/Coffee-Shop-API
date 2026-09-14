@@ -42,6 +42,12 @@ spring:
             required: true
           ssl:
             enable: false
+          # Sending an OTP email is now synchronous (see MailServiceImpl) — a genuinely
+          # unreachable SMTP host must fail fast with a clear error rather than hang the
+          # register/login/resend-otp request until some much longer platform-level timeout.
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
     debug: false
 
   data:
