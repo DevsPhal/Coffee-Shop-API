@@ -20,9 +20,14 @@ import org.springframework.context.annotation.Configuration;
                         + "account management. See the tag list below for the full surface area, "
                         + "grouped by who can call it (Super Admin / Admin / Barista / Customer / public)."
         ),
+        // Swagger UI's "Servers" dropdown defaults to whichever entry is listed first — Production
+        // goes first so opening Swagger UI from the real (https) domain "just works" without
+        // manually switching the dropdown. A production page's "Try it out" sending to the
+        // localhost entry would otherwise get hard-blocked by the browser as mixed content
+        // (an https page can never fetch a plain http endpoint) — that's what this ordering avoids.
         servers = {
-                @Server(url = "http://localhost:8080", description = "Local Development"),
-                @Server(url = "https://api.590stcafe.shop", description = "Production")
+                @Server(url = "https://api.590stcafe.shop", description = "Production"),
+                @Server(url = "http://localhost:8080", description = "Local Development")
         }
 )
 @SecurityScheme(
