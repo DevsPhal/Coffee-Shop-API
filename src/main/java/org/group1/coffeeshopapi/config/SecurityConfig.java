@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.config;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.SecurityConstants;
 import org.group1.coffeeshopapi.common.filter.JwtAuthFilter;
+import org.group1.coffeeshopapi.common.properties.CorsProperties;
 import org.group1.coffeeshopapi.common.security.RestAccessDeniedHandler;
 import org.group1.coffeeshopapi.common.security.RestAuthenticationEntryPoint;
 import org.springframework.context.annotation.Bean;
@@ -17,6 +18,11 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.http.HttpMethod;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -25,10 +31,29 @@ public class SecurityConfig {
     private final JwtAuthFilter jwtAuthFilter;
     private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
     private final RestAccessDeniedHandler restAccessDeniedHandler;
+    private final CorsProperties corsProperties;
 
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
+    }
+
+    // Without this, the browser blocks every request a real frontend (on its own origin) makes to
+    // this API — registration, login, everything — since Spring Security answers with no
+    // Access-Control-Allow-* headers at all otherwise. A tool like curl/Postman never hits this
+    // (CORS is a browser-only restriction), which is exactly why this can look "broken only in
+    // production": a local dev frontend often proxies /api same-origin, masking the gap that a
+    // real deployed frontend then walks straight into. See CorsProperties/CORS_ALLOWED_ORIGINS.
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration configuration = new CorsConfiguration();
+        configuration.setAllowedOrigins(corsProperties.getAllowedOrigins());
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        configuration.setAllowedHeaders(List.of("*"));
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", configuration);
+        return source;
     }
 
     @Bean
@@ -42,6 +67,7 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .exceptionHandling(handling -> handling
                         .authenticationEntryPoint(restAuthenticationEntryPoint)
