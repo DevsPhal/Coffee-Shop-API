@@ -1,5 +1,15 @@
 # Active only when SPRING_PROFILES_ACTIVE=production is set via a real container env var
-# (see Deployment/production/docker-compose.yml and application.yml's comment on why).
+# (see application.yml's comment on why).
+server:
+  # Production sits behind a reverse proxy/load balancer that terminates HTTPS and forwards to
+  # this app over plain HTTP — without this, Spring never learns the request actually arrived as
+  # https, so it perceives the browser's own https Origin as a *different* origin from its own
+  # (http) idea of itself. That misdetection is exactly what turned a same-origin request (e.g.
+  # Swagger UI, served by this same app, calling its own API) into a rejected cross-origin one.
+  # Trusts whatever X-Forwarded-Proto/Host/Port the proxy sets — safe here because, unlike a
+  # public-facing app, only that proxy can ever reach this container directly.
+  forward-headers-strategy: framework
+
 spring:
   jpa:
     # Don't leak SQL statements/data into production logs.
