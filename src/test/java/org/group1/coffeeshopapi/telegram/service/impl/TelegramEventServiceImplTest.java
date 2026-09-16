@@ -48,7 +48,7 @@ class TelegramEventServiceImplTest {
 
         service.sendUpcomingEvents(CHAT_ID);
 
-        verify(apiClient).sendMessage(CHAT_ID, "No upcoming events right now — check back soon! ☕");
+        verify(apiClient).sendMessageWithButtons(CHAT_ID, "No upcoming events right now — check back soon! ☕");
         verifyNoInteractions(customerRepository);
     }
 
@@ -65,6 +65,7 @@ class TelegramEventServiceImplTest {
         verify(apiClient).sendPhoto(eq(CHAT_ID), eq(event.getImageUrl()), caption.capture());
         assertThat(caption.getValue()).contains("Latte Art Night");
         verify(apiClient, never()).sendLocation(any(), any(), any());
+        verify(apiClient).sendMessageWithButtons(eq(CHAT_ID), anyString());
     }
 
     @Test
@@ -77,6 +78,7 @@ class TelegramEventServiceImplTest {
         verify(apiClient, times(2)).sendHtmlMessage(eq(CHAT_ID), anyString());
         verify(apiClient).sendLocation(CHAT_ID, event.getLatitude(), event.getLongitude());
         verify(apiClient, never()).sendPhoto(any(), any(), any());
+        verify(apiClient).sendMessageWithButtons(eq(CHAT_ID), anyString());
     }
 
     @Test

@@ -6,5 +6,5 @@ import com.fasterxml.jackson.databind.annotation.JsonNaming;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 @JsonNaming(PropertyNamingStrategies.SnakeCaseStrategy.class)
-public record TelegramUpdate(Long updateId, TelegramMessage message) {
+public record TelegramUpdate(Long updateId, TelegramMessage message, TelegramCallbackQuery callbackQuery) {
 }

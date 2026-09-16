@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.telegram.command.TelegramCommand;
 import org.group1.coffeeshopapi.telegram.command.TelegramCommandRegistry;
+import org.group1.coffeeshopapi.telegram.dto.TelegramCallbackQuery;
 import org.group1.coffeeshopapi.telegram.dto.TelegramMessage;
 import org.group1.coffeeshopapi.telegram.dto.TelegramUpdate;
 import org.springframework.stereotype.Component;
@@ -14,6 +15,10 @@ import java.util.Optional;
 @Component
 @RequiredArgsConstructor
 public class TelegramUpdateHandler {
+    private static final String UNEXPECTED_ERROR_MESSAGE =
+            "Sorry, something went wrong on our end. Please try again in a moment.";
+    private static final String UNKNOWN_COMMAND_MESSAGE = "Unknown command. Send /help to see what I can do.";
+
     private final TelegramCommandRegistry registry;
     private final TelegramApiClient apiClient;
     private final TelegramLinkService telegramLinkService;
@@ -27,6 +32,11 @@ public class TelegramUpdateHandler {
     // UnlinkCommand) already catch ApiException themselves and return its message as a normal
     // reply, so this only ever catches the genuinely unexpected ones.
     public void handle(TelegramUpdate update) {
+        if (update.callbackQuery() != null) {
+            handleCallbackQuery(update.callbackQuery());
+            return;
+        }
+
         TelegramMessage message = update.message();
         if (message == null || message.chat() == null) {
             return;
@@ -35,9 +45,8 @@ public class TelegramUpdateHandler {
         try {
             dispatch(message);
         } catch (Exception ex) {
-            log.error("Failed to handle Telegram update for chat {}", message.chat().id(), ex);
-            apiClient.sendMessage(message.chat().id(),
-                    "Sorry, something went wrong on our end. Please try again in a moment.");
+            log.error("Failed to handle Telegram message for chat {}", message.chat().id(), ex);
+            apiClient.sendMessageWithButtons(message.chat().id(), UNEXPECTED_ERROR_MESSAGE);
         }
     }
 
@@ -47,7 +56,7 @@ public class TelegramUpdateHandler {
         if (message.contact() != null) {
             Long senderId = message.from() != null ? message.from().id() : null;
             String reply = telegramLinkService.verifyPendingContact(message.chat().id(), message.contact(), senderId);
-            apiClient.sendHtmlMessage(message.chat().id(), reply);
+            apiClient.sendHtmlMessageWithButtons(message.chat().id(), reply);
             return;
         }
 
@@ -69,7 +78,7 @@ public class TelegramUpdateHandler {
 
         Optional<TelegramCommand> command = registry.find(commandName);
         if (command.isEmpty()) {
-            apiClient.sendMessage(message.chat().id(), "Unknown command. Send /help to see what I can do.");
+            apiClient.sendMessageWithButtons(message.chat().id(), UNKNOWN_COMMAND_MESSAGE);
             return;
         }
 
@@ -81,14 +90,60 @@ public class TelegramUpdateHandler {
         // nothing.
         TelegramCommand matchedCommand = command.get();
         String reply = matchedCommand.execute(message, argument);
-        if (reply == null) {
+        sendReply(message.chat().id(), matchedCommand, reply);
+    }
+
+    // A tapped quick-action button (see TelegramApiClientImpl's QUICK_ACTIONS_KEYBOARD) — routed
+    // through the exact same TelegramCommandRegistry lookup as a typed command, keyed by the
+    // button's callback_data (its command name).
+    private void handleCallbackQuery(TelegramCallbackQuery callbackQuery) {
+        // Answered unconditionally, before anything that could fail: Telegram leaves the tapped
+        // button showing a loading spinner until this is called, regardless of how the tap
+        // ultimately turns out.
+        apiClient.answerCallbackQuery(callbackQuery.id(), null);
+
+        TelegramMessage source = callbackQuery.message();
+        if (source == null || source.chat() == null) {
             return;
         }
 
-        if (matchedCommand.useHtml()) {
-            apiClient.sendHtmlMessage(message.chat().id(), reply);
+        try {
+            dispatchCallback(callbackQuery, source);
+        } catch (Exception ex) {
+            log.error("Failed to handle Telegram callback query for chat {}", source.chat().id(), ex);
+            apiClient.sendMessageWithButtons(source.chat().id(), UNEXPECTED_ERROR_MESSAGE);
+        }
+    }
+
+    private void dispatchCallback(TelegramCallbackQuery callbackQuery, TelegramMessage source) {
+        Optional<TelegramCommand> command = registry.find(callbackQuery.data());
+        if (command.isEmpty()) {
+            apiClient.sendMessageWithButtons(source.chat().id(), UNKNOWN_COMMAND_MESSAGE);
+            return;
+        }
+
+        // A button carries no free-text argument — same contract as typing the command with none.
+        // The callback query's own "message" is the one the keyboard was attached to, not one
+        // authored by whoever tapped it, so build a synthetic message carrying the tapper's own
+        // identity (commands that care who's asking read message.from(), not the callback query).
+        TelegramCommand matchedCommand = command.get();
+        TelegramMessage syntheticMessage =
+                new TelegramMessage(source.messageId(), source.chat(), callbackQuery.from(), null, null);
+        String reply = matchedCommand.execute(syntheticMessage, null);
+        sendReply(source.chat().id(), matchedCommand, reply);
+    }
+
+    // A null reply means the command already sent its own message directly (e.g. the
+    // contact-request keyboard for a pending staff invite — see
+    // TelegramLinkServiceImpl#resolveLinkCode) — nothing left to send here.
+    private void sendReply(Long chatId, TelegramCommand command, String reply) {
+        if (reply == null) {
+            return;
+        }
+        if (command.useHtml()) {
+            apiClient.sendHtmlMessageWithButtons(chatId, reply);
         } else {
-            apiClient.sendMessage(message.chat().id(), reply);
+            apiClient.sendMessageWithButtons(chatId, reply);
         }
     }
 }

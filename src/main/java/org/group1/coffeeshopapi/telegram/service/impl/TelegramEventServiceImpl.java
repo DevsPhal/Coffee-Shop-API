@@ -39,7 +39,7 @@ public class TelegramEventServiceImpl implements TelegramEventService {
     public void sendUpcomingEvents(Long chatId) {
         List<Event> events = eventRepository.findByStatusAndEndAtAfterOrderByStartAtAsc(Status.ACTIVE, LocalDateTime.now());
         if (events.isEmpty()) {
-            apiClient.sendMessage(chatId, "No upcoming events right now — check back soon! ☕");
+            apiClient.sendMessageWithButtons(chatId, "No upcoming events right now — check back soon! ☕");
             return;
         }
 
@@ -47,6 +47,10 @@ public class TelegramEventServiceImpl implements TelegramEventService {
         for (Event event : events) {
             sendEvent(chatId, event, null);
         }
+        // Each event above is its own message (possibly a photo/location), so the quick-action
+        // keyboard can't ride along with any of them — this trailer is the one place it lands,
+        // keeping the rest of the browsing menu one tap away after the list.
+        apiClient.sendMessageWithButtons(chatId, "Use the buttons below to keep exploring 👇");
     }
 
     @Override
