@@ -30,6 +30,7 @@ import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
+import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -97,8 +98,11 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse create(CreateOrderRequest request, UUID baristaId) {
-        Order order = buildOrder(request);
+    public OrderResponse create(StaffCreateOrderRequest request, UUID baristaId) {
+        // No delivery leg here by construction (see StaffCreateOrderRequest) — buildOrder leaves
+        // fulfillmentMethod at its PICKUP default, same as a customer order that never picks
+        // delivery.
+        Order order = buildOrder(new CreateOrderRequest(request.items(), request.note()));
         order.setHandledBy(baristaId);
         order = orderRepository.save(order);
         logAudit(order, OrderAuditAction.CREATED, baristaId);

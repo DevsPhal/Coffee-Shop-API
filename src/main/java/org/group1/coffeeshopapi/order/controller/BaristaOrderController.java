@@ -15,8 +15,8 @@ import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
-import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
+import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
@@ -42,9 +42,12 @@ public class BaristaOrderController {
     private final OrderService orderService;
     private final ReceiptService receiptService;
 
+    // A walk-in sale rung up at the counter — always pickup, served on the spot. No delivery
+    // option here (see StaffCreateOrderRequest); a customer wanting delivery orders through the
+    // app's own checkout instead.
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> create(
-            @Valid @RequestBody CreateOrderRequest request,
+            @Valid @RequestBody StaffCreateOrderRequest request,
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         OrderResponse response = orderService.create(request, currentUser.getId());
         return ResponseEntity.status(HttpStatus.CREATED)
