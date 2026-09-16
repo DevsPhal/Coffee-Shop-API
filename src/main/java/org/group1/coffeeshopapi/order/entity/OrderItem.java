@@ -17,7 +17,7 @@ import org.group1.coffeeshopapi.common.enums.IceLevel;
 import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.SugarLevel;
 import org.group1.coffeeshopapi.product.entity.Product;
-import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
+import org.group1.coffeeshopapi.product.entity.ProductVariant;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -51,14 +51,16 @@ public class OrderItem extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal subtotal;
 
-    // Live relation to the chosen size option — same as CartItem.sizeOption. Optional, since not
+    // Live relation to the chosen variant — same as CartItem.variant. Optional, since not
     // every product is a customizable drink. Unlike productName, this is not also snapshotted as
-    // a string: a size option can't be deleted while any order still references it (a delete
+    // a string: a variant can't be deleted while any order still references it (a delete
     // attempt is rejected — see GlobalExceptionHandler's DataIntegrityViolationException handler),
-    // so the relation can't dangle; renaming one does change how past orders display it.
+    // so the relation can't dangle; renaming one does change how past orders display it. Column
+    // stays "size_option_id" — see ProductVariant's javadoc on why the Java-side rename doesn't
+    // touch physical schema.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "size_option_id")
-    private ProductSizeOption sizeOption;
+    private ProductVariant variant;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)

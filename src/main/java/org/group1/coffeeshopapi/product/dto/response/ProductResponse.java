@@ -37,7 +37,7 @@ public record ProductResponse(
         boolean discountActive,
         // A product has no price of its own — each option below carries its own price/finalPrice
         // (see ProductPriceResolver). Empty means the product isn't purchasable yet.
-        List<ProductSizeOptionResponse> sizeOptions,
+        List<ProductVariantResponse> variants,
         // Extras (e.g. Pearl) this product offers — the customer chooses to add or not add each
         // one at cart time. Empty means no extras are offered on this product.
         List<ProductExtraResponse> extras,

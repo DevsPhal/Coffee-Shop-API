@@ -54,9 +54,9 @@ public class Product extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal unitsPerStock = BigDecimal.ONE;
 
-    // A product has no price of its own — every price comes from one of its ProductSizeOption
+    // A product has no price of its own — every price comes from one of its ProductVariant
     // rows (see ProductPriceResolver). Discount config below still lives here since it applies
-    // uniformly to whichever size option prices a given line.
+    // uniformly to whichever variant prices a given line.
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)

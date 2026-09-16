@@ -13,7 +13,7 @@ import org.group1.coffeeshopapi.common.enums.Status;
 import java.math.BigDecimal;
 
 // A global add-on catalog entry — e.g. "Pearl" — created once by an admin with its own price, then
-// offered on whichever products should carry it (see ProductExtra). Unlike ProductSizeOption
+// offered on whichever products should carry it (see ProductExtra). Unlike ProductVariant
 // (which prices a product's variant and only ever belongs to one product), an Extra is shared
 // across every product it's attached to, so its price lives here rather than on the attachment.
 @Getter

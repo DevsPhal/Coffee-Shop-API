@@ -17,8 +17,8 @@ public record AddCartItemRequest(
         @Min(value = 1, message = "Quantity must be at least 1")
         Integer quantity,
 
-        // Variant selection — all optional. When sizeOptionId is set it must belong to productId.
-        UUID sizeOptionId,
+        // Variant selection — all optional. When variantId is set it must belong to productId.
+        UUID variantId,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,

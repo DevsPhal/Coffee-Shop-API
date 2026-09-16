@@ -72,7 +72,7 @@ public class ExtraServiceImpl implements ExtraService {
         // Deleting an Extra still referenced by a past order's OrderItemExtra (or attached to a
         // product via ProductExtra) hits a FK constraint and is rejected — see
         // GlobalExceptionHandler's DataIntegrityViolationException handler — same as
-        // ProductSizeOption's delete.
+        // ProductVariant's delete.
         extraRepository.delete(findById(id));
     }
 
