@@ -16,8 +16,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class TelegramUpdateHandler {
     private static final String UNEXPECTED_ERROR_MESSAGE =
-            "Sorry, something went wrong on our end. Please try again in a moment.";
-    private static final String UNKNOWN_COMMAND_MESSAGE = "Unknown command. Send /help to see what I can do.";
+            "⚠️ Sorry, something went wrong on our end. Please try again in a moment.";
+    private static final String UNKNOWN_COMMAND_MESSAGE = "❓ Unknown command. Send /help to see what I can do.";
 
     private final TelegramCommandRegistry registry;
     private final TelegramApiClient apiClient;

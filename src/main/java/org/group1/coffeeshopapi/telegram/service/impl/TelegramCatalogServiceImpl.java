@@ -42,7 +42,7 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
 
         List<Product> products = productRepository.findByStatusOrderByNameAsc(Status.ACTIVE);
         if (products.isEmpty()) {
-            return "The menu is empty right now. Please check back later.";
+            return "🛒 The menu is empty right now — please check back soon!";
         }
 
         // Case-insensitive TreeMap for alphabetical category order (matches the DB collation used
@@ -66,10 +66,10 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
     public String buildCategoryList() {
         List<Category> categories = categoryRepository.findByStatusOrderByNameAsc(Status.ACTIVE);
         if (categories.isEmpty()) {
-            return "No categories available right now.";
+            return "🗂 No categories available right now.";
         }
 
-        StringBuilder sb = new StringBuilder("<b>Categories</b>\n\n");
+        StringBuilder sb = new StringBuilder("🗂 <b>Categories</b>\n\n");
         categories.forEach(c -> sb.append("• ").append(TelegramFormat.escape(TelegramFormat.titleCase(c.getName()))).append('\n'));
         sb.append("\nSend /menu &lt;category name&gt; to view items, or /menu to see everything.");
         return sb.toString();
@@ -82,7 +82,7 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
                 .filter(p -> p.isDiscountActive(now))
                 .toList();
         if (discounted.isEmpty()) {
-            return "No active discounts right now — check back soon!";
+            return "🔥 No active discounts right now — check back soon!";
         }
 
         Map<UUID, List<ProductSizeOption>> sizeOptionsByProduct = fetchActiveSizeOptions(discounted);
@@ -94,13 +94,13 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
     private String buildMenuForCategory(String categoryName) {
         Category category = categoryRepository.findByNameIgnoreCase(categoryName).orElse(null);
         if (category == null || category.getStatus() != Status.ACTIVE) {
-            return "No category named \"" + TelegramFormat.escape(categoryName) + "\". Send /categories to see what's available.";
+            return "🛒 No category named \"" + TelegramFormat.escape(categoryName) + "\". Send /categories to see what's available.";
         }
 
         List<Product> products = productRepository.findByCategoryIdAndStatusOrderByNameAsc(category.getId(), Status.ACTIVE);
         String displayCategoryName = TelegramFormat.escape(TelegramFormat.titleCase(category.getName()));
         if (products.isEmpty()) {
-            return "No items available in <b>" + displayCategoryName + "</b> right now.";
+            return "🛒 No items available in <b>" + displayCategoryName + "</b> right now.";
         }
 
         Map<UUID, List<ProductSizeOption>> sizeOptionsByProduct = fetchActiveSizeOptions(products);

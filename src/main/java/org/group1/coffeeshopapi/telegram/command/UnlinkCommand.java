@@ -24,4 +24,11 @@ public class UnlinkCommand implements TelegramCommand {
             return ex.getMessage();
         }
     }
+
+    // Both the success message and every ApiException it can surface use HTML markup (bold text,
+    // an escaped "<code>" placeholder) — see TelegramLinkServiceImpl#unlink.
+    @Override
+    public boolean useHtml() {
+        return true;
+    }
 }
