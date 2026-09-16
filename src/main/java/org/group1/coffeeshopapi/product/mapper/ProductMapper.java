@@ -4,7 +4,7 @@ import org.group1.coffeeshopapi.extra.dto.response.ProductExtraResponse;
 import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.product.dto.response.CustomerProductResponse;
 import org.group1.coffeeshopapi.product.dto.response.ProductResponse;
-import org.group1.coffeeshopapi.product.dto.response.ProductSizeOptionResponse;
+import org.group1.coffeeshopapi.product.dto.response.ProductVariantResponse;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
@@ -22,7 +22,7 @@ public interface ProductMapper {
     @Mapping(target = "quantityOnHand", source = "inventory.quantityOnHand")
     @Mapping(target = "reorderLevel", source = "inventory.reorderLevel")
     @Mapping(target = "discountActive", expression = "java(product.isDiscountActive(java.time.LocalDateTime.now()))")
-    @Mapping(target = "sizeOptions", source = "sizeOptions")
+    @Mapping(target = "variants", source = "variants")
     @Mapping(target = "extras", source = "extras")
     // createdByAdmin/updatedByAdmin are null both for pre-existing rows and for a change made by
     // the Super Admin (see Product's javadoc) — MapStruct null-checks the nested path
@@ -35,7 +35,7 @@ public interface ProductMapper {
     @Mapping(target = "updatedByRole", source = "product.updatedByAdmin.role")
     @Mapping(target = "createdAt", source = "product.createdAt")
     @Mapping(target = "updatedAt", source = "product.updatedAt")
-    ProductResponse toResponse(Product product, Inventory inventory, List<ProductSizeOptionResponse> sizeOptions,
+    ProductResponse toResponse(Product product, Inventory inventory, List<ProductVariantResponse> variants,
             List<ProductExtraResponse> extras);
 
     // Strips inventory counts, reorder thresholds, and staff audit identities before a product

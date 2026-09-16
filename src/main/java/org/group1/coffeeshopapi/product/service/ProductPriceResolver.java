@@ -2,11 +2,11 @@ package org.group1.coffeeshopapi.product.service;
 
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.product.entity.Product;
-import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
+import org.group1.coffeeshopapi.product.entity.ProductVariant;
 
 import java.util.List;
 
-// A product has no price of its own — every price comes from one of its ProductSizeOption rows.
+// A product has no price of its own — every price comes from one of its ProductVariant rows.
 // When the customer explicitly picked one (only possible where ProductVariantPolicy allows it —
 // FRESH_DRINK/BEVERAGE), that's what prices the line. Everywhere else (SNACK, or a BEVERAGE/
 // FRESH_DRINK item where the customer just didn't specify one), the product's own single price
@@ -16,8 +16,8 @@ import java.util.List;
 public final class ProductPriceResolver {
     private ProductPriceResolver() {}
 
-    public static ProductSizeOption resolveEffective(Product product, ProductSizeOption explicit,
-            List<ProductSizeOption> activeOptionsIfNoneExplicit) {
+    public static ProductVariant resolveEffective(Product product, ProductVariant explicit,
+            List<ProductVariant> activeOptionsIfNoneExplicit) {
         if (explicit != null) {
             return explicit;
         }
@@ -28,6 +28,6 @@ public final class ProductPriceResolver {
             throw new InvalidOperationException("'" + product.getName() + "' has no price configured yet");
         }
         throw new InvalidOperationException(
-                "'" + product.getName() + "' has more than one price option — a sizeOptionId is required");
+                "'" + product.getName() + "' has more than one price option — a variantId is required");
     }
 }

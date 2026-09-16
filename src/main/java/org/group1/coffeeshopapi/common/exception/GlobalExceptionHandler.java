@@ -104,7 +104,7 @@ public class GlobalExceptionHandler {
 
     // Two distinct causes share this exception type: a unique-constraint hit on create/update
     // (e.g. registering with a phone number already in use) vs. a delete blocked by a foreign key
-    // (e.g. a product still has size options, stock history, or order items). The SQLState tells
+    // (e.g. a product still has variants, stock history, or order items). The SQLState tells
     // them apart (23505 vs. everything else) so the client gets a message that actually matches
     // what happened instead of always describing a blocked delete.
     @ExceptionHandler(DataIntegrityViolationException.class)

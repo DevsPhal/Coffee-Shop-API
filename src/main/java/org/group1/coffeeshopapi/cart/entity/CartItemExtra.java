@@ -14,7 +14,7 @@ import org.group1.coffeeshopapi.extra.entity.Extra;
 // One extra (e.g. Pearl) the customer has toggled on for one CartItem — its own table/entity, same
 // as ProductExtra (product <-> extra) and OrderItemExtra (order item <-> extra), rather than a bare
 // join table with no id of its own: keeps every "who's linked to this extra" relation in this
-// feature modeled the same consistent way. Held live (like CartItem.sizeOption) rather than
+// feature modeled the same consistent way. Held live (like CartItem.variant) rather than
 // snapshotted, since CartItem prices are computed live until checkout — see the Cart javadoc and
 // OrderItemExtra for the snapshot taken at that point.
 @Getter

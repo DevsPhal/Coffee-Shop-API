@@ -6,9 +6,9 @@ import org.group1.coffeeshopapi.category.repository.CategoryRepository;
 import org.group1.coffeeshopapi.common.enums.DiscountType;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.product.entity.Product;
-import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
+import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
-import org.group1.coffeeshopapi.product.repository.ProductSizeOptionRepository;
+import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.telegram.service.TelegramCatalogService;
 import org.group1.coffeeshopapi.telegram.util.TelegramFormat;
 import org.springframework.stereotype.Service;
@@ -32,7 +32,7 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
-    private final ProductSizeOptionRepository sizeOptionRepository;
+    private final ProductVariantRepository variantRepository;
 
     @Override
     public String buildMenu(String categoryName) {
@@ -52,11 +52,11 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
                 .collect(Collectors.groupingBy(p -> p.getCategory().getName(),
                         () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER), Collectors.toList()));
 
-        Map<UUID, List<ProductSizeOption>> sizeOptionsByProduct = fetchActiveSizeOptions(products);
+        Map<UUID, List<ProductVariant>> variantsByProduct = fetchActiveVariants(products);
         StringBuilder sb = new StringBuilder("🛒 <b>Menu</b>\n");
         for (Map.Entry<String, List<Product>> entry : byCategory.entrySet()) {
             sb.append("\n<b>").append(TelegramFormat.escape(TelegramFormat.titleCase(entry.getKey()))).append("</b>\n");
-            entry.getValue().forEach(p -> appendProductLine(sb, p, sizeOptionsByProduct.getOrDefault(p.getId(), List.of())));
+            entry.getValue().forEach(p -> appendProductLine(sb, p, variantsByProduct.getOrDefault(p.getId(), List.of())));
         }
         sb.append("\nSend /menu &lt;category&gt; to filter, or /discounts for today's deals.");
         return sb.toString();
@@ -85,9 +85,9 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
             return "🔥 No active discounts right now — check back soon!";
         }
 
-        Map<UUID, List<ProductSizeOption>> sizeOptionsByProduct = fetchActiveSizeOptions(discounted);
+        Map<UUID, List<ProductVariant>> variantsByProduct = fetchActiveVariants(discounted);
         StringBuilder sb = new StringBuilder("🔥 <b>Today's Deals</b>\n\n");
-        discounted.forEach(p -> appendProductLine(sb, p, sizeOptionsByProduct.getOrDefault(p.getId(), List.of())));
+        discounted.forEach(p -> appendProductLine(sb, p, variantsByProduct.getOrDefault(p.getId(), List.of())));
         return sb.toString();
     }
 
@@ -103,34 +103,34 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
             return "🛒 No items available in <b>" + displayCategoryName + "</b> right now.";
         }
 
-        Map<UUID, List<ProductSizeOption>> sizeOptionsByProduct = fetchActiveSizeOptions(products);
+        Map<UUID, List<ProductVariant>> variantsByProduct = fetchActiveVariants(products);
         StringBuilder sb = new StringBuilder("🛒 <b>").append(displayCategoryName).append("</b>\n\n");
-        products.forEach(p -> appendProductLine(sb, p, sizeOptionsByProduct.getOrDefault(p.getId(), List.of())));
+        products.forEach(p -> appendProductLine(sb, p, variantsByProduct.getOrDefault(p.getId(), List.of())));
         return sb.toString();
     }
 
-    private Map<UUID, List<ProductSizeOption>> fetchActiveSizeOptions(List<Product> products) {
+    private Map<UUID, List<ProductVariant>> fetchActiveVariants(List<Product> products) {
         List<UUID> productIds = products.stream().map(Product::getId).toList();
-        Map<UUID, List<ProductSizeOption>> byProduct = new HashMap<>();
-        for (ProductSizeOption sizeOption : sizeOptionRepository
+        Map<UUID, List<ProductVariant>> byProduct = new HashMap<>();
+        for (ProductVariant variant : variantRepository
                 .findByProductIdInAndStatusOrderBySortOrderAscNameAsc(productIds, Status.ACTIVE)) {
-            byProduct.computeIfAbsent(sizeOption.getProduct().getId(), id -> new ArrayList<>()).add(sizeOption);
+            byProduct.computeIfAbsent(variant.getProduct().getId(), id -> new ArrayList<>()).add(variant);
         }
         return byProduct;
     }
 
     // Shows the cheapest active variant's price, prefixed with "from" when the product has more
     // than one — a product with no priced variant yet is shown without a price.
-    private void appendProductLine(StringBuilder sb, Product product, List<ProductSizeOption> sizeOptions) {
+    private void appendProductLine(StringBuilder sb, Product product, List<ProductVariant> variants) {
         LocalDateTime now = LocalDateTime.now();
         sb.append("• ").append(TelegramFormat.escape(TelegramFormat.titleCase(product.getName()))).append(" — ");
-        if (sizeOptions.isEmpty()) {
+        if (variants.isEmpty()) {
             sb.append("price not set");
         } else {
-            ProductSizeOption cheapest = sizeOptions.stream()
-                    .min(Comparator.comparing(ProductSizeOption::getPrice))
+            ProductVariant cheapest = variants.stream()
+                    .min(Comparator.comparing(ProductVariant::getPrice))
                     .orElseThrow();
-            String prefix = sizeOptions.size() > 1 ? "from " : "";
+            String prefix = variants.size() > 1 ? "from " : "";
             BigDecimal price = cheapest.getPrice();
             if (product.isDiscountActive(now)) {
                 sb.append(prefix).append("<s>").append(TelegramFormat.usd(price)).append("</s> <b>")

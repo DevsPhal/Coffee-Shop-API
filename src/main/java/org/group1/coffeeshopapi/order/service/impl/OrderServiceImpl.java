@@ -13,6 +13,7 @@ import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.StockStrategy;
+import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
@@ -41,9 +42,9 @@ import org.group1.coffeeshopapi.order.repository.OrderAuditLogRepository;
 import org.group1.coffeeshopapi.order.repository.OrderRepository;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.product.entity.Product;
-import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
+import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
-import org.group1.coffeeshopapi.product.repository.ProductSizeOptionRepository;
+import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.product.service.ProductExtraResolver;
 import org.group1.coffeeshopapi.product.service.ProductPriceResolver;
 import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
@@ -76,7 +77,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderRepository orderRepository;
     private final OrderAuditLogRepository orderAuditLogRepository;
     private final ProductRepository productRepository;
-    private final ProductSizeOptionRepository sizeOptionRepository;
+    private final ProductVariantRepository variantRepository;
     private final ProductExtraRepository productExtraRepository;
     private final InventoryService inventoryService;
     private final OrderMapper orderMapper;
@@ -387,23 +388,23 @@ public class OrderServiceImpl implements OrderService {
                 throw new InvalidOperationException("Product '" + product.getName() + "' is not available");
             }
 
-            ProductSizeOption explicitSizeOption = resolveExplicitSizeOption(product, itemRequest);
+            ProductVariant explicitVariant = resolveExplicitVariant(product, itemRequest);
 
-            ProductVariantPolicy.validate(product, explicitSizeOption != null ? explicitSizeOption.getId() : null,
+            ProductVariantPolicy.validate(product, explicitVariant != null ? explicitVariant.getId() : null,
                     itemRequest.sugarLevel(), itemRequest.iceLevel(), itemRequest.milkType());
 
-            ProductSizeOption sizeOption;
-            if (explicitSizeOption != null) {
-                sizeOption = explicitSizeOption;
+            ProductVariant variant;
+            if (explicitVariant != null) {
+                variant = explicitVariant;
             } else {
-                List<ProductSizeOption> activeOptions = sizeOptionRepository
+                List<ProductVariant> activeOptions = variantRepository
                         .findByProductIdAndStatusOrderBySortOrderAscNameAsc(product.getId(), Status.ACTIVE);
-                sizeOption = ProductPriceResolver.resolveEffective(product, null, activeOptions);
+                variant = ProductPriceResolver.resolveEffective(product, null, activeOptions);
             }
 
             List<Extra> extras = resolveExtras(product, itemRequest.extraIds());
             BigDecimal extrasTotal = extras.stream().map(Extra::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal unitPrice = product.getFinalPrice(sizeOption.getPrice(), LocalDateTime.now()).add(extrasTotal);
+            BigDecimal unitPrice = product.getFinalPrice(variant.getPrice(), LocalDateTime.now()).add(extrasTotal);
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(itemRequest.quantity()));
 
             OrderItem item = new OrderItem();
@@ -412,7 +413,7 @@ public class OrderServiceImpl implements OrderService {
             item.setQuantity(itemRequest.quantity());
             item.setUnitPrice(unitPrice);
             item.setSubtotal(subtotal);
-            item.setSizeOption(sizeOption);
+            item.setVariant(variant);
             item.setSugarLevel(itemRequest.sugarLevel());
             item.setIceLevel(itemRequest.iceLevel());
             item.setMilkType(itemRequest.milkType());
@@ -445,32 +446,38 @@ public class OrderServiceImpl implements OrderService {
         order.setDeliveryAddress(delivery.address());
     }
 
-    // Resolves whichever way the caller picked a size — sizeOptionId (already knows the option's
-    // UUID) or sizeOptionName (e.g. "Medium", matched case-insensitively — what a walk-up POS
-    // screen's button actually has, not a UUID; sizeOptionId wins if somehow both are given).
+    // Resolves whichever way the caller picked a size — variantId (already knows the option's
+    // UUID) or variantName (e.g. "Medium", matched case-insensitively — what a walk-up POS
+    // screen's button actually has, not a UUID; variantId wins if somehow both are given).
     // Returns null if neither was given, meaning "let ProductPriceResolver auto-resolve it".
-    private ProductSizeOption resolveExplicitSizeOption(Product product, OrderItemRequest itemRequest) {
-        if (itemRequest.sizeOptionId() != null) {
-            return requireActiveSizeOption(sizeOptionRepository
-                    .findByIdAndProductId(itemRequest.sizeOptionId(), product.getId())
+    private ProductVariant resolveExplicitVariant(Product product, OrderItemRequest itemRequest) {
+        if (itemRequest.variantId() != null) {
+            return requireActiveVariant(variantRepository
+                    .findByIdAndProductId(itemRequest.variantId(), product.getId())
                     .orElseThrow(() -> new ResourceNotFoundException(
-                            "Size option not found: " + itemRequest.sizeOptionId())));
+                            "Variant not found: " + itemRequest.variantId())));
         }
-        if (itemRequest.sizeOptionName() != null && !itemRequest.sizeOptionName().isBlank()) {
-            String name = itemRequest.sizeOptionName().trim();
-            return requireActiveSizeOption(sizeOptionRepository
-                    .findByProductIdAndNameIgnoreCase(product.getId(), name)
+        if (itemRequest.variantName() != null && !itemRequest.variantName().isBlank()) {
+            String name = itemRequest.variantName().trim();
+            VariantLabel label;
+            try {
+                label = VariantLabel.valueOf(name.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new ResourceNotFoundException("Variant not found: '" + name + "' for '" + product.getName() + "'");
+            }
+            return requireActiveVariant(variantRepository
+                    .findByProductIdAndName(product.getId(), label)
                     .orElseThrow(() -> new ResourceNotFoundException(
-                            "Size option not found: '" + name + "' for '" + product.getName() + "'")));
+                            "Variant not found: '" + name + "' for '" + product.getName() + "'")));
         }
         return null;
     }
 
-    private ProductSizeOption requireActiveSizeOption(ProductSizeOption sizeOption) {
-        if (sizeOption.getStatus() != Status.ACTIVE) {
-            throw new InvalidOperationException("Size option '" + sizeOption.getName() + "' is not available");
+    private ProductVariant requireActiveVariant(ProductVariant variant) {
+        if (variant.getStatus() != Status.ACTIVE) {
+            throw new InvalidOperationException("Variant '" + variant.getName() + "' is not available");
         }
-        return sizeOption;
+        return variant;
     }
 
     // Delegates the actual matching/validation to ProductExtraResolver (shared with

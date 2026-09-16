@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.common.enums.DiscountType;
 import org.group1.coffeeshopapi.common.enums.SellUnit;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.StockUnit;
+import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.storage.FileStorageService;
 import org.group1.coffeeshopapi.extra.dto.response.ProductExtraResponse;
 import org.group1.coffeeshopapi.extra.entity.ProductExtra;
@@ -29,13 +30,13 @@ import org.group1.coffeeshopapi.product.dto.request.UpdateProductRequest;
 import org.group1.coffeeshopapi.product.dto.response.ProductImportResponse;
 import org.group1.coffeeshopapi.product.dto.response.ProductImportRowError;
 import org.group1.coffeeshopapi.product.dto.response.ProductResponse;
-import org.group1.coffeeshopapi.product.dto.response.ProductSizeOptionResponse;
+import org.group1.coffeeshopapi.product.dto.response.ProductVariantResponse;
 import org.group1.coffeeshopapi.product.entity.Product;
-import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
+import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.group1.coffeeshopapi.product.mapper.ProductMapper;
-import org.group1.coffeeshopapi.product.mapper.ProductSizeOptionMapper;
+import org.group1.coffeeshopapi.product.mapper.ProductVariantMapper;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
-import org.group1.coffeeshopapi.product.repository.ProductSizeOptionRepository;
+import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.product.service.ProductService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -62,10 +63,10 @@ public class ProductServiceImpl implements ProductService {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final InventoryRepository inventoryRepository;
-    private final ProductSizeOptionRepository sizeOptionRepository;
+    private final ProductVariantRepository variantRepository;
     private final ProductExtraRepository productExtraRepository;
     private final ProductMapper productMapper;
-    private final ProductSizeOptionMapper sizeOptionMapper;
+    private final ProductVariantMapper variantMapper;
     private final ProductExtraMapper productExtraMapper;
     private final FileStorageService fileStorageService;
 
@@ -257,14 +258,16 @@ public class ProductServiceImpl implements ProductService {
             DataFormatter formatter = new DataFormatter();
 
             // Row 0 is the header (name, description, sku, stockUnit, price, category,
-            // reorderLevel, sizeOptions, sellUnit, unitsPerStock). stockUnit must be one of
+            // reorderLevel, variants, sellUnit, unitsPerStock). stockUnit must be one of
             // StockUnit's names (PACK/BOX/CARTON/PIECE).
             //
-            // sizeOptions (optional) lets one row seed more than the single default MEDIUM size
-            // (see parseSizeOptions): "SMALL:1.25;MEDIUM:1.50;LARGE:1.75". When given, it's the
-            // complete set of size options for the row — price is then optional/ignored, since
-            // each pair already carries its own price. When left blank, price is required and
-            // seeds a single "MEDIUM" size option, same as before this column existed.
+            // variants (optional) lets one row seed more than the single default MEDIUM size
+            // (see parseVariants): "MEDIUM:1.50;LARGE:1.75". Each name must be one of
+            // VariantLabel's constants (MEDIUM/LARGE/PIECE) — anything else is a row error. When
+            // given, it's the complete set of variants for the row — price is then
+            // optional/ignored, since each pair already carries its own price. When left blank,
+            // price is required and seeds a single "MEDIUM" variant, same as before this column
+            // existed.
             //
             // sellUnit (optional) must be one of SellUnit's names (PLATE/BOTTLE/CAN/CUP/CARTON/
             // PACKAGE/TANK/PIECE) — defaults to CUP when blank, same default this column used to
@@ -287,7 +290,7 @@ public class ProductServiceImpl implements ProductService {
                 String priceText = formatter.formatCellValue(row.getCell(4)).trim();
                 String categoryName = formatter.formatCellValue(row.getCell(5)).trim();
                 String reorderText = formatter.formatCellValue(row.getCell(6)).trim();
-                String sizeOptionsText = formatter.formatCellValue(row.getCell(7)).trim();
+                String variantsText = formatter.formatCellValue(row.getCell(7)).trim();
                 String sellUnitText = formatter.formatCellValue(row.getCell(8)).trim();
                 String unitsPerStockText = formatter.formatCellValue(row.getCell(9)).trim();
 
@@ -325,10 +328,10 @@ public class ProductServiceImpl implements ProductService {
                     }
                 }
 
-                List<ParsedSizeOption> sizeOptions;
-                if (!sizeOptionsText.isBlank()) {
+                List<ParsedVariant> variants;
+                if (!variantsText.isBlank()) {
                     try {
-                        sizeOptions = parseSizeOptions(sizeOptionsText);
+                        variants = parseVariants(variantsText);
                     } catch (IllegalArgumentException e) {
                         errors.add(new ProductImportRowError(excelRowNumber, sku, e.getMessage()));
                         continue;
@@ -339,7 +342,7 @@ public class ProductServiceImpl implements ProductService {
                         errors.add(new ProductImportRowError(excelRowNumber, sku, "Invalid price: " + priceText));
                         continue;
                     }
-                    sizeOptions = List.of(new ParsedSizeOption("MEDIUM", price));
+                    variants = List.of(new ParsedVariant(VariantLabel.MEDIUM, price));
                 }
 
                 BigDecimal reorderLevel = BigDecimal.ZERO;
@@ -381,14 +384,14 @@ public class ProductServiceImpl implements ProductService {
                 product.setUpdatedByAdmin(actorAdmin);
                 product = productRepository.save(product);
 
-                for (int i = 0; i < sizeOptions.size(); i++) {
-                    ParsedSizeOption parsed = sizeOptions.get(i);
-                    ProductSizeOption sizeOption = new ProductSizeOption();
-                    sizeOption.setProduct(product);
-                    sizeOption.setName(parsed.name());
-                    sizeOption.setPrice(parsed.price());
-                    sizeOption.setSortOrder(i + 1);
-                    sizeOptionRepository.save(sizeOption);
+                for (int i = 0; i < variants.size(); i++) {
+                    ParsedVariant parsed = variants.get(i);
+                    ProductVariant variant = new ProductVariant();
+                    variant.setProduct(product);
+                    variant.setName(parsed.name());
+                    variant.setPrice(parsed.price());
+                    variant.setSortOrder(i + 1);
+                    variantRepository.save(variant);
                 }
 
                 Inventory inventory = new Inventory();
@@ -418,16 +421,16 @@ public class ProductServiceImpl implements ProductService {
         return true;
     }
 
-    private record ParsedSizeOption(String name, BigDecimal price) {
+    private record ParsedVariant(VariantLabel name, BigDecimal price) {
     }
 
-    // "SMALL:1.25;MEDIUM:1.50;LARGE:1.75" -> one ProductSizeOption per "name:price" pair, in the
-    // order given (that order becomes each option's sortOrder — see the caller). Throws
-    // IllegalArgumentException with a row-error-ready message on anything malformed, so the
-    // caller can just surface it as a ProductImportRowError.
-    private List<ParsedSizeOption> parseSizeOptions(String text) {
-        List<ParsedSizeOption> parsed = new ArrayList<>();
-        Set<String> namesSeen = new HashSet<>();
+    // "MEDIUM:1.50;LARGE:1.75" -> one ProductVariant per "name:price" pair, in the order given
+    // (that order becomes each variant's sortOrder — see the caller). Each name must be one of
+    // VariantLabel's constants. Throws IllegalArgumentException with a row-error-ready message on
+    // anything malformed, so the caller can just surface it as a ProductImportRowError.
+    private List<ParsedVariant> parseVariants(String text) {
+        List<ParsedVariant> parsed = new ArrayList<>();
+        Set<VariantLabel> namesSeen = new HashSet<>();
         for (String pair : text.split(";")) {
             if (pair.isBlank()) {
                 continue;
@@ -435,20 +438,27 @@ public class ProductServiceImpl implements ProductService {
             String[] parts = pair.split(":", 2);
             if (parts.length != 2) {
                 throw new IllegalArgumentException(
-                        "Invalid size options — expected \"name:price;name:price\", got: " + pair.trim());
+                        "Invalid variants — expected \"name:price;name:price\", got: " + pair.trim());
             }
-            String optionName = parts[0].trim();
-            BigDecimal optionPrice = parseDecimal(parts[1].trim());
-            if (optionName.isBlank() || optionPrice == null || optionPrice.signum() < 0) {
-                throw new IllegalArgumentException("Invalid size option: " + pair.trim());
+            String rawName = parts[0].trim();
+            BigDecimal variantPrice = parseDecimal(parts[1].trim());
+            VariantLabel variantName;
+            try {
+                variantName = VariantLabel.valueOf(rawName.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Invalid variant name: " + rawName
+                        + " (must be one of MEDIUM, LARGE, PIECE)");
             }
-            if (!namesSeen.add(optionName.toUpperCase())) {
-                throw new IllegalArgumentException("Duplicate size option name: " + optionName);
+            if (variantPrice == null || variantPrice.signum() < 0) {
+                throw new IllegalArgumentException("Invalid variant: " + pair.trim());
             }
-            parsed.add(new ParsedSizeOption(optionName, optionPrice));
+            if (!namesSeen.add(variantName)) {
+                throw new IllegalArgumentException("Duplicate variant name: " + variantName);
+            }
+            parsed.add(new ParsedVariant(variantName, variantPrice));
         }
         if (parsed.isEmpty()) {
-            throw new IllegalArgumentException("Size options column is blank");
+            throw new IllegalArgumentException("Variants column is blank");
         }
         return parsed;
     }
@@ -477,28 +487,28 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse toResponse(Product product, Inventory inventory) {
-        List<ProductSizeOptionResponse> sizeOptions = sizeOptionRepository
+        List<ProductVariantResponse> variants = variantRepository
                 .findByProductIdOrderBySortOrderAscNameAsc(product.getId()).stream()
-                .map(sizeOptionMapper::toResponse)
+                .map(variantMapper::toResponse)
                 .toList();
         List<ProductExtraResponse> extras = productExtraRepository
                 .findByProductIdOrderBySortOrderAscId(product.getId()).stream()
                 .map(productExtraMapper::toResponse)
                 .toList();
-        return productMapper.toResponse(product, inventory, sizeOptions, extras);
+        return productMapper.toResponse(product, inventory, variants, extras);
     }
 
-    // Batches size options/extras for a whole page instead of resolving each row individually.
+    // Batches variants/extras for a whole page instead of resolving each row individually.
     // createdByAdmin/updatedByAdmin are batched too, but by Hibernate itself — see Admin's
     // @BatchSize — rather than anything explicit here.
     private Page<ProductResponse> toResponsePage(Page<Product> products) {
         List<UUID> productIds = products.stream().map(Product::getId).toList();
 
-        Map<UUID, List<ProductSizeOptionResponse>> sizeOptionsByProduct = new HashMap<>();
-        for (ProductSizeOption sizeOption : sizeOptionRepository
+        Map<UUID, List<ProductVariantResponse>> variantsByProduct = new HashMap<>();
+        for (ProductVariant variant : variantRepository
                 .findByProductIdInAndStatusOrderBySortOrderAscNameAsc(productIds, Status.ACTIVE)) {
-            sizeOptionsByProduct.computeIfAbsent(sizeOption.getProduct().getId(), id -> new ArrayList<>())
-                    .add(sizeOptionMapper.toResponse(sizeOption));
+            variantsByProduct.computeIfAbsent(variant.getProduct().getId(), id -> new ArrayList<>())
+                    .add(variantMapper.toResponse(variant));
         }
 
         Map<UUID, List<ProductExtraResponse>> extrasByProduct = new HashMap<>();
@@ -509,7 +519,7 @@ public class ProductServiceImpl implements ProductService {
         }
 
         return products.map(product -> productMapper.toResponse(product, findInventory(product.getId()),
-                sizeOptionsByProduct.getOrDefault(product.getId(), List.of()),
+                variantsByProduct.getOrDefault(product.getId(), List.of()),
                 extrasByProduct.getOrDefault(product.getId(), List.of())));
     }
 }

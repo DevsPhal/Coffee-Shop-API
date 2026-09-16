@@ -25,9 +25,9 @@ import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.product.entity.Product;
-import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
+import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
-import org.group1.coffeeshopapi.product.repository.ProductSizeOptionRepository;
+import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.product.service.ProductExtraResolver;
 import org.group1.coffeeshopapi.product.service.ProductPriceResolver;
 import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
@@ -52,7 +52,7 @@ public class CartServiceImpl implements CartService {
 
     private final CartRepository cartRepository;
     private final ProductRepository productRepository;
-    private final ProductSizeOptionRepository sizeOptionRepository;
+    private final ProductVariantRepository variantRepository;
     private final ProductExtraRepository productExtraRepository;
     private final CustomerRepository customerRepository;
     private final OrderService orderService;
@@ -71,13 +71,13 @@ public class CartServiceImpl implements CartService {
         if (product.getStatus() != Status.ACTIVE) {
             throw new InvalidOperationException("Product '" + product.getName() + "' is not available");
         }
-        ProductVariantPolicy.validate(product, request.sizeOptionId(), request.sugarLevel(),
+        ProductVariantPolicy.validate(product, request.variantId(), request.sugarLevel(),
                 request.iceLevel(), request.milkType());
-        ProductSizeOption sizeOption = resolveEffectiveSizeOption(product, request.sizeOptionId());
+        ProductVariant variant = resolveEffectiveVariant(product, request.variantId());
         Set<Extra> extras = resolveExtras(product, request.extraIds());
 
         cart.getItems().stream()
-                .filter(item -> sameLineItem(item, product.getId(), sizeOption.getId(),
+                .filter(item -> sameLineItem(item, product.getId(), variant.getId(),
                         request.sugarLevel(), request.iceLevel(), request.milkType(), extras))
                 .findFirst()
                 .ifPresentOrElse(
@@ -86,7 +86,7 @@ public class CartServiceImpl implements CartService {
                             CartItem item = new CartItem();
                             item.setProduct(product);
                             item.setQuantity(request.quantity());
-                            item.setSizeOption(sizeOption);
+                            item.setVariant(variant);
                             item.setSugarLevel(request.sugarLevel());
                             item.setIceLevel(request.iceLevel());
                             item.setMilkType(request.milkType());
@@ -103,8 +103,8 @@ public class CartServiceImpl implements CartService {
         Cart cart = getOrCreateCart(customerId);
         CartItem item = findItem(cart, itemId);
         item.setQuantity(request.quantity());
-        if (request.sizeOptionId() != null) {
-            item.setSizeOption(resolveSizeOption(item.getProduct().getId(), request.sizeOptionId()));
+        if (request.variantId() != null) {
+            item.setVariant(resolveVariant(item.getProduct().getId(), request.variantId()));
         }
         if (request.sugarLevel() != null) {
             item.setSugarLevel(request.sugarLevel());
@@ -120,8 +120,8 @@ public class CartServiceImpl implements CartService {
         }
         // Validate against what the caller actually asked to change here, not the item's current
         // (possibly auto-resolved, see checkout()'s comment) stored state — same reasoning as
-        // addItem validating request.sizeOptionId() rather than the resolved ProductSizeOption.
-        ProductVariantPolicy.validate(item.getProduct(), request.sizeOptionId(), request.sugarLevel(),
+        // addItem validating request.variantId() rather than the resolved ProductVariant.
+        ProductVariantPolicy.validate(item.getProduct(), request.variantId(), request.sugarLevel(),
                 request.iceLevel(), request.milkType());
         return toResponse(cartRepository.save(cart));
     }
@@ -151,15 +151,15 @@ public class CartServiceImpl implements CartService {
             throw new InvalidOperationException("Cart is empty");
         }
 
-        // sizeOption is always set once an item's in the cart — even for a SNACK/no-group product,
-        // which still needs one internally for pricing (see resolveEffectiveSizeOption) despite
+        // variant is always set once an item's in the cart — even for a SNACK/no-group product,
+        // which still needs one internally for pricing (see resolveEffectiveVariant) despite
         // never letting the customer choose it. Forwarding it here unconditionally would make
         // buildOrder's re-validation see it as an explicit (and, for that product, forbidden)
         // choice — only forward it where the product's group actually allows picking a size.
         List<OrderItemRequest> items = cart.getItems().stream()
                 .map(item -> new OrderItemRequest(item.getProduct().getId(), item.getQuantity(),
-                        ProductVariantPolicy.allowsSizeChoice(item.getProduct()) && item.getSizeOption() != null
-                                ? item.getSizeOption().getId() : null,
+                        ProductVariantPolicy.allowsSizeChoice(item.getProduct()) && item.getVariant() != null
+                                ? item.getVariant().getId() : null,
                         null,
                         item.getSugarLevel(), item.getIceLevel(), item.getMilkType(),
                         item.getSelectedExtras().stream().map(Extra::getId).toList()))
@@ -175,34 +175,34 @@ public class CartServiceImpl implements CartService {
         return order;
     }
 
-    private ProductSizeOption resolveSizeOption(UUID productId, UUID sizeOptionId) {
-        if (sizeOptionId == null) {
+    private ProductVariant resolveVariant(UUID productId, UUID variantId) {
+        if (variantId == null) {
             return null;
         }
-        ProductSizeOption sizeOption = sizeOptionRepository.findByIdAndProductId(sizeOptionId, productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Size option not found: " + sizeOptionId));
-        if (sizeOption.getStatus() != Status.ACTIVE) {
-            throw new InvalidOperationException("Size option '" + sizeOption.getName() + "' is not available");
+        ProductVariant variant = variantRepository.findByIdAndProductId(variantId, productId)
+                .orElseThrow(() -> new ResourceNotFoundException("Variant not found: " + variantId));
+        if (variant.getStatus() != Status.ACTIVE) {
+            throw new InvalidOperationException("Variant '" + variant.getName() + "' is not available");
         }
-        return sizeOption;
+        return variant;
     }
 
     // Explicit choice, or — where the product only has one active option — that option
     // automatically. See ProductPriceResolver.
-    private ProductSizeOption resolveEffectiveSizeOption(Product product, UUID sizeOptionId) {
-        if (sizeOptionId != null) {
-            return resolveSizeOption(product.getId(), sizeOptionId);
+    private ProductVariant resolveEffectiveVariant(Product product, UUID variantId) {
+        if (variantId != null) {
+            return resolveVariant(product.getId(), variantId);
         }
-        List<ProductSizeOption> activeOptions = sizeOptionRepository
+        List<ProductVariant> activeOptions = variantRepository
                 .findByProductIdAndStatusOrderBySortOrderAscNameAsc(product.getId(), Status.ACTIVE);
         return ProductPriceResolver.resolveEffective(product, null, activeOptions);
     }
 
-    private boolean sameLineItem(CartItem item, UUID productId, UUID sizeOptionId,
+    private boolean sameLineItem(CartItem item, UUID productId, UUID variantId,
             SugarLevel sugarLevel, IceLevel iceLevel, MilkType milkType, Set<Extra> extras) {
-        UUID existingSizeOptionId = item.getSizeOption() != null ? item.getSizeOption().getId() : null;
+        UUID existingVariantId = item.getVariant() != null ? item.getVariant().getId() : null;
         return item.getProduct().getId().equals(productId)
-                && Objects.equals(existingSizeOptionId, sizeOptionId)
+                && Objects.equals(existingVariantId, variantId)
                 && Objects.equals(item.getSugarLevel(), sugarLevel)
                 && Objects.equals(item.getIceLevel(), iceLevel)
                 && Objects.equals(item.getMilkType(), milkType)
@@ -246,19 +246,19 @@ public class CartServiceImpl implements CartService {
 
         for (CartItem item : cart.getItems()) {
             Product product = item.getProduct();
-            ProductSizeOption sizeOption = item.getSizeOption();
+            ProductVariant variant = item.getVariant();
             Set<Extra> selectedExtras = item.getSelectedExtras();
             List<CartItemExtraResponse> extras = selectedExtras.stream()
                     .map(extra -> new CartItemExtraResponse(extra.getId(), extra.getName(), extra.getPrice()))
                     .toList();
             BigDecimal extrasTotal = selectedExtras.stream().map(Extra::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
-            BigDecimal unitPrice = product.getFinalPrice(sizeOption.getPrice(), now).add(extrasTotal);
+            BigDecimal unitPrice = product.getFinalPrice(variant.getPrice(), now).add(extrasTotal);
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
             total = total.add(subtotal);
             items.add(new CartItemResponse(
                     item.getId(), product.getId(), product.getName(), product.getImageUrl(),
                     unitPrice, item.getQuantity(), subtotal,
-                    sizeOption.getId(), sizeOption.getName(),
+                    variant.getId(), variant.getName(),
                     item.getSugarLevel(), item.getIceLevel(), item.getMilkType(), extras));
         }
 

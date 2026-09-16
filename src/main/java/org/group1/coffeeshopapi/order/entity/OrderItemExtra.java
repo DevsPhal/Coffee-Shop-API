@@ -16,7 +16,7 @@ import java.math.BigDecimal;
 // One extra (e.g. Pearl) the customer chose to add to an OrderItem — a snapshot, same reasoning as
 // OrderItem.productName/unitPrice: extraName/extraPrice freeze what was true at sale time, so a
 // later rename/repricing of the Extra doesn't change how a past order displays. The live relation
-// is kept anyway (like OrderItem.sizeOption) rather than nulled, so an Extra can't be deleted while
+// is kept anyway (like OrderItem.variant) rather than nulled, so an Extra can't be deleted while
 // any order still references it — see GlobalExceptionHandler's DataIntegrityViolationException
 // handler.
 @Getter

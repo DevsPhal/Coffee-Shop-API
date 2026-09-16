@@ -29,7 +29,7 @@ public interface OrderMapper {
     OrderResponse toResponse(Order order, ActorSummary handledByActor, BigDecimal distanceMeters);
 
     @Mapping(target = "productId", source = "product.id")
-    @Mapping(target = "sizeOptionName", source = "sizeOption.name")
+    @Mapping(target = "variantName", source = "variant.name")
     OrderItemResponse toItemResponse(OrderItem item);
 
     @Mapping(target = "extraId", source = "extra.id")
