@@ -1,9 +1,11 @@
 package org.group1.coffeeshopapi.admin;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.admin.repository.AdminRepository;
 import org.group1.coffeeshopapi.barista.entity.Barista;
+import org.group1.coffeeshopapi.common.enums.RegisterType;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.common.security.CustomUserDetails;
@@ -58,16 +60,27 @@ class StaffCreationIntegrationTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.data.role").value(targetRole.name()))
                 .andExpect(jsonPath("$.data.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.data.createdBy").value(SuperAdminUserDetails.ID.toString()))
                 .andReturn();
 
-        UUID id = UUID.fromString(objectMapper.readTree(result.getResponse().getContentAsString()).at("/data/id").asText());
+        JsonNode data = objectMapper.readTree(result.getResponse().getContentAsString()).at("/data");
+        UUID id = UUID.fromString(data.at("/id").asText());
         userRepository.flush();
         authUserRepository.flush();
         var stored = userRepository.findById(id).orElseThrow();
         assertThat(stored.getRole()).isEqualTo(targetRole);
         assertThat(passwordEncoder.matches(PASSWORD, stored.getPassword())).isTrue();
         assertThat(authUserRepository.findById(id).orElseThrow().getRole()).isEqualTo(targetRole);
+
+        // Admin.createdBy is a plain audit id, so it still captures the Super Admin's reserved id
+        // even though the Super Admin has no row of its own (see Admin's javadoc). Barista
+        // .createdByAdmin is a real FK to "admins" instead, and there's nothing there for it to
+        // point to (see AdminRepository#referenceOrNull) — null is the correct, documented
+        // outcome for a Super-Admin-created barista, not a bug.
+        if (targetRole == Role.ADMIN) {
+            assertThat(data.at("/createdBy").asText()).isEqualTo(SuperAdminUserDetails.ID.toString());
+        } else {
+            assertThat(data.at("/createdBy").isNull()).isTrue();
+        }
     }
 
     @Test
@@ -77,6 +90,7 @@ class StaffCreationIntegrationTest {
         manager.setEmail("existing-admin@example.test");
         manager.setPassword(passwordEncoder.encode(PASSWORD));
         manager.setStatus(UserStatus.ACTIVE);
+        manager.setRegisterType(RegisterType.EMAIL);
         adminRepository.saveAndFlush(manager);
         var principal = new CustomUserDetails(manager);
 

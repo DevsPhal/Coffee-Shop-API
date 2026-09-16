@@ -5,6 +5,7 @@ import org.group1.coffeeshopapi.admin.controller.BaristaController;
 import org.group1.coffeeshopapi.admin.service.StaffService;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.filter.JwtAuthFilter;
+import org.group1.coffeeshopapi.common.properties.CorsProperties;
 import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.security.CustomUserDetailsService;
 import org.group1.coffeeshopapi.common.security.RestAccessDeniedHandler;
@@ -34,7 +35,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest
 @ContextConfiguration(classes = {AdminController.class, BaristaController.class})
-@Import({SecurityConfig.class, JwtAuthFilter.class, RestAccessDeniedHandler.class, RestAuthenticationEntryPoint.class})
+@Import({SecurityConfig.class, JwtAuthFilter.class, RestAccessDeniedHandler.class, RestAuthenticationEntryPoint.class, CorsProperties.class})
 class StaffAvatarControllerTest {
     @Autowired MockMvc mvc;
     @MockitoBean StaffService staffService;

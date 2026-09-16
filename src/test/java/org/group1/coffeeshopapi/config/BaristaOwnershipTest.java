@@ -5,6 +5,7 @@ import org.group1.coffeeshopapi.attendance.service.AttendanceService;
 import org.group1.coffeeshopapi.barista.entity.Barista;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.common.filter.JwtAuthFilter;
+import org.group1.coffeeshopapi.common.properties.CorsProperties;
 import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.security.CustomUserDetailsService;
 import org.group1.coffeeshopapi.common.security.RestAccessDeniedHandler;
@@ -38,7 +39,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @WebMvcTest
 @ContextConfiguration(classes = {BaristaAttendanceController.class, BaristaReportController.class})
-@Import({SecurityConfig.class, JwtAuthFilter.class, RestAccessDeniedHandler.class, RestAuthenticationEntryPoint.class})
+@Import({SecurityConfig.class, JwtAuthFilter.class, RestAccessDeniedHandler.class, RestAuthenticationEntryPoint.class, CorsProperties.class})
 class BaristaOwnershipTest {
     @Autowired MockMvc mvc;
     @MockitoBean JwtUtil jwtUtil;

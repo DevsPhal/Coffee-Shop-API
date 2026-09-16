@@ -44,7 +44,9 @@ public class UserAdminServiceImpl implements UserAdminService {
             case ADMIN -> adminRepository.findAll(pageable);
             case BARISTA -> baristaRepository.findAll(pageable);
             case CUSTOMER -> customerRepository.findAll(pageable);
-            case SUPER_ADMIN -> throw new IllegalArgumentException("Super admin is not a stored account");
+            // Config-driven — it has an auth_users row (see AuthUserSyncService#syncSuperAdmin)
+            // but no admins/baristas/customers row, so there's no User here for UserMapper to map.
+            case SUPER_ADMIN -> throw new IllegalArgumentException("Super admin has no listable account record");
         };
         return users.map(userMapper::toResponse);
     }
