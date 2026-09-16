@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.telegram.service;
 
 import org.group1.coffeeshopapi.telegram.command.TelegramCommand;
 import org.group1.coffeeshopapi.telegram.command.TelegramCommandRegistry;
+import org.group1.coffeeshopapi.telegram.dto.TelegramCallbackQuery;
 import org.group1.coffeeshopapi.telegram.dto.TelegramChat;
 import org.group1.coffeeshopapi.telegram.dto.TelegramContact;
 import org.group1.coffeeshopapi.telegram.dto.TelegramMessage;
@@ -37,48 +38,48 @@ class TelegramUpdateHandlerTest {
     @Test
     void ignoresAnUpdateWithNoMessage() {
         TelegramUpdateHandler handler = handlerWith();
-        handler.handle(new TelegramUpdate(1L, null));
+        handler.handle(new TelegramUpdate(1L, null, null));
         verifyNoInteractions(apiClient, telegramLinkService);
     }
 
     @Test
     void ignoresNonCommandText() {
         TelegramUpdateHandler handler = handlerWith();
-        handler.handle(new TelegramUpdate(1L, textMessage("just chatting")));
+        handler.handle(new TelegramUpdate(1L, textMessage("just chatting"), null));
         verifyNoInteractions(apiClient, telegramLinkService);
     }
 
     @Test
-    void repliesWithUnknownCommandMessageWhenNothingMatches() {
+    void repliesWithUnknownCommandMessageAndButtonsWhenNothingMatches() {
         TelegramUpdateHandler handler = handlerWith();
-        handler.handle(new TelegramUpdate(1L, textMessage("/nope")));
-        verify(apiClient).sendMessage(CHAT_ID, "Unknown command. Send /help to see what I can do.");
+        handler.handle(new TelegramUpdate(1L, textMessage("/nope"), null));
+        verify(apiClient).sendMessageWithButtons(CHAT_ID, "Unknown command. Send /help to see what I can do.");
     }
 
     @Test
     void matchesARegisteredCommandRegardlessOfCase() {
         TelegramUpdateHandler handler = handlerWith(fakeCommand("/menu", false, (message, argument) -> "the menu"));
 
-        handler.handle(new TelegramUpdate(1L, textMessage("/Menu")));
+        handler.handle(new TelegramUpdate(1L, textMessage("/Menu"), null));
 
-        verify(apiClient).sendMessage(CHAT_ID, "the menu");
+        verify(apiClient).sendMessageWithButtons(CHAT_ID, "the menu");
     }
 
     @Test
-    void sendsAnHtmlReplyForACommandThatOptsIntoHtml() {
+    void sendsAnHtmlReplyWithButtonsForACommandThatOptsIntoHtml() {
         TelegramUpdateHandler handler = handlerWith(fakeCommand("/events", true, (message, argument) -> "<b>events</b>"));
 
-        handler.handle(new TelegramUpdate(1L, textMessage("/events")));
+        handler.handle(new TelegramUpdate(1L, textMessage("/events"), null));
 
-        verify(apiClient).sendHtmlMessage(CHAT_ID, "<b>events</b>");
-        verify(apiClient, never()).sendMessage(anyLong(), anyString());
+        verify(apiClient).sendHtmlMessageWithButtons(CHAT_ID, "<b>events</b>");
+        verify(apiClient, never()).sendMessageWithButtons(anyLong(), anyString());
     }
 
     @Test
     void sendsNothingWhenACommandAlreadySentItsOwnReply() {
         TelegramUpdateHandler handler = handlerWith(fakeCommand("/start", true, (message, argument) -> null));
 
-        handler.handle(new TelegramUpdate(1L, textMessage("/start CODE123")));
+        handler.handle(new TelegramUpdate(1L, textMessage("/start CODE123"), null));
 
         verifyNoInteractions(apiClient);
     }
@@ -91,7 +92,7 @@ class TelegramUpdateHandlerTest {
             return "ok";
         }));
 
-        handler.handle(new TelegramUpdate(1L, textMessage("/menu@MyCafeBot Coffee")));
+        handler.handle(new TelegramUpdate(1L, textMessage("/menu@MyCafeBot Coffee"), null));
 
         assertThat(capturedArgument).containsExactly("Coffee");
     }
@@ -104,9 +105,9 @@ class TelegramUpdateHandlerTest {
                 new TelegramUser(9L, "Test", null), null, contact);
         when(telegramLinkService.verifyPendingContact(CHAT_ID, contact, 9L)).thenReturn("verified");
 
-        handler.handle(new TelegramUpdate(1L, message));
+        handler.handle(new TelegramUpdate(1L, message, null));
 
-        verify(apiClient).sendHtmlMessage(CHAT_ID, "verified");
+        verify(apiClient).sendHtmlMessageWithButtons(CHAT_ID, "verified");
     }
 
     @Test
@@ -115,15 +116,79 @@ class TelegramUpdateHandlerTest {
             throw new IllegalStateException("boom");
         }));
 
-        handler.handle(new TelegramUpdate(1L, textMessage("/menu")));
+        handler.handle(new TelegramUpdate(1L, textMessage("/menu"), null));
 
         ArgumentCaptor<String> reply = ArgumentCaptor.forClass(String.class);
-        verify(apiClient).sendMessage(eq(CHAT_ID), reply.capture());
+        verify(apiClient).sendMessageWithButtons(eq(CHAT_ID), reply.capture());
+        assertThat(reply.getValue()).contains("something went wrong");
+    }
+
+    @Test
+    void tappingAQuickActionButtonAcknowledgesTheTapAndRunsTheMatchingCommand() {
+        TelegramUpdateHandler handler = handlerWith(fakeCommand("/discounts", true, (message, argument) -> "<b>deals</b>"));
+
+        handler.handle(new TelegramUpdate(1L, null, callbackQuery("cbq-1", "/discounts")));
+
+        verify(apiClient).answerCallbackQuery("cbq-1", null);
+        verify(apiClient).sendHtmlMessageWithButtons(CHAT_ID, "<b>deals</b>");
+    }
+
+    @Test
+    void aTappedButtonPassesNoArgumentEvenIfTheUnderlyingCommandAcceptsOne() {
+        List<String> capturedArgument = new ArrayList<>();
+        TelegramUpdateHandler handler = handlerWith(fakeCommand("/menu", false, (message, argument) -> {
+            capturedArgument.add(argument);
+            return "ok";
+        }));
+
+        handler.handle(new TelegramUpdate(1L, null, callbackQuery("cbq-2", "/menu")));
+
+        assertThat(capturedArgument).containsExactly((String) null);
+    }
+
+    @Test
+    void unknownCallbackDataStillAcknowledgesAndRepliesWithButtons() {
+        TelegramUpdateHandler handler = handlerWith();
+
+        handler.handle(new TelegramUpdate(1L, null, callbackQuery("cbq-3", "/gone")));
+
+        verify(apiClient).answerCallbackQuery("cbq-3", null);
+        verify(apiClient).sendMessageWithButtons(CHAT_ID, "Unknown command. Send /help to see what I can do.");
+    }
+
+    @Test
+    void aCallbackQueryWithNoSourceMessageIsAcknowledgedButOtherwiseIgnored() {
+        TelegramUpdateHandler handler = handlerWith(fakeCommand("/menu", false, (message, argument) -> "ok"));
+        TelegramCallbackQuery orphaned = new TelegramCallbackQuery("cbq-4", new TelegramUser(9L, "Test", null), null, "/menu");
+
+        handler.handle(new TelegramUpdate(1L, null, orphaned));
+
+        verify(apiClient).answerCallbackQuery("cbq-4", null);
+        verify(apiClient, never()).sendMessageWithButtons(anyLong(), anyString());
+        verify(apiClient, never()).sendHtmlMessageWithButtons(anyLong(), anyString());
+    }
+
+    @Test
+    void aFailingCommandFromAButtonTapStillGetsAcknowledgedAndAFriendlyFallback() {
+        TelegramUpdateHandler handler = handlerWith(fakeCommand("/menu", false, (message, argument) -> {
+            throw new IllegalStateException("boom");
+        }));
+
+        handler.handle(new TelegramUpdate(1L, null, callbackQuery("cbq-5", "/menu")));
+
+        verify(apiClient).answerCallbackQuery("cbq-5", null);
+        ArgumentCaptor<String> reply = ArgumentCaptor.forClass(String.class);
+        verify(apiClient).sendMessageWithButtons(eq(CHAT_ID), reply.capture());
         assertThat(reply.getValue()).contains("something went wrong");
     }
 
     private TelegramMessage textMessage(String text) {
         return new TelegramMessage(1L, new TelegramChat(CHAT_ID, "private"), new TelegramUser(9L, "Test", null), text, null);
+    }
+
+    private TelegramCallbackQuery callbackQuery(String id, String data) {
+        TelegramMessage source = new TelegramMessage(1L, new TelegramChat(CHAT_ID, "private"), null, "menu", null);
+        return new TelegramCallbackQuery(id, new TelegramUser(9L, "Test", null), source, data);
     }
 
     private TelegramUpdateHandler handlerWith(TelegramCommand... commands) {

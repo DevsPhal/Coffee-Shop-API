@@ -34,4 +34,24 @@ class TelegramApiClientImplTest {
         assertThatCode(() -> client.sendLocation(123L, new BigDecimal("11.5568"), new BigDecimal("104.9282")))
                 .doesNotThrowAnyException();
     }
+
+    @Test
+    void sendMessageWithButtonsIsANoOpWhenNoBotTokenIsConfigured() {
+        assertThatCode(() -> client.sendMessageWithButtons(123L, "pick one"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void sendHtmlMessageWithButtonsIsANoOpWhenNoBotTokenIsConfigured() {
+        assertThatCode(() -> client.sendHtmlMessageWithButtons(123L, "<b>pick one</b>"))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void answerCallbackQueryIsANoOpWhenNoBotTokenIsConfigured() {
+        assertThatCode(() -> client.answerCallbackQuery("cbq-1", null))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> client.answerCallbackQuery("cbq-1", "Done!"))
+                .doesNotThrowAnyException();
+    }
 }
