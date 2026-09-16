@@ -33,4 +33,13 @@ public class Extra extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
+
+    // Null means "not stock-tracked" — always treated as available (the behavior every Extra had
+    // before this field existed), so adding this doesn't silently hide every pre-existing extra
+    // the moment it ships. An admin opts an extra into stock tracking simply by setting a real
+    // quantity (see ExtraServiceImpl); from then on 0 (or less) means out of stock. A plain running
+    // count, not the FIFO-batch system Inventory uses for products — see ExtraServiceImpl's
+    // javadoc for why a topping like this doesn't need that.
+    @Column(precision = 12, scale = 3)
+    private BigDecimal quantityOnHand;
 }

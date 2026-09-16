@@ -40,7 +40,7 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
             return buildMenuForCategory(categoryName.trim());
         }
 
-        List<Product> products = productRepository.findByStatusOrderByNameAsc(Status.ACTIVE);
+        List<Product> products = productRepository.findByStatusAndInStockOrderByNameAsc(Status.ACTIVE);
         if (products.isEmpty()) {
             return "🛒 The menu is empty right now — please check back soon!";
         }
@@ -78,7 +78,7 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
     @Override
     public String buildDiscounts() {
         LocalDateTime now = LocalDateTime.now();
-        List<Product> discounted = productRepository.findByStatusOrderByNameAsc(Status.ACTIVE).stream()
+        List<Product> discounted = productRepository.findByStatusAndInStockOrderByNameAsc(Status.ACTIVE).stream()
                 .filter(p -> p.isDiscountActive(now))
                 .toList();
         if (discounted.isEmpty()) {
@@ -97,7 +97,8 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
             return "🛒 No category named \"" + TelegramFormat.escape(categoryName) + "\". Send /categories to see what's available.";
         }
 
-        List<Product> products = productRepository.findByCategoryIdAndStatusOrderByNameAsc(category.getId(), Status.ACTIVE);
+        List<Product> products = productRepository
+                .findByCategoryIdAndStatusAndInStockOrderByNameAsc(category.getId(), Status.ACTIVE);
         String displayCategoryName = TelegramFormat.escape(TelegramFormat.titleCase(category.getName()));
         if (products.isEmpty()) {
             return "🛒 No items available in <b>" + displayCategoryName + "</b> right now.";

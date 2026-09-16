@@ -22,6 +22,7 @@ import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.common.util.GeoUtil;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.extra.entity.ProductExtra;
+import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
@@ -79,6 +80,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductExtraRepository productExtraRepository;
+    private final ExtraRepository extraRepository;
     private final InventoryService inventoryService;
     private final OrderMapper orderMapper;
     private final OrderAuditLogMapper orderAuditLogMapper;
@@ -598,6 +600,9 @@ public class OrderServiceImpl implements OrderService {
                     BigDecimal.valueOf(item.getQuantity()),
                     StockStrategy.FIFO,
                     "Sold in order " + order.getId()), stockActorId);
+            for (OrderItemExtra orderItemExtra : item.getExtras()) {
+                deductExtraStock(orderItemExtra.getExtra(), item.getQuantity());
+            }
         }
         order.setStatus(OrderStatus.PAID);
         order.setPaidAt(LocalDateTime.now());
@@ -607,13 +612,29 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
+    // Simple running-count decrement — not the FIFO batch consumption stockCut above does for
+    // products (see Extra.quantityOnHand for why an extra doesn't need that). Untracked (null)
+    // extras are left alone; a tracked one is floored at zero rather than allowed to go negative,
+    // since this has no reservation/locking of its own and two near-simultaneous orders for the
+    // last unit are possible.
+    private void deductExtraStock(Extra extra, int quantitySold) {
+        if (extra.getQuantityOnHand() == null) {
+            return;
+        }
+        BigDecimal remaining = extra.getQuantityOnHand().subtract(BigDecimal.valueOf(quantitySold));
+        extra.setQuantityOnHand(remaining.max(BigDecimal.ZERO));
+        extraRepository.save(extra);
+    }
+
     private OrderInvoice toInvoice(Order order) {
         List<OrderInvoiceLineItem> items = order.getItems().stream()
                 .map(item -> new OrderInvoiceLineItem(item.getProductName(), item.getQuantity(), item.getUnitPrice(),
                         item.getSubtotal(), item.getExtras().stream().map(OrderItemExtra::getExtraName).toList()))
                 .toList();
         return new OrderInvoice(order.getId(), items, order.getDeliveryFee(), order.getTotalAmount(),
-                order.getPaymentMethod(), order.getBakongCurrency(), order.getBakongAmount(), order.getPaidAt());
+                order.getPaymentMethod(), order.getBakongCurrency(), order.getBakongAmount(),
+                order.getAmountTendered(), order.getAmountTenderedCurrency(), order.getChangeDue(),
+                order.getPaidAt());
     }
 
     private Order requirePending(Order order) {

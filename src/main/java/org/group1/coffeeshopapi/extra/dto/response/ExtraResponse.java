@@ -9,6 +9,9 @@ public record ExtraResponse(
         UUID id,
         String name,
         BigDecimal price,
-        Status status
+        Status status,
+
+        // Null means untracked (always available) — see Extra.quantityOnHand.
+        BigDecimal quantityOnHand
 ) {
 }

@@ -43,6 +43,11 @@ public final class ProductExtraResolver {
                 throw new InvalidOperationException(
                         "One or more extras aren't available on '" + product.getName() + "'");
             }
+            // Null quantityOnHand means this extra isn't stock-tracked — always available (see
+            // Extra.quantityOnHand); only an explicit zero-or-less blocks it.
+            if (extra.getQuantityOnHand() != null && extra.getQuantityOnHand().signum() <= 0) {
+                throw new InvalidOperationException("'" + extra.getName() + "' is out of stock");
+            }
             resolved.add(extra);
         }
         return resolved;

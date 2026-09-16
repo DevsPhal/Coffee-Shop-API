@@ -115,11 +115,14 @@ public class ProductServiceImpl implements ProductService {
         return toResponsePage(products);
     }
 
+    // Customer-facing only (see CustomerProductController) — also requires actual stock, unlike
+    // list() above, since there's nothing for a customer to buy otherwise. Deliberately not
+    // applied to the admin catalog, which still needs to see (and restock) a depleted product.
     @Override
     public Page<ProductResponse> listActive(UUID categoryId, Pageable pageable) {
         Page<Product> products = categoryId != null
-                ? productRepository.findByCategoryIdAndStatus(categoryId, Status.ACTIVE, pageable)
-                : productRepository.findByStatus(Status.ACTIVE, pageable);
+                ? productRepository.findByCategoryIdAndStatusAndInStock(categoryId, Status.ACTIVE, pageable)
+                : productRepository.findByStatusAndInStock(Status.ACTIVE, pageable);
         return toResponsePage(products);
     }
 

@@ -8,6 +8,7 @@ import org.group1.coffeeshopapi.product.dto.response.ProductVariantResponse;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
+import org.mapstruct.Named;
 
 import java.util.List;
 
@@ -39,6 +40,18 @@ public interface ProductMapper {
             List<ProductExtraResponse> extras);
 
     // Strips inventory counts, reorder thresholds, and staff audit identities before a product
-    // reaches a customer — see CustomerProductResponse's javadoc.
+    // reaches a customer — see CustomerProductResponse's javadoc. extras is filtered too: an
+    // out-of-stock extra (see Extra.quantityOnHand) is hidden from a customer entirely rather than
+    // offered as a choice they can't actually have. This is done here, not upstream where extras
+    // are fetched (ProductServiceImpl#toResponsePage), because that fetch also backs the admin
+    // catalog, which needs to keep seeing a depleted extra in order to restock it.
+    @Mapping(target = "extras", qualifiedByName = "inStockOnly")
     CustomerProductResponse toCustomerResponse(ProductResponse response);
+
+    @Named("inStockOnly")
+    default List<ProductExtraResponse> inStockOnly(List<ProductExtraResponse> extras) {
+        return extras.stream()
+                .filter(extra -> extra.quantityOnHand() == null || extra.quantityOnHand().signum() > 0)
+                .toList();
+    }
 }
