@@ -12,5 +12,6 @@ public interface ProductExtraMapper {
     @Mapping(target = "extraId", source = "extra.id")
     @Mapping(target = "name", source = "extra.name")
     @Mapping(target = "price", source = "extra.price")
+    @Mapping(target = "quantityOnHand", source = "extra.quantityOnHand")
     ProductExtraResponse toResponse(ProductExtra productExtra);
 }

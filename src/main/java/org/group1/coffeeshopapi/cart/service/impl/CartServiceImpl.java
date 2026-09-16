@@ -20,6 +20,8 @@ import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.extra.entity.ProductExtra;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
+import org.group1.coffeeshopapi.inventory.entity.Inventory;
+import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -54,6 +56,7 @@ public class CartServiceImpl implements CartService {
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductExtraRepository productExtraRepository;
+    private final InventoryRepository inventoryRepository;
     private final CustomerRepository customerRepository;
     private final OrderService orderService;
 
@@ -70,6 +73,15 @@ public class CartServiceImpl implements CartService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + request.productId()));
         if (product.getStatus() != Status.ACTIVE) {
             throw new InvalidOperationException("Product '" + product.getName() + "' is not available");
+        }
+        // Defense in depth — a customer with a stale product page open shouldn't be able to add
+        // something that's since sold out just because they already had the id (the listing
+        // itself already hides it, see ProductServiceImpl#listActive).
+        BigDecimal stockOnHand = inventoryRepository.findByProductId(product.getId())
+                .map(Inventory::getQuantityOnHand)
+                .orElse(BigDecimal.ZERO);
+        if (stockOnHand.signum() <= 0) {
+            throw new InvalidOperationException("Product '" + product.getName() + "' is out of stock");
         }
         ProductVariantPolicy.validate(product, request.variantId(), request.sugarLevel(),
                 request.iceLevel(), request.milkType());

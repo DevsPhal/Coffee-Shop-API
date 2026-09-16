@@ -71,6 +71,17 @@ public class TelegramInvoiceServiceImpl implements TelegramInvoiceService {
 
         sb.append("<b>Total: ").append(TelegramFormat.usd(invoice.totalAmount())).append("</b>\n");
         sb.append("Payment: ").append(paymentSummary(invoice)).append('\n');
+        // Same two lines the printed receipt shows for a cash sale (see ReceiptServiceImpl) — the
+        // customer handed over cash in whichever currency, so both what they gave and the USD
+        // change they got back need to be spelled out, not just the total.
+        if (invoice.paymentMethod() == PaymentMethod.CASH && invoice.amountTendered() != null) {
+            String tenderedLabel = invoice.amountTenderedCurrency() == Currency.KHR ? "Tendered (KHR)" : "Tendered (USD)";
+            String tenderedValue = invoice.amountTenderedCurrency() == Currency.KHR
+                    ? TelegramFormat.wholeAmount(invoice.amountTendered(), "KHR")
+                    : TelegramFormat.usd(invoice.amountTendered());
+            sb.append(tenderedLabel).append(": ").append(tenderedValue).append('\n');
+            sb.append("Change: ").append(TelegramFormat.usd(invoice.changeDue())).append('\n');
+        }
         if (invoice.paidAt() != null) {
             sb.append("Paid at: ").append(invoice.paidAt().format(PAID_AT_FORMAT)).append('\n');
         }
