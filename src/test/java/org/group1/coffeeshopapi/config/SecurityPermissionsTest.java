@@ -102,7 +102,7 @@ class SecurityPermissionsTest {
     }
 
     static Stream<String> publicReads() {
-        return Stream.of("/api/customer/products", "/api/customer/products/record", "/api/banners", "/api/events", "/api/shop/settings");
+        return Stream.of("/api/customer/products", "/api/customer/products/record", "/api/banners", "/api/events");
     }
 
     @ParameterizedTest

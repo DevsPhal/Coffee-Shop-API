@@ -14,6 +14,7 @@ import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 // Admin-created promotional/announcement entry, e.g. a seasonal sale window or in-store event.
@@ -31,6 +32,15 @@ public class Event extends BaseEntity {
 
     @Column
     private String imageUrl;
+
+    // GPS pin for the event's venue, shown to customers via the Telegram bot's /events command
+    // (see TelegramEventServiceImpl) — same optional, given-together-or-not-at-all convention as
+    // Order.deliveryLatitude/deliveryLongitude.
+    @Column(precision = 9, scale = 6)
+    private BigDecimal latitude;
+
+    @Column(precision = 9, scale = 6)
+    private BigDecimal longitude;
 
     @Column(nullable = false)
     private LocalDateTime startAt;
