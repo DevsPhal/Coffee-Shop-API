@@ -15,8 +15,8 @@ import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
-import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
+import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -49,11 +49,12 @@ public class AdminOrderController {
     private final CurrentActor currentActor;
 
     // Rings up a walk-in sale in person, same as a barista can — one order, carrying one or more
-    // items (see CreateOrderRequest.items). Reuses OrderService.create/payCash/generateBakongQr/
-    // confirmBakongPayment as-is: they're keyed off a plain actor id (Order.handledBy — see its
-    // javadoc), not a barista-specific type, so an admin's own id scopes exactly the same way.
+    // items (see StaffCreateOrderRequest.items), always pickup since the customer is standing
+    // right there. Reuses OrderService.create/payCash/generateBakongQr/confirmBakongPayment as-is:
+    // they're keyed off a plain actor id (Order.handledBy — see its javadoc), not a
+    // barista-specific type, so an admin's own id scopes exactly the same way.
     @PostMapping
-    public ResponseEntity<ApiResponse<OrderResponse>> create(@Valid @RequestBody CreateOrderRequest request) {
+    public ResponseEntity<ApiResponse<OrderResponse>> create(@Valid @RequestBody StaffCreateOrderRequest request) {
         OrderResponse response = orderService.create(request, currentActor.id());
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Order created successfully.", response));

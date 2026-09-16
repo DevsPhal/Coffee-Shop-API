@@ -4,6 +4,7 @@ import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
+import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -16,9 +17,11 @@ import java.util.UUID;
 
 public interface OrderService {
 
-    // --- Walk-in (POS) sales — barista or admin, ringing up their own sale ---
+    // --- Walk-in (POS) sales — barista or admin, ringing up their own sale. Always a pickup
+    // order (see StaffCreateOrderRequest) — the customer is standing at the counter, so there's
+    // no delivery leg to this. ---
 
-    OrderResponse create(CreateOrderRequest request, UUID baristaId);
+    OrderResponse create(StaffCreateOrderRequest request, UUID baristaId);
 
     OrderResponse getOwn(UUID id, UUID baristaId);
 
