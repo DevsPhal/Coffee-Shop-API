@@ -19,7 +19,6 @@ import org.group1.coffeeshopapi.user.dto.request.UpdateProfileRequest;
 import org.group1.coffeeshopapi.user.dto.response.SuperAdminResponse;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.group1.coffeeshopapi.user.mapper.UserMapper;
-import org.group1.coffeeshopapi.superadmin.SuperAdminProfileService;
 import org.group1.coffeeshopapi.user.service.UserProfileService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -46,7 +45,6 @@ public class UserController {
     private final UserMapper userMapper;
     private final TelegramLinkService telegramLinkService;
     private final UserProfileService userProfileService;
-    private final SuperAdminProfileService superAdminProfileService;
 
     @GetMapping("/me")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
@@ -55,23 +53,24 @@ public class UserController {
     public ApiResponse<Object> me(@AuthenticationPrincipal UserDetails principal) {
         Object profile = principal instanceof CustomUserDetails customUserDetails
                 ? userMapper.toResponse(customUserDetails.getUser())
-                : superAdminProfileService.describe(principal.getUsername());
+                : ((SuperAdminUserDetails) principal).toResponse();
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, profile);
     }
 
     /**
-     * Self-service edit of your own name, phone and gender. Works for every role, so an admin
-     * or barista can maintain their own record without a super admin doing it for them —
-     * {@code /api/admin/admins/**} is SUPER_ADMIN-only by design.
+     * Self-service edit of your own name, phone and gender. Works for every role but the super
+     * admin, so an admin or barista can maintain their own record without a super admin doing it
+     * for them — {@code /api/admin/admins/**} is SUPER_ADMIN-only by design. The super admin's
+     * profile is fixed by configuration (see {@link SuperAdminUserDetails}), so there's nothing
+     * here for it to edit.
      */
     @PatchMapping("/me")
-    public ApiResponse<Object> updateMe(
+    public ApiResponse<UserResponse> updateMe(
             @Valid @RequestBody UpdateProfileRequest request,
             @AuthenticationPrincipal UserDetails principal) {
-        Object updated = principal instanceof CustomUserDetails customUserDetails
-                ? userProfileService.updateProfile(customUserDetails.getId(), request)
-                : superAdminProfileService.updateProfile(request, principal.getUsername());
-        return ApiResponse.of(HttpStatus.OK, "Profile updated successfully.", updated);
+        UUID userId = requireCustomUser(principal, "Super admin's profile is fixed and cannot be edited").getId();
+        return ApiResponse.of(HttpStatus.OK, "Profile updated successfully.",
+                userProfileService.updateProfile(userId, request));
     }
 
     @PostMapping("/me/change-password")
@@ -95,21 +94,19 @@ public class UserController {
     }
 
     @PostMapping(value = "/me/avatar", consumes = "multipart/form-data")
-    public ApiResponse<Object> uploadAvatar(
+    public ApiResponse<UserResponse> uploadAvatar(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetails principal) {
-        Object updated = principal instanceof CustomUserDetails customUserDetails
-                ? userProfileService.uploadAvatar(customUserDetails.getId(), file)
-                : superAdminProfileService.uploadAvatar(file, principal.getUsername());
-        return ApiResponse.of(HttpStatus.OK, "Avatar uploaded successfully.", updated);
+        UUID userId = requireCustomUser(principal).getId();
+        return ApiResponse.of(HttpStatus.OK, "Avatar uploaded successfully.",
+                userProfileService.uploadAvatar(userId, file));
     }
 
     @DeleteMapping("/me/avatar")
-    public ApiResponse<Object> removeAvatar(@AuthenticationPrincipal UserDetails principal) {
-        Object updated = principal instanceof CustomUserDetails customUserDetails
-                ? userProfileService.removeAvatar(customUserDetails.getId())
-                : superAdminProfileService.removeAvatar(principal.getUsername());
-        return ApiResponse.of(HttpStatus.OK, "Avatar removed successfully.", updated);
+    public ApiResponse<UserResponse> removeAvatar(@AuthenticationPrincipal UserDetails principal) {
+        UUID userId = requireCustomUser(principal).getId();
+        return ApiResponse.of(HttpStatus.OK, "Avatar removed successfully.",
+                userProfileService.removeAvatar(userId));
     }
 
     private CustomUserDetails requireCustomUser(UserDetails principal) {

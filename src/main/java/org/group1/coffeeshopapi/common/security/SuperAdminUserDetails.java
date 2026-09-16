@@ -20,6 +20,10 @@ public class SuperAdminUserDetails implements UserDetails {
 
     public static final UUID ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
+    // Fixed display name — the super admin's profile is config-driven and not editable (see
+    // SuperAdminResponse), so there's nothing to look up.
+    public static final String DISPLAY_NAME = "Super Admin";
+
     private final String email;
     private final String passwordHash;
 
@@ -63,14 +67,10 @@ public class SuperAdminUserDetails implements UserDetails {
         return true;
     }
 
-    /**
-     * The bare, configuration-only view. Callers that can reach the database should prefer
-     * {@code SuperAdminProfileService.describe(email)}, which layers the editable profile on top.
-     */
     public SuperAdminResponse toResponse() {
         return SuperAdminResponse.builder()
                 .id(ID)
-                .fullName("Super Admin")
+                .fullName(DISPLAY_NAME)
                 .email(email)
                 .role(Role.SUPER_ADMIN)
                 .status(UserStatus.ACTIVE)

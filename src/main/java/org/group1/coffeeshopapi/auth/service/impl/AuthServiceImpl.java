@@ -118,9 +118,12 @@ public class AuthServiceImpl implements AuthService {
         String email = request.email().toLowerCase();
 
         if (superAdminProperties.matches(email)) {
-            // The super admin is a config-only account: no email inbox, no OTP friction, no DB row.
+            // The super admin is a config-only account: no email inbox, no OTP friction, no
+            // credentials row. It still gets an auth_users row, kept fresh on every login, so it
+            // shows up alongside every other account (see AuthUserSyncService#syncSuperAdmin).
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(email, request.password()));
+            authUserSyncService.syncSuperAdmin();
             AuthTokenResponse tokens = issueTokens(SuperAdminUserDetails.ID, email, Role.SUPER_ADMIN);
             return LoginResponse.authenticated(tokens);
         }
