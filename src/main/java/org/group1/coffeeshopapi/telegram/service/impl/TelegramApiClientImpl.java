@@ -7,6 +7,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -23,12 +24,25 @@ public class TelegramApiClientImpl implements TelegramApiClient {
 
     @Override
     public void sendMessage(Long chatId, String text) {
-        send(chatId, Map.of("chat_id", chatId, "text", text));
+        call("sendMessage", chatId, Map.of("chat_id", chatId, "text", text));
     }
 
     @Override
     public void sendHtmlMessage(Long chatId, String html) {
-        send(chatId, Map.of("chat_id", chatId, "text", html, "parse_mode", "HTML"));
+        call("sendMessage", chatId, Map.of("chat_id", chatId, "text", html, "parse_mode", "HTML"));
+    }
+
+    @Override
+    public void sendPhoto(Long chatId, String photoUrl, String captionHtml) {
+        Map<String, Object> body = captionHtml == null || captionHtml.isBlank()
+                ? Map.of("chat_id", chatId, "photo", photoUrl)
+                : Map.of("chat_id", chatId, "photo", photoUrl, "caption", captionHtml, "parse_mode", "HTML");
+        call("sendPhoto", chatId, body);
+    }
+
+    @Override
+    public void sendLocation(Long chatId, BigDecimal latitude, BigDecimal longitude) {
+        call("sendLocation", chatId, Map.of("chat_id", chatId, "latitude", latitude, "longitude", longitude));
     }
 
     @Override
@@ -37,22 +51,22 @@ public class TelegramApiClientImpl implements TelegramApiClient {
                 "keyboard", List.of(List.of(Map.of("text", "📱 Share phone number", "request_contact", true))),
                 "one_time_keyboard", true,
                 "resize_keyboard", true);
-        send(chatId, Map.of("chat_id", chatId, "text", text, "reply_markup", keyboard));
+        call("sendMessage", chatId, Map.of("chat_id", chatId, "text", text, "reply_markup", keyboard));
     }
 
-    private void send(Long chatId, Map<String, ?> body) {
+    private void call(String method, Long chatId, Map<String, ?> body) {
         if (!hasToken()) {
             return;
         }
         try {
             restClient.post()
-                    .uri(properties.apiUrl("sendMessage"))
+                    .uri(properties.apiUrl(method))
                     .contentType(MediaType.APPLICATION_JSON)
                     .body(body)
                     .retrieve()
                     .toBodilessEntity();
         } catch (Exception ex) {
-            log.error("Failed to send Telegram message to chat {}", chatId, ex);
+            log.error("Failed to call Telegram {} for chat {}", method, chatId, ex);
         }
     }
 

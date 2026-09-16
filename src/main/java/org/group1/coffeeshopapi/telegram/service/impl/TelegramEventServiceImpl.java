@@ -36,18 +36,17 @@ public class TelegramEventServiceImpl implements TelegramEventService {
     private final StringRedisTemplate redisTemplate;
 
     @Override
-    public String buildUpcomingEvents() {
+    public void sendUpcomingEvents(Long chatId) {
         List<Event> events = eventRepository.findByStatusAndEndAtAfterOrderByStartAtAsc(Status.ACTIVE, LocalDateTime.now());
         if (events.isEmpty()) {
-            return "No upcoming events right now — check back soon! ☕";
+            apiClient.sendMessage(chatId, "No upcoming events right now — check back soon! ☕");
+            return;
         }
 
-        StringBuilder sb = new StringBuilder("🎉 <b>Upcoming Events</b>\n");
+        apiClient.sendHtmlMessage(chatId, "🎉 <b>Upcoming Events</b>");
         for (Event event : events) {
-            sb.append('\n');
-            appendEventBlock(sb, event);
+            sendEvent(chatId, event, null);
         }
-        return sb.toString();
     }
 
     @Override
@@ -57,10 +56,9 @@ public class TelegramEventServiceImpl implements TelegramEventService {
             return;
         }
 
-        StringBuilder sb = new StringBuilder("📢 <b>New Event!</b>\n\n");
-        appendEventBlock(sb, event);
-        sb.append("\nSend /events to see what else is coming up.");
-        broadcast(recipients, sb.toString());
+        String header = "📢 <b>New Event!</b>\n\n";
+        String footer = "\nSend /events to see what else is coming up.";
+        broadcast(recipients, event, header, footer);
     }
 
     @Override
@@ -89,10 +87,27 @@ public class TelegramEventServiceImpl implements TelegramEventService {
                 continue;
             }
 
-            StringBuilder sb = new StringBuilder("⏰ <b>Starting Soon!</b>\n\n");
-            appendEventBlock(sb, event);
-            sb.append("\nDon't miss it!");
-            broadcast(recipients, sb.toString());
+            broadcast(recipients, event, "⏰ <b>Starting Soon!</b>\n\n", "\nDon't miss it!");
+        }
+    }
+
+    // Sends one event as its own message — a photo with caption when it has a flyer image, plain
+    // HTML text otherwise — followed by a dropped pin when it has a venue location.
+    private void sendEvent(Long chatId, Event event, String footer) {
+        StringBuilder sb = new StringBuilder();
+        appendEventBlock(sb, event);
+        if (footer != null) {
+            sb.append(footer);
+        }
+        String text = sb.toString();
+
+        if (event.getImageUrl() != null) {
+            apiClient.sendPhoto(chatId, event.getImageUrl(), text);
+        } else {
+            apiClient.sendHtmlMessage(chatId, text);
+        }
+        if (event.getLatitude() != null && event.getLongitude() != null) {
+            apiClient.sendLocation(chatId, event.getLatitude(), event.getLongitude());
         }
     }
 
@@ -105,9 +120,11 @@ public class TelegramEventServiceImpl implements TelegramEventService {
         }
     }
 
-    private void broadcast(List<Customer> recipients, String message) {
+    private void broadcast(List<Customer> recipients, Event event, String header, String footer) {
         for (Customer customer : recipients) {
-            apiClient.sendHtmlMessage(Long.parseLong(customer.getTelegramChatId()), message);
+            Long chatId = Long.parseLong(customer.getTelegramChatId());
+            apiClient.sendHtmlMessage(chatId, header.stripTrailing());
+            sendEvent(chatId, event, footer);
         }
     }
 }

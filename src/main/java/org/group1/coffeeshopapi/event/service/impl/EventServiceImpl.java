@@ -42,10 +42,15 @@ public class EventServiceImpl implements EventService {
         if (!request.endAt().isAfter(request.startAt())) {
             throw new InvalidOperationException("Event end date must be after the start date");
         }
+        if ((request.latitude() == null) != (request.longitude() == null)) {
+            throw new InvalidOperationException("Event latitude and longitude must be given together");
+        }
 
         Event event = new Event();
         event.setTitle(request.title());
         event.setDescription(request.description());
+        event.setLatitude(request.latitude());
+        event.setLongitude(request.longitude());
         event.setStartAt(request.startAt());
         event.setEndAt(request.endAt());
         event.setCreatedByAdmin(actorAdmin);
@@ -77,6 +82,13 @@ public class EventServiceImpl implements EventService {
         }
         if (request.description() != null) {
             event.setDescription(request.description());
+        }
+        if ((request.latitude() == null) != (request.longitude() == null)) {
+            throw new InvalidOperationException("Event latitude and longitude must be given together");
+        }
+        if (request.latitude() != null) {
+            event.setLatitude(request.latitude());
+            event.setLongitude(request.longitude());
         }
         if (request.startAt() != null) {
             event.setStartAt(request.startAt());
