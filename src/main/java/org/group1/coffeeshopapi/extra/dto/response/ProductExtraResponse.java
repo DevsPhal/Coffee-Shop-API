@@ -14,6 +14,11 @@ public record ProductExtraResponse(
         String name,
         BigDecimal price,
         Integer sortOrder,
-        Status status
+        Status status,
+
+        // Null means untracked (always available) — see Extra.quantityOnHand. ProductMapper hides
+        // this extra from a customer's view of the product entirely once it hits zero; the admin
+        // catalog keeps showing it (with this field) so it can be restocked.
+        BigDecimal quantityOnHand
 ) {
 }

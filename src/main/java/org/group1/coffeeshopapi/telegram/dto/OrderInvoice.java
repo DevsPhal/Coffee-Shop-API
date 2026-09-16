@@ -26,6 +26,13 @@ public record OrderInvoice(
         Currency bakongCurrency,
         BigDecimal bakongAmount,
 
+        // Set only when paymentMethod is CASH — how much the customer actually handed over
+        // (amountTenderedCurrency says whether that's USD or KHR, see CashPaymentRequest) and the
+        // USD change given back (see Order.changeDue). Null for any other payment method.
+        BigDecimal amountTendered,
+        Currency amountTenderedCurrency,
+        BigDecimal changeDue,
+
         LocalDateTime paidAt
 ) {
 }

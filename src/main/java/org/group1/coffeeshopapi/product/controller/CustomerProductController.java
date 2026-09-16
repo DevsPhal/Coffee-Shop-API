@@ -44,9 +44,11 @@ public class CustomerProductController {
     @GetMapping("/{id}")
     public ApiResponse<CustomerProductResponse> getById(@PathVariable UUID id) {
         var product = productService.getById(id);
-        // getById is shared with the admin catalog and doesn't filter by status — a customer
-        // has no reason to look up a DRAFT/INACTIVE product by id, so treat it as not found.
-        if (product.status() != Status.ACTIVE) {
+        // getById is shared with the admin catalog and doesn't filter by status or stock — a
+        // customer has no reason to look up a DRAFT/INACTIVE or out-of-stock product by id (same
+        // "in stock" rule listActive() applies to the list endpoint), so treat either as not found.
+        if (product.status() != Status.ACTIVE
+                || product.quantityOnHand() == null || product.quantityOnHand().signum() <= 0) {
             throw new ResourceNotFoundException("Product not found: " + id);
         }
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, productMapper.toCustomerResponse(product));
