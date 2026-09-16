@@ -65,10 +65,12 @@ public class CustomerOrderController {
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
+    // Despite the URL/method name, this applies to delivery orders too — see
+    // OrderService#selectCashOnPickup.
     @PostMapping("/{id}/pay/cash-on-pickup")
     public ApiResponse<OrderResponse> payCashOnPickup(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
-        return ApiResponse.of(HttpStatus.OK, "Order will be paid with cash on pickup.",
+        return ApiResponse.of(HttpStatus.OK, "Order will be paid with cash.",
                 orderService.selectCashOnPickup(id, currentUser.getId()));
     }
 
