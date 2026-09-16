@@ -12,8 +12,12 @@ import java.util.UUID;
 
 /**
  * Represents the config-driven super admin (SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD).
- * Deliberately not backed by a {@code User} row — it exists purely from configuration so it
- * can never be locked out, deleted, or discovered via the database.
+ * Deliberately not backed by an {@code Admin}/{@code User} row of its own — it exists purely from
+ * configuration so it can never be locked out or deleted by an admin/barista/customer-table
+ * operation. It does get an {@code auth_users} index row (see
+ * {@code AuthUserSyncService#syncSuperAdmin()}, called on every login) purely so it's listable
+ * alongside every other account there — that row carries no credentials and isn't what
+ * authenticates it.
  */
 public class SuperAdminUserDetails implements UserDetails {
     private static final long serialVersionUID = 1L;

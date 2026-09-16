@@ -17,7 +17,6 @@ import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
-import org.group1.coffeeshopapi.common.storage.FileStorageService;
 import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
 import org.group1.coffeeshopapi.telegram.util.TelegramAccountUtil;
@@ -26,6 +25,7 @@ import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.user.mapper.UserMapper;
 import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.group1.coffeeshopapi.user.service.AuthUserSyncService;
+import org.group1.coffeeshopapi.user.service.UserProfileService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -39,8 +39,6 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class StaffServiceImpl implements StaffService {
 
-    private static final String AVATAR_FOLDER = "avatars";
-
     private final UserRepository userRepository;
     private final AdminRepository adminRepository;
     private final BaristaRepository baristaRepository;
@@ -50,7 +48,7 @@ public class StaffServiceImpl implements StaffService {
     private final TokenService tokenService;
     private final AuthUserSyncService authUserSyncService;
     private final TelegramLinkService telegramLinkService;
-    private final FileStorageService fileStorageService;
+    private final UserProfileService userProfileService;
 
     @Override
     @Transactional
@@ -191,19 +189,14 @@ public class StaffServiceImpl implements StaffService {
         return userMapper.toResponse(staff);
     }
 
+    // Delegates to the same shared avatar storage every account type uses (see
+    // UserProfileServiceImpl#uploadAvatar) once the target id is confirmed to actually be a
+    // {@code role} account — validating that first, rather than letting UserProfileService blindly
+    // overwrite whatever account that id belongs to, is the whole reason this method exists.
     @Override
-    @Transactional
     public UserResponse uploadAvatar(UUID id, MultipartFile file, Role role) {
-        User staff = findByIdAndRole(id, role);
-        String previousAvatarUrl = staff.getAvatarUrl();
-
-        staff.setAvatarUrl(fileStorageService.uploadImage(file, AVATAR_FOLDER));
-        userRepository.save(staff);
-
-        if (previousAvatarUrl != null) {
-            fileStorageService.delete(previousAvatarUrl);
-        }
-        return userMapper.toResponse(staff);
+        findByIdAndRole(id, role);
+        return userProfileService.uploadAvatar(id, file);
     }
 
     @Override

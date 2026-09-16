@@ -97,9 +97,16 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/finance/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/bakong/**").hasRole("ADMIN")
                         .requestMatchers("/api/barista/orders/**").hasRole("BARISTA")
-                        .requestMatchers("/api/barista/reports/**").hasRole("BARISTA")
+                        .requestMatchers(HttpMethod.GET, "/api/barista/reports/**").hasRole("BARISTA")
                         .requestMatchers("/api/barista/attendance/**").hasRole("BARISTA")
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
+                        // Deny-by-default backstop: every actual admin/barista endpoint above is
+                        // matched by an explicit role rule, so anything still reaching this point
+                        // is either a mistyped path or a new endpoint someone forgot to add a rule
+                        // for — either way it must never fall through to the generic
+                        // anyRequest().authenticated() below, which would let ANY authenticated
+                        // role (including a customer) reach it just for being logged in.
+                        .requestMatchers("/api/admin/**", "/api/barista/**").denyAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 

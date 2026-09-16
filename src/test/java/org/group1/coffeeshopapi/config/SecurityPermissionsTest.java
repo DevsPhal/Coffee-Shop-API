@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.config;
 
 import org.group1.coffeeshopapi.common.filter.JwtAuthFilter;
+import org.group1.coffeeshopapi.common.properties.CorsProperties;
 import org.group1.coffeeshopapi.common.security.CustomUserDetailsService;
 import org.group1.coffeeshopapi.common.security.RestAccessDeniedHandler;
 import org.group1.coffeeshopapi.common.security.RestAuthenticationEntryPoint;
@@ -31,7 +32,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** Exercises the production filter chain; the probe isolates authorization from business validation. */
 @WebMvcTest
 @ContextConfiguration(classes = SecurityPermissionsTest.ProbeController.class)
-@Import({SecurityConfig.class, JwtAuthFilter.class, RestAccessDeniedHandler.class, RestAuthenticationEntryPoint.class})
+@Import({SecurityConfig.class, JwtAuthFilter.class, RestAccessDeniedHandler.class, RestAuthenticationEntryPoint.class, CorsProperties.class})
 class SecurityPermissionsTest {
     @Autowired MockMvc mvc;
     @MockitoBean JwtUtil jwtUtil;
@@ -85,6 +86,8 @@ class SecurityPermissionsTest {
         cases.add(new Access("GET", "/api/customer/cart", CUSTOMER));
         cases.add(new Access("GET", "/api/customer/orders", CUSTOMER));
         cases.add(new Access("POST", "/api/customer/cart/checkout", CUSTOMER));
+        cases.add(new Access("GET", "/api/customer/products", CUSTOMER));
+        cases.add(new Access("GET", "/api/customer/products/record", CUSTOMER));
         for (String path : List.of("/api/admin/unlisted", "/api/barista/unlisted", "/api/barista/reports/daily")) {
             cases.add(new Access("POST", path, Set.of()));
         }
@@ -102,7 +105,7 @@ class SecurityPermissionsTest {
     }
 
     static Stream<String> publicReads() {
-        return Stream.of("/api/customer/products", "/api/customer/products/record", "/api/banners", "/api/events");
+        return Stream.of("/api/banners", "/api/events");
     }
 
     @ParameterizedTest
