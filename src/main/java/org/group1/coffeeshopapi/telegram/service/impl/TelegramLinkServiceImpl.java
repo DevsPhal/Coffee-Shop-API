@@ -50,7 +50,7 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         String key = RedisKeys.TELEGRAM_LINK_CODE_PREFIX + code.toUpperCase();
         String userId = redisTemplate.opsForValue().get(key);
         if (userId == null) {
-            throw new ResourceNotFoundException("This code is invalid or has expired. Please generate a new one.");
+            throw new ResourceNotFoundException("❌ This code is invalid or has expired. Please generate a new one.");
         }
         redisTemplate.delete(key);
 
@@ -59,7 +59,7 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         // StaffServiceImpl#createViaTelegram) — findById/save on UserRepository dispatch to the
         // right physical table either way (TABLE_PER_CLASS).
         User user = userRepository.findById(UUID.fromString(userId))
-                .orElseThrow(() -> new ResourceNotFoundException("Account no longer exists"));
+                .orElseThrow(() -> new ResourceNotFoundException("❌ Account no longer exists."));
 
         if (user.getStatus() == UserStatus.PENDING_VERIFICATION && user.getRegisterType() == RegisterType.TELEGRAM) {
             // A staff account invited via Telegram (StaffServiceImpl#createViaTelegram) — a
@@ -82,7 +82,7 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         Optional<User> currentlyLinked = userRepository.findByTelegramChatId(chatId.toString());
         if (currentlyLinked.map(User::getId).filter(id -> id.equals(user.getId())).isPresent()) {
             // Re-sending a code for the account this chat is already linked to — nothing to do.
-            return "✅ You're already linked as " + TelegramFormat.escape(user.getFullName()) + ".";
+            return "✅ <b>You're already linked</b> as " + TelegramFormat.escape(user.getFullName()) + ".";
         }
 
         claimChat(user, currentlyLinked, chatId);
@@ -97,7 +97,7 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         String key = RedisKeys.TELEGRAM_PENDING_CONTACT_PREFIX + chatId;
         String userId = redisTemplate.opsForValue().get(key);
         if (userId == null) {
-            return "I wasn't expecting a phone number from you right now. If you're finishing an invite, "
+            return "ℹ️ I wasn't expecting a phone number from you right now. If you're finishing an invite, "
                     + "send /start &lt;code&gt; with your invite code first.";
         }
 
@@ -106,14 +106,14 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         // rather than let it spoof a phone-number match. Key deliberately left in place so they
         // can immediately retry by tapping the button themselves.
         if (contact.userId() == null || !contact.userId().equals(senderUserId)) {
-            return "Please share your own phone number using the button below, not someone else's contact.";
+            return "⚠️ Please share your own phone number using the button below, not someone else's contact.";
         }
         redisTemplate.delete(key);
 
         User user = userRepository.findById(UUID.fromString(userId)).orElse(null);
         if (user == null || user.getStatus() != UserStatus.PENDING_VERIFICATION
                 || user.getRegisterType() != RegisterType.TELEGRAM) {
-            return "This invite is no longer valid. Please ask your admin to resend it.";
+            return "❌ This invite is no longer valid. Please ask your admin to resend it.";
         }
 
         if (!PhoneNumberUtil.matches(user.getPhoneNumber(), contact.phoneNumber())) {
@@ -154,12 +154,12 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
     @Transactional
     public String unlink(Long chatId) {
         User user = userRepository.findByTelegramChatId(chatId.toString())
-                .orElseThrow(() -> new ResourceNotFoundException("This chat is not linked to any account"));
+                .orElseThrow(() -> new ResourceNotFoundException("ℹ️ This chat is not linked to any account."));
         user.setTelegramChatId(null);
         userRepository.save(user);
         authUserSyncService.sync(user);
-        return "👋 Your account has been unlinked. You can still browse with /menu, /categories, /discounts, "
-                + "/events and /rate — send /start <code> any time to link again.";
+        return "✅ <b>Unlinked.</b> You can still browse with /menu, /categories, /discounts, "
+                + "/events and /rate — send /start &lt;code&gt; any time to link again.";
     }
 
     @Override

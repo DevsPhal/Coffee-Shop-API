@@ -48,7 +48,7 @@ class TelegramEventServiceImplTest {
 
         service.sendUpcomingEvents(CHAT_ID);
 
-        verify(apiClient).sendMessageWithButtons(CHAT_ID, "No upcoming events right now — check back soon! ☕");
+        verify(apiClient).sendMessageWithButtons(CHAT_ID, "🎉 No upcoming events right now — check back soon! ☕");
         verifyNoInteractions(customerRepository);
     }
 

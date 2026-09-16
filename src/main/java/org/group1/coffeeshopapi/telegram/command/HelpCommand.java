@@ -14,7 +14,7 @@ public class HelpCommand implements TelegramCommand {
     @Override
     public String execute(TelegramMessage message, String argument) {
         return """
-                🤖 <b>Available Commands</b>
+                ❓ <b>Available Commands</b>
 
                 Tap a button below, or type any of these:
 
