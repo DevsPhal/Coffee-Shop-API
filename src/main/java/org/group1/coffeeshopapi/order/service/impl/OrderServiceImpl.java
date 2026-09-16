@@ -121,7 +121,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse payCash(UUID id, UUID baristaId, CashPaymentRequest request) {
-        Order order = requirePending(findByHandledBy(id, baristaId));
+        Order order = requireUnpaid(findByHandledBy(id, baristaId));
         return toResponse(chargeCash(order, request, baristaId));
     }
 
@@ -150,7 +150,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse collectCash(UUID id, UUID actorId, CashPaymentRequest request) {
-        Order order = requirePending(findAny(id));
+        Order order = requireUnpaid(findAny(id));
         if (order.getPaymentMethod() != PaymentMethod.CASH) {
             throw new InvalidOperationException("Order is not awaiting cash collection");
         }
@@ -203,12 +203,27 @@ public class OrderServiceImpl implements OrderService {
         return toResponse(order);
     }
 
-    // ---------- Post-payment fulfillment ----------
+    // ---------- Fulfillment ----------
 
     @Override
     @Transactional
     public OrderResponse startPreparing(UUID id, UUID actorId) {
-        Order order = requireStatus(findAny(id), OrderStatus.PAID);
+        Order order = findAny(id);
+        if (order.getStatus() == OrderStatus.PENDING) {
+            // Real cash-sale flow: make the drink first, collect the cash when it's handed over —
+            // for both pickup and delivery, that's how the counter/courier actually works, so a
+            // cash order is fair game for the kitchen the moment it's placed. A Bakong order has no
+            // such fallback if the transfer never lands, so it still has to clear (PAID) first.
+            if (order.getPaymentMethod() != PaymentMethod.CASH) {
+                throw new InvalidOperationException("Order is not paid (currently pending)");
+            }
+            cutStockForOrder(order, actorId);
+            if (order.getHandledBy() == null) {
+                order.setHandledBy(actorId);
+            }
+        } else {
+            requireStatus(order, OrderStatus.PAID);
+        }
         order.setStatus(OrderStatus.PREPARING);
         order = orderRepository.save(order);
         logAudit(order, OrderAuditAction.PREPARING, actorId);
@@ -233,6 +248,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponse markDelivered(UUID id, UUID actorId) {
         Order order = requireStatus(findAny(id), OrderStatus.OUT_FOR_DELIVERY);
+        requirePaymentSettled(order);
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(LocalDateTime.now());
         order = orderRepository.save(order);
@@ -247,6 +263,7 @@ public class OrderServiceImpl implements OrderService {
         if (order.isDelivery()) {
             throw new InvalidOperationException("This is a delivery order — dispatch/deliver it instead");
         }
+        requirePaymentSettled(order);
         order.setStatus(OrderStatus.COMPLETED);
         order = orderRepository.save(order);
         logAudit(order, OrderAuditAction.COMPLETED, actorId);
@@ -255,7 +272,8 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Page<OrderResponse> listAwaitingPreparation(Pageable pageable) {
-        return toResponsePage(orderRepository.findByStatus(OrderStatus.PAID, pageable));
+        return toResponsePage(orderRepository.findAwaitingPreparation(
+                OrderStatus.PAID, OrderStatus.PENDING, PaymentMethod.CASH, pageable));
     }
 
     @Override
@@ -588,12 +606,27 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // Cuts inventory and stamps paidAt only at the point a sale is actually paid for, so a
-    // never-paid PENDING order that gets cancelled leaves stock untouched. This is PAID, not
-    // COMPLETED — see OrderStatus: what's left is the barista preparing it (startPreparing) and,
-    // for a pickup order, handing it over (completePickup) or, for delivery, dispatching and
-    // confirming arrival (dispatchForDelivery/markDelivered).
+    // Records that payment has cleared — always stamps paidAt and sends the invoice, since that's
+    // true regardless of when in the order's life it happens. Whether it ALSO cuts stock and moves
+    // status to PAID depends on whether that's already happened: a still-PENDING order (a walk-in
+    // sale, a Bakong transfer just confirmed, or a customer's cash order paid before prep started)
+    // hasn't had its stock cut yet, so this is the moment. A cash order already PREPARING or
+    // further along (see startPreparing) had its stock cut back when prep started — collecting its
+    // cash now must only record the payment, not re-cut stock or regress a real fulfillment status
+    // back down to PAID.
     private void markPaid(Order order, UUID stockActorId) {
+        if (order.getStatus() == OrderStatus.PENDING) {
+            cutStockForOrder(order, stockActorId);
+            order.setStatus(OrderStatus.PAID);
+        }
+        order.setPaidAt(LocalDateTime.now());
+
+        if (order.getCustomer() != null) {
+            telegramInvoiceService.sendInvoice(order.getCustomer().getId(), toInvoice(order));
+        }
+    }
+
+    private void cutStockForOrder(Order order, UUID stockActorId) {
         for (OrderItem item : order.getItems()) {
             inventoryService.stockCut(new StockCutRequest(
                     item.getProduct().getId(),
@@ -603,12 +636,6 @@ public class OrderServiceImpl implements OrderService {
             for (OrderItemExtra orderItemExtra : item.getExtras()) {
                 deductExtraStock(orderItemExtra.getExtra(), item.getQuantity());
             }
-        }
-        order.setStatus(OrderStatus.PAID);
-        order.setPaidAt(LocalDateTime.now());
-
-        if (order.getCustomer() != null) {
-            telegramInvoiceService.sendInvoice(order.getCustomer().getId(), toInvoice(order));
         }
     }
 
@@ -639,6 +666,30 @@ public class OrderServiceImpl implements OrderService {
 
     private Order requirePending(Order order) {
         return requireStatus(order, OrderStatus.PENDING);
+    }
+
+    // Looser than requirePending: a cash order can be paid any time before it's handed over, not
+    // just while it's still PENDING — startPreparing may have already moved it on to PREPARING (or
+    // further, for delivery) with nothing collected yet. paidAt, not status, is the source of truth
+    // for "has this been paid," so that's what gets checked here.
+    private Order requireUnpaid(Order order) {
+        if (order.getPaidAt() != null) {
+            throw new InvalidOperationException("Payment has already been collected for this order");
+        }
+        if (order.getStatus().isFinished()) {
+            throw new InvalidOperationException(
+                    "Order is " + order.getStatus().name().toLowerCase() + " and can no longer be paid");
+        }
+        return order;
+    }
+
+    // The last gate before an order is handed over: a cash order let through to prep unpaid must
+    // still have its cash collected before it's marked done, or the sale would close out with
+    // nothing ever recorded as paid.
+    private void requirePaymentSettled(Order order) {
+        if (order.getPaidAt() == null) {
+            throw new InvalidOperationException("Collect payment for this order before completing it");
+        }
     }
 
     private Order requireStatus(Order order, OrderStatus expected) {

@@ -133,7 +133,9 @@ public class AdminOrderController {
                 PageResponse.of(orderService.listAwaitingPickup(PageUtil.buildPageable(page, size))));
     }
 
-    // Collects cash in person for a customer's cash-on-pickup order, same as a barista would.
+    // Collects cash in person for a customer's cash order (pickup or delivery), same as a barista
+    // would — whether it's still PENDING or already being prepared/out for delivery (see
+    // OrderService#collectCash).
     @PostMapping("/{id}/collect-cash")
     public ApiResponse<OrderResponse> collectCash(
             @PathVariable UUID id,
@@ -178,8 +180,9 @@ public class AdminOrderController {
         return ApiResponse.of(HttpStatus.OK, "Delivery fee set successfully.", response);
     }
 
-    // The kitchen queue: orders just paid for, nobody's started making yet — what an admin browses
-    // to find one to start via prepare below.
+    // The kitchen queue: orders ready to start on right now — PAID ones, plus a customer's cash
+    // order that hasn't been paid yet but is fair game anyway (see startPreparing) — what an
+    // admin browses to find one to start via prepare below.
     @GetMapping("/awaiting-preparation")
     public ApiResponse<PageResponse<OrderResponse>> listAwaitingPreparation(
             @RequestParam(required = false) Integer page,
@@ -188,8 +191,10 @@ public class AdminOrderController {
                 PageResponse.of(orderService.listAwaitingPreparation(PageUtil.buildPageable(page, size))));
     }
 
-    // PAID -> PREPARING. Not scoped to who collected payment — any admin/barista can start on any
-    // paid order sitting in the queue above.
+    // PAID -> PREPARING, or (cash only) PENDING -> PREPARING — cash can be collected up front or
+    // at handover, so a cash order doesn't have to wait for payment to be started on. Not scoped
+    // to who collected payment — any admin/barista can start on any order sitting in the queue
+    // above.
     @PostMapping("/{id}/prepare")
     public ApiResponse<OrderResponse> startPreparing(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order marked as preparing.",
@@ -197,7 +202,8 @@ public class AdminOrderController {
     }
 
     // PREPARING -> COMPLETED — handed to the customer at the counter. Pickup orders only; a
-    // delivery order goes through dispatch/deliver below instead.
+    // delivery order goes through dispatch/deliver below instead. Rejects an unpaid cash order —
+    // collect via /collect-cash first.
     @PostMapping("/{id}/complete")
     public ApiResponse<OrderResponse> completePickup(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order completed successfully.",
@@ -212,7 +218,9 @@ public class AdminOrderController {
                 orderService.dispatchForDelivery(id, currentActor.id()));
     }
 
-    // OUT_FOR_DELIVERY -> DELIVERED — the courier confirms it arrived.
+    // OUT_FOR_DELIVERY -> DELIVERED — the courier confirms it arrived. Rejects an unpaid cash
+    // order — collect via /collect-cash first (cash-on-delivery is collected on arrival, before
+    // this call).
     @PostMapping("/{id}/deliver")
     public ApiResponse<OrderResponse> markDelivered(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order marked as delivered.",

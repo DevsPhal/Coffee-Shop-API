@@ -28,9 +28,11 @@ import java.util.UUID;
 /**
  * Either a POS sale rung up by staff ({@code handledBy} set, {@code customer} null) or a
  * self-service order placed by a customer ({@code customer} set). A customer order that chooses
- * cash-on-pickup keeps {@code customer} and stays {@link OrderStatus#PENDING} with
- * {@code paymentMethod} = CASH until a staff member collects the cash in person, at which point
- * {@code handledBy} is also set on the same order (who placed it vs. who fulfilled/served it).
+ * cash keeps {@code customer} and stays {@link OrderStatus#PENDING}, {@code paymentMethod} = CASH,
+ * until either a staff member collects the cash in person (still PENDING) or a barista starts
+ * making it first and collects later, at handover — the real-world flow for cash-on-pickup and
+ * cash-on-delivery alike. Either way, {@code handledBy} gets set the moment staff first touches
+ * the order, whichever of those two happens first (who placed it vs. who fulfilled/served it).
  * <p>
  * {@code handledBy} is an audit-style id (resolved via {@code ActorLookupService}, like
  * {@code StockMovement.performedBy}/{@code Product.createdBy}) rather than a real relation, since
@@ -40,11 +42,16 @@ import java.util.UUID;
  * {@code handledBy} alone is overwritten each time a different staff member touches the order and
  * so can't answer "who did what and when" on its own.
  * <p>
- * Stock is only cut from inventory once the order reaches {@link OrderStatus#PAID} — a
- * still-{@code PENDING} order that gets cancelled never touched inventory, so cancellation needs
- * no restock logic. Everything after PAID ({@link OrderStatus#PREPARING},
- * {@link OrderStatus#COMPLETED}) is the barista working through the drink: it moves no stock and
- * no money. See {@link OrderStatus} for the full lifecycle.
+ * Stock is cut from inventory the moment a sale is actually committed to — for a Bakong order, or
+ * a cash order paid up front, that's when it reaches {@link OrderStatus#PAID}; for a cash order
+ * let through to the kitchen unpaid, it's the moment {@link OrderStatus#PREPARING} starts instead
+ * (see {@code OrderServiceImpl#startPreparing}). Either way stock only ever moves once per order.
+ * A still-{@code PENDING} order that gets cancelled never touched inventory, so cancellation needs
+ * no restock logic — and once an order has moved past PENDING it can no longer be cancelled through
+ * this app's normal endpoints at all. {@code paidAt}, not {@code status}, is the one field that
+ * says whether money has actually changed hands; a PREPARING or OUT_FOR_DELIVERY cash order may
+ * still have it null, and {@link OrderStatus#COMPLETED}/{@link OrderStatus#DELIVERED} are only
+ * reachable once it is set. See {@link OrderStatus} for the full lifecycle.
  */
 @Getter
 @Setter

@@ -55,24 +55,31 @@ public interface OrderService {
     // order with no pinned delivery location (see Order.isDelivery) or one already paid for.
     OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId);
 
-    // --- Post-payment fulfillment (barista or admin, not scoped to who collected payment — see
-    // OrderStatus for the full lifecycle each of these moves an order through) ---
+    // --- Fulfillment (barista or admin, not scoped to who collected payment — see OrderStatus
+    // for the full lifecycle each of these moves an order through) ---
 
-    // PAID -> PREPARING: a barista has picked the order up and started making it.
+    // PAID -> PREPARING, same as always for a Bakong order. A cash order can instead go straight
+    // from PENDING -> PREPARING with no payment yet — the real-world "make it, collect at
+    // handover" flow for cash-on-pickup and cash-on-delivery — cutting stock right here instead of
+    // at PAID, since PAID may never happen for this order. Rejects a still-PENDING Bakong order.
     OrderResponse startPreparing(UUID id, UUID actorId);
 
     // PREPARING -> OUT_FOR_DELIVERY: the order has left the shop with a courier. Delivery orders
-    // only — rejects a pickup order (see Order.isDelivery).
+    // only — rejects a pickup order (see Order.isDelivery). A cash order's payment need not be
+    // collected yet — that can happen on arrival.
     OrderResponse dispatchForDelivery(UUID id, UUID actorId);
 
-    // OUT_FOR_DELIVERY -> DELIVERED: the courier confirms it arrived. Terminal.
+    // OUT_FOR_DELIVERY -> DELIVERED: the courier confirms it arrived. Terminal. Rejects a cash
+    // order whose payment hasn't been collected yet — collect it (collectCash) before delivering.
     OrderResponse markDelivered(UUID id, UUID actorId);
 
     // PREPARING -> COMPLETED: handed to the customer at the counter. Pickup orders only — rejects
-    // a delivery order (dispatch/deliver it instead). Terminal.
+    // a delivery order (dispatch/deliver it instead). Terminal. Rejects a cash order whose payment
+    // hasn't been collected yet — collect it (collectCash) before completing.
     OrderResponse completePickup(UUID id, UUID actorId);
 
-    // The kitchen queue: orders just paid for, nobody's started making yet.
+    // The kitchen queue: everything a barista can start making right now — orders already PAID,
+    // plus PENDING cash orders that haven't been paid yet but are fair game to start on anyway.
     Page<OrderResponse> listAwaitingPreparation(Pageable pageable);
 
     // The delivery board: everything currently out with a courier, oldest dispatch first.
@@ -89,7 +96,9 @@ public interface OrderService {
 
     Page<OrderResponse> listOwnForCustomer(UUID customerId, OrderStatus status, Pageable pageable);
 
-    // Customer picks "pay cash at pickup" — stays PENDING until a barista calls collectCash.
+    // Customer picks to pay cash rather than Bakong — works the same for pickup and delivery
+    // orders despite the name. Stays PENDING; a barista may start preparing it before its cash is
+    // ever collected (see startPreparing), with collectCash settling payment whenever it happens.
     OrderResponse selectCashOnPickup(UUID id, UUID customerId);
 
     BakongQrResponse generateBakongQrForCustomer(UUID id, UUID customerId, Currency currency);
