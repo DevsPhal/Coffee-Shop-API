@@ -39,7 +39,7 @@ public class TelegramEventServiceImpl implements TelegramEventService {
     public void sendUpcomingEvents(Long chatId) {
         List<Event> events = eventRepository.findByStatusAndEndAtAfterOrderByStartAtAsc(Status.ACTIVE, LocalDateTime.now());
         if (events.isEmpty()) {
-            apiClient.sendMessageWithButtons(chatId, "No upcoming events right now — check back soon! ☕");
+            apiClient.sendMessageWithButtons(chatId, "🎉 No upcoming events right now — check back soon! ☕");
             return;
         }
 

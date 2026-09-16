@@ -53,7 +53,7 @@ class TelegramUpdateHandlerTest {
     void repliesWithUnknownCommandMessageAndButtonsWhenNothingMatches() {
         TelegramUpdateHandler handler = handlerWith();
         handler.handle(new TelegramUpdate(1L, textMessage("/nope"), null));
-        verify(apiClient).sendMessageWithButtons(CHAT_ID, "Unknown command. Send /help to see what I can do.");
+        verify(apiClient).sendMessageWithButtons(CHAT_ID, "❓ Unknown command. Send /help to see what I can do.");
     }
 
     @Test
@@ -153,7 +153,7 @@ class TelegramUpdateHandlerTest {
         handler.handle(new TelegramUpdate(1L, null, callbackQuery("cbq-3", "/gone")));
 
         verify(apiClient).answerCallbackQuery("cbq-3", null);
-        verify(apiClient).sendMessageWithButtons(CHAT_ID, "Unknown command. Send /help to see what I can do.");
+        verify(apiClient).sendMessageWithButtons(CHAT_ID, "❓ Unknown command. Send /help to see what I can do.");
     }
 
     @Test
