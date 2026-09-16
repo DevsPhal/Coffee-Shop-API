@@ -14,7 +14,7 @@ public class StartCommand implements TelegramCommand {
     private static final String WELCOME_NOT_LINKED = """
             👋 <b>Welcome to 590st Cafe!</b>
 
-            Browse right away with /menu, /categories, /discounts, /events or /rate — no account needed.
+            Tap a button below to start browsing — no account needed.
 
             To link your account and get order receipts + event alerts here, generate a code in the app (Profile → Link Telegram), then send it back as /start &lt;code&gt;.
 
@@ -50,7 +50,7 @@ public class StartCommand implements TelegramCommand {
 
     private String welcomeBack(String customerName) {
         return "👋 <b>Welcome back, " + TelegramFormat.escape(TelegramFormat.titleCase(customerName)) + "!</b>\n\n"
-                + "Your account is already linked here. Try /menu, /events or /rate — or send /help to see everything I can do.\n\n"
+                + "Your account is already linked here. Use the buttons below, or send /help to see everything I can do.\n\n"
                 + "Want to link a different account instead? Send /unlink first, then /start &lt;code&gt; with a fresh code.";
     }
 

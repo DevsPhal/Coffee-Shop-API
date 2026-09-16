@@ -15,6 +15,21 @@ import java.util.Map;
 @Service
 public class TelegramApiClientImpl implements TelegramApiClient {
 
+    // One button per command, laid out to mirror how they're grouped in HelpCommand — Browse
+    // (menu/categories/discounts/events/rate) then Account (link/unlink). callback_data is just
+    // the command's own name, so TelegramUpdateHandler dispatches a tapped button through the
+    // exact same TelegramCommandRegistry lookup as a typed command.
+    private static final Map<String, Object> QUICK_ACTIONS_KEYBOARD = Map.of("inline_keyboard", List.of(
+            List.of(button("🛒 Menu", "/menu"), button("🗂 Categories", "/categories")),
+            List.of(button("🔥 Discounts", "/discounts"), button("🎉 Events", "/events")),
+            List.of(button("💱 Rate", "/rate"), button("❓ Help", "/help")),
+            List.of(button("🔗 Link Account", "/start"), button("🔓 Unlink", "/unlink"))
+    ));
+
+    private static Map<String, String> button(String text, String callbackData) {
+        return Map.of("text", text, "callback_data", callbackData);
+    }
+
     private final TelegramProperties properties;
     private final RestClient restClient = RestClient.create();
 
@@ -30,6 +45,17 @@ public class TelegramApiClientImpl implements TelegramApiClient {
     @Override
     public void sendHtmlMessage(Long chatId, String html) {
         call("sendMessage", chatId, Map.of("chat_id", chatId, "text", html, "parse_mode", "HTML"));
+    }
+
+    @Override
+    public void sendMessageWithButtons(Long chatId, String text) {
+        call("sendMessage", chatId, Map.of("chat_id", chatId, "text", text, "reply_markup", QUICK_ACTIONS_KEYBOARD));
+    }
+
+    @Override
+    public void sendHtmlMessageWithButtons(Long chatId, String html) {
+        call("sendMessage", chatId, Map.of("chat_id", chatId, "text", html, "parse_mode", "HTML",
+                "reply_markup", QUICK_ACTIONS_KEYBOARD));
     }
 
     @Override
@@ -52,6 +78,14 @@ public class TelegramApiClientImpl implements TelegramApiClient {
                 "one_time_keyboard", true,
                 "resize_keyboard", true);
         call("sendMessage", chatId, Map.of("chat_id", chatId, "text", text, "reply_markup", keyboard));
+    }
+
+    @Override
+    public void answerCallbackQuery(String callbackQueryId, String toastText) {
+        Map<String, Object> body = toastText == null || toastText.isBlank()
+                ? Map.of("callback_query_id", callbackQueryId)
+                : Map.of("callback_query_id", callbackQueryId, "text", toastText);
+        call("answerCallbackQuery", null, body);
     }
 
     private void call(String method, Long chatId, Map<String, ?> body) {
@@ -83,7 +117,10 @@ public class TelegramApiClientImpl implements TelegramApiClient {
                     .body(Map.of(
                             "url", properties.fullWebhookUrl(),
                             "secret_token", properties.getWebhookSecret(),
-                            "allowed_updates", List.of("message")))
+                            // "callback_query" is what a tapped inline keyboard button arrives as
+                            // — without it here, Telegram silently never forwards button taps to
+                            // the webhook at all (see TelegramUpdateHandler#handle).
+                            "allowed_updates", List.of("message", "callback_query")))
                     .retrieve()
                     .toBodilessEntity();
             log.info("Telegram webhook registered at {}", properties.fullWebhookUrl());

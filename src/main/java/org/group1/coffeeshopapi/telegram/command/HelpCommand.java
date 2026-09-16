@@ -16,6 +16,8 @@ public class HelpCommand implements TelegramCommand {
         return """
                 🤖 <b>Available Commands</b>
 
+                Tap a button below, or type any of these:
+
                 <b>Browse</b>
                 /menu — View the full menu
                 /menu &lt;category&gt; — View items in a category
