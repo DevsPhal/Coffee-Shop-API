@@ -194,8 +194,8 @@ public class ReceiptServiceImpl implements ReceiptService {
 
     private String itemDetail(OrderItemResponse item) {
         List<String> parts = new ArrayList<>();
-        if (item.sizeOptionName() != null) {
-            parts.add(readable(item.sizeOptionName()));
+        if (item.variantName() != null) {
+            parts.add(readable(item.variantName().name()));
         }
         if (item.sugarLevel() != null) {
             parts.add(readable(item.sugarLevel().name()) + " sugar");

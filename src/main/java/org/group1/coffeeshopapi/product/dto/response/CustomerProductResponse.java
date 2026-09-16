@@ -38,7 +38,7 @@ public record CustomerProductResponse(
         LocalDateTime discountStartAt,
         LocalDateTime discountEndAt,
         boolean discountActive,
-        List<ProductSizeOptionResponse> sizeOptions,
+        List<ProductVariantResponse> variants,
         // Extras (e.g. Pearl) this product offers — the customer chooses to add or not add each
         // one when ordering.
         List<ProductExtraResponse> extras

@@ -19,7 +19,7 @@ import java.util.UUID;
 public final class ProductVariantPolicy {
     private ProductVariantPolicy() {}
 
-    public static void validate(Product product, UUID sizeOptionId, SugarLevel sugarLevel,
+    public static void validate(Product product, UUID variantId, SugarLevel sugarLevel,
             IceLevel iceLevel, MilkType milkType) {
         CategoryGroup group = product.getCategory().getCategoryGroup();
         String name = product.getName();
@@ -35,15 +35,15 @@ public final class ProductVariantPolicy {
             return;
         }
         // SNACK, or no group at all.
-        if (sizeOptionId != null || sugarLevel != null || iceLevel != null || milkType != null) {
+        if (variantId != null || sugarLevel != null || iceLevel != null || milkType != null) {
             throw new InvalidOperationException(
                     "'" + name + "' doesn't support size, sugar, ice, or milk customization");
         }
     }
 
     /**
-     * Whether a caller may explicitly pick a size option for this product — true for
-     * FRESH_DRINK/BEVERAGE, false for SNACK/no-group (which still resolve a size option
+     * Whether a caller may explicitly pick a variant for this product — true for
+     * FRESH_DRINK/BEVERAGE, false for SNACK/no-group (which still resolve a variant
      * internally for pricing even though nothing here let the caller choose one — see
      * ProductPriceResolver). Use this to tell "the caller picked this" apart from "this was
      * auto-resolved" when re-deriving a request from already-resolved state, e.g. turning a

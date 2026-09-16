@@ -18,12 +18,12 @@ public record OrderItemRequest(
         Integer quantity,
 
         // Variant selection — all optional. Pick a size by whichever's actually on hand: its id
-        // (sizeOptionId — a UUID, what a client that already fetched the product's options has)
-        // or its name (sizeOptionName, e.g. "Medium" — what a walk-up POS screen's button actually
-        // shows, not a UUID). sizeOptionId wins if both are somehow given. When sizeOptionId is set
-        // it must belong to productId; sizeOptionName is matched case-insensitively.
-        UUID sizeOptionId,
-        String sizeOptionName,
+        // (variantId — a UUID, what a client that already fetched the product's options has)
+        // or its name (variantName, e.g. "Medium" — what a walk-up POS screen's button actually
+        // shows, not a UUID). variantId wins if both are somehow given. When variantId is set
+        // it must belong to productId; variantName is matched case-insensitively.
+        UUID variantId,
+        String variantName,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,

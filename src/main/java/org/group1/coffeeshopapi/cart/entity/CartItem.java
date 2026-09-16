@@ -18,7 +18,7 @@ import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.SugarLevel;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.product.entity.Product;
-import org.group1.coffeeshopapi.product.entity.ProductSizeOption;
+import org.group1.coffeeshopapi.product.entity.ProductVariant;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -46,9 +46,11 @@ public class CartItem extends BaseEntity {
     // Variant selection — all optional, since not every product is a customizable drink. Held as
     // a live relation (unlike OrderItem, which snapshots these at checkout) because CartItem
     // prices are computed live from the product/size until checkout — see the Cart javadoc.
+    // Column stays "size_option_id" — see ProductVariant's javadoc on why the Java-side rename
+    // doesn't touch physical schema.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "size_option_id")
-    private ProductSizeOption sizeOption;
+    private ProductVariant variant;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
@@ -63,7 +65,7 @@ public class CartItem extends BaseEntity {
     private MilkType milkType;
 
     // Which extras (e.g. Pearl) the customer opted to add — a plain yes/no toggle per extra, not
-    // a quantity. Held live (like sizeOption) rather than snapshotted, since CartItem prices are
+    // a quantity. Held live (like variant) rather than snapshotted, since CartItem prices are
     // computed live until checkout — see the Cart javadoc and OrderItemExtra for the snapshot.
     // Its own entity/table (CartItemExtra), same as ProductExtra/OrderItemExtra, rather than a bare
     // join table — keeps every "who's linked to this extra" relation modeled the same way.

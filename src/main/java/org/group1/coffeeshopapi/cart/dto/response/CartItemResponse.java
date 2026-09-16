@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.cart.dto.response;
 import org.group1.coffeeshopapi.common.enums.IceLevel;
 import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.SugarLevel;
+import org.group1.coffeeshopapi.common.enums.VariantLabel;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -16,8 +17,8 @@ public record CartItemResponse(
         BigDecimal unitPrice,
         Integer quantity,
         BigDecimal subtotal,
-        UUID sizeOptionId,
-        String sizeOptionName,
+        UUID variantId,
+        VariantLabel variantName,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,

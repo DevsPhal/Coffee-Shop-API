@@ -17,7 +17,7 @@ public record UpdateCartItemRequest(
         // Variant selection — null means "leave unchanged"; there is no way to clear a
         // previously-set size/sugar/ice/milk back to "unspecified" through this endpoint alone
         // (remove and re-add the item instead).
-        UUID sizeOptionId,
+        UUID variantId,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,
