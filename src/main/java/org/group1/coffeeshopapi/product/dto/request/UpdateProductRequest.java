@@ -10,6 +10,8 @@ import java.util.UUID;
 
 public record UpdateProductRequest(
         String name,
+        // Khmer translation of the name — optional.
+        String nameKh,
         String description,
         String sku,
         StockUnit stockUnit,

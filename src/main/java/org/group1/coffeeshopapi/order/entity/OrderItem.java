@@ -41,6 +41,10 @@ public class OrderItem extends BaseEntity {
     @Column(nullable = false)
     private String productName;
 
+    // Snapshot of the product's Khmer name at sale time, if it had one.
+    @Column
+    private String productNameKh;
+
     @Column(nullable = false)
     private Integer quantity;
 

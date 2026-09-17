@@ -13,6 +13,7 @@ public record OrderItemResponse(
         UUID id,
         UUID productId,
         String productName,
+        String productNameKh,
         Integer quantity,
         BigDecimal unitPrice,
         BigDecimal subtotal,

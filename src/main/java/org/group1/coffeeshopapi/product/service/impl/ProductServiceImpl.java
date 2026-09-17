@@ -80,6 +80,7 @@ public class ProductServiceImpl implements ProductService {
 
         Product product = new Product();
         product.setName(request.name());
+        product.setNameKh(request.nameKh());
         product.setDescription(request.description());
         product.setSku(request.sku());
         product.setStockUnit(request.stockUnit());
@@ -130,6 +131,9 @@ public class ProductServiceImpl implements ProductService {
 
         if (request.name() != null) {
             product.setName(request.name());
+        }
+        if (request.nameKh() != null) {
+            product.setNameKh(request.nameKh());
         }
         if (request.description() != null) {
             product.setDescription(request.description());

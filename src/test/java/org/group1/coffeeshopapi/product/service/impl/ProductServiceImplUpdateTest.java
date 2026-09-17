@@ -79,7 +79,7 @@ class ProductServiceImplUpdateTest {
         when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UpdateProductRequest request = new UpdateProductRequest(
-                null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null);
         service.update(product.getId(), request, admin());
 
         assertThat(product.getSku()).isEqualTo("OLD-SKU");
@@ -95,7 +95,7 @@ class ProductServiceImplUpdateTest {
     }
 
     private UpdateProductRequest updateSkuOnly(String sku) {
-        return new UpdateProductRequest(null, null, sku, null, null, null, null, null, null);
+        return new UpdateProductRequest(null, null, null, sku, null, null, null, null, null, null);
     }
 
     private Product productWithSku(String sku) {

@@ -16,6 +16,8 @@ import java.util.UUID;
 public record ProductResponse(
         UUID id,
         String name,
+        // Khmer translation of the name — null if none was set.
+        String nameKh,
         String description,
         String imageUrl,
         String sku,

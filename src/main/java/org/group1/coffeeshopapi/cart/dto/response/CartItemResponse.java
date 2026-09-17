@@ -13,6 +13,7 @@ public record CartItemResponse(
         UUID id,
         UUID productId,
         String productName,
+        String productNameKh,
         String productImageUrl,
         BigDecimal unitPrice,
         Integer quantity,

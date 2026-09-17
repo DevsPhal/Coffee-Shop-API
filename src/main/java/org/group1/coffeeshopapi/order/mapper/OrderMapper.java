@@ -27,6 +27,7 @@ public interface OrderMapper {
     OrderResponse toResponse(Order order, ActorSummary handledByActor, BigDecimal distanceMeters);
 
     @Mapping(target = "productId", source = "product.id")
+    @Mapping(target = "productNameKh", source = "productNameKh")
     @Mapping(target = "variantName", source = "variant.name")
     OrderItemResponse toItemResponse(OrderItem item);
 
