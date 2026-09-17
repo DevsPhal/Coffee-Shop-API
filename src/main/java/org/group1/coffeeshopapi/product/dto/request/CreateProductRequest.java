@@ -14,6 +14,9 @@ public record CreateProductRequest(
         @NotBlank(message = "Product name is required")
         String name,
 
+        // Khmer translation of the name — optional.
+        String nameKh,
+
         String description,
 
         @NotBlank(message = "SKU is required")

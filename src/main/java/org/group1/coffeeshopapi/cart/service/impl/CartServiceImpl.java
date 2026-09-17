@@ -258,7 +258,7 @@ public class CartServiceImpl implements CartService {
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(item.getQuantity()));
             total = total.add(subtotal);
             items.add(new CartItemResponse(
-                    item.getId(), product.getId(), product.getName(), product.getImageUrl(),
+                    item.getId(), product.getId(), product.getName(), product.getNameKh(), product.getImageUrl(),
                     unitPrice, item.getQuantity(), subtotal,
                     variant.getId(), variant.getName(),
                     item.getSugarLevel(), item.getIceLevel(), item.getMilkType(), extras));

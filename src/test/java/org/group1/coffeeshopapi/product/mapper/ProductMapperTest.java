@@ -42,7 +42,7 @@ class ProductMapperTest {
 
     private ProductResponse productResponse(List<ProductExtraResponse> extras) {
         return new ProductResponse(
-                UUID.randomUUID(), "Green Tea", null, null, "SKU-1",
+                UUID.randomUUID(), "Green Tea", null, null, null, "SKU-1",
                 StockUnit.PACK, SellUnit.CUP, BigDecimal.ONE,
                 UUID.randomUUID(), "Drinks", null,
                 Status.ACTIVE, new BigDecimal("10"), BigDecimal.ZERO,

@@ -30,6 +30,10 @@ public class Product extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
+    // Khmer translation of the name, shown alongside the English name — optional.
+    @Column
+    private String nameKh;
+
     @Column
     private String description;
 

@@ -17,6 +17,7 @@ public interface ProductMapper {
 
     @Mapping(target = "id", source = "product.id")
     @Mapping(target = "name", source = "product.name")
+    @Mapping(target = "nameKh", source = "product.nameKh")
     @Mapping(target = "categoryId", source = "product.category.id")
     @Mapping(target = "categoryName", source = "product.category.name")
     @Mapping(target = "categoryGroup", source = "product.category.categoryGroup")
