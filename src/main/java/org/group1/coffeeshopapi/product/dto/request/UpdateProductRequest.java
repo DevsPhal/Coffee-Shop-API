@@ -11,6 +11,7 @@ import java.util.UUID;
 public record UpdateProductRequest(
         String name,
         String description,
+        String sku,
         StockUnit stockUnit,
         SellUnit sellUnit,
 

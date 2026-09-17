@@ -15,6 +15,10 @@ import java.util.UUID;
 public interface ProductRepository extends JpaRepository<Product, UUID> {
     boolean existsBySkuIgnoreCase(String sku);
     Optional<Product> findBySkuIgnoreCase(String sku);
+
+    // The update-time duplicate check: excludes the product's own row, so re-saving it with the
+    // same SKU it already has isn't flagged as a clash with itself.
+    boolean existsBySkuIgnoreCaseAndIdNot(String sku, UUID id);
     boolean existsByCategoryId(UUID categoryId);
     Page<Product> findByCategoryId(UUID categoryId, Pageable pageable);
 
