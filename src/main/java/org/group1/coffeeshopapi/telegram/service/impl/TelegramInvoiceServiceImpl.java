@@ -69,20 +69,24 @@ public class TelegramInvoiceServiceImpl implements TelegramInvoiceService {
 
         sb.append("<b>Total: ").append(TelegramFormat.usd(invoice.totalAmount())).append("</b>\n");
         sb.append("Payment: ").append(paymentSummary(invoice)).append('\n');
-        // Shows what was tendered and the change given back for a cash sale.
+        // Shows what was tendered and the change given back for a cash sale — each in whichever
+        // currency it actually was (they don't have to match).
         if (invoice.paymentMethod() == PaymentMethod.CASH && invoice.amountTendered() != null) {
-            String tenderedLabel = invoice.amountTenderedCurrency() == Currency.KHR ? "Tendered (KHR)" : "Tendered (USD)";
-            String tenderedValue = invoice.amountTenderedCurrency() == Currency.KHR
-                    ? TelegramFormat.wholeAmount(invoice.amountTendered(), "KHR")
-                    : TelegramFormat.usd(invoice.amountTendered());
-            sb.append(tenderedLabel).append(": ").append(tenderedValue).append('\n');
-            sb.append("Change: ").append(TelegramFormat.usd(invoice.changeDue())).append('\n');
+            sb.append(amountLine("Tendered", invoice.amountTendered(), invoice.amountTenderedCurrency())).append('\n');
+            sb.append(amountLine("Change", invoice.changeDue(), invoice.changeCurrency())).append('\n');
         }
         if (invoice.paidAt() != null) {
             sb.append("Paid at: ").append(invoice.paidAt().format(PAID_AT_FORMAT)).append('\n');
         }
         sb.append("\nThank you for your order! ☕");
         return sb.toString();
+    }
+
+    // "Tendered (KHR): 80000 KHR" or "Change (USD): $1.25" — label carries the currency so it
+    // reads clearly even when tendered and change aren't in the same one.
+    private String amountLine(String label, BigDecimal amount, Currency currency) {
+        String value = currency == Currency.KHR ? TelegramFormat.wholeAmount(amount, "KHR") : TelegramFormat.usd(amount);
+        return label + " (" + currency + "): " + value;
     }
 
     private String paymentSummary(OrderInvoice invoice) {

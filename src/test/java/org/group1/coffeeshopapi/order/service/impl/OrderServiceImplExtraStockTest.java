@@ -98,7 +98,7 @@ class OrderServiceImplExtraStockTest {
         when(orderRepository.findByIdAndHandledBy(order.getId(), baristaId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00")));
+        service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
 
         ArgumentCaptor<Extra> saved = ArgumentCaptor.forClass(Extra.class);
         verify(extraRepository).save(saved.capture());
@@ -133,7 +133,7 @@ class OrderServiceImplExtraStockTest {
         when(orderRepository.findByIdAndHandledBy(order.getId(), baristaId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00")));
+        service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
 
         ArgumentCaptor<Extra> saved = ArgumentCaptor.forClass(Extra.class);
         verify(extraRepository).save(saved.capture());
@@ -168,7 +168,7 @@ class OrderServiceImplExtraStockTest {
         when(orderRepository.findByIdAndHandledBy(order.getId(), baristaId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00")));
+        service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
 
         verify(extraRepository, never()).save(any());
         assertThat(untracked.getQuantityOnHand()).isNull();

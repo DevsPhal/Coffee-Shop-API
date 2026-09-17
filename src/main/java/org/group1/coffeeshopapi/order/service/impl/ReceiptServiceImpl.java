@@ -58,6 +58,15 @@ public class ReceiptServiceImpl implements ReceiptService {
         return render(buildLines(order));
     }
 
+    @Override
+    public byte[] generateInvoicePdf(UUID orderId) {
+        OrderResponse order = orderService.getAny(orderId);
+        if (order.paidAt() == null) {
+            throw new InvalidOperationException("This order hasn't been paid yet");
+        }
+        return render(buildLines(order));
+    }
+
     private byte[] render(List<ReceiptLine> lines) {
         float height = MARGIN * 2 + lines.size() * LINE_HEIGHT;
 
@@ -117,11 +126,8 @@ public class ReceiptServiceImpl implements ReceiptService {
         lines.add(ReceiptLine.twoColumn("TOTAL", usd(order.totalAmount()), FONT_BOLD, 11));
         lines.add(ReceiptLine.left("Payment Method: " + paymentLabel(order.paymentMethod()), FONT, 9));
         if (order.paymentMethod() == PaymentMethod.CASH) {
-            String tenderedLabel = order.amountTenderedCurrency() == Currency.KHR ? "Tendered (KHR)" : "Tendered (USD)";
-            String tenderedValue = order.amountTenderedCurrency() == Currency.KHR
-                    ? khr(order.amountTendered()) : usd(order.amountTendered());
-            lines.add(ReceiptLine.twoColumn(tenderedLabel, tenderedValue, FONT, 9));
-            lines.add(ReceiptLine.twoColumn("Change", usd(order.changeDue()), FONT, 9));
+            lines.add(amountLine("Tendered", order.amountTendered(), order.amountTenderedCurrency()));
+            lines.add(amountLine("Change", order.changeDue(), order.changeCurrency()));
         }
         if (order.note() != null && !order.note().isBlank()) {
             lines.add(ReceiptLine.left("Note: " + sanitize(order.note()), FONT, 9));
@@ -244,6 +250,13 @@ public class ReceiptServiceImpl implements ReceiptService {
     // KHR has no minor unit, so it's shown as a whole number rather than usd()'s 2 decimal places.
     private String khr(BigDecimal amount) {
         return amount == null ? "-" : amount.setScale(0, RoundingMode.HALF_UP) + " KHR";
+    }
+
+    // "Tendered (USD): $20.00" or "Change (KHR): 5500 KHR" — label carries the currency so it
+    // still reads clearly when tendered and change aren't in the same one.
+    private ReceiptLine amountLine(String label, BigDecimal amount, Currency currency) {
+        String value = currency == Currency.KHR ? khr(amount) : usd(amount);
+        return ReceiptLine.twoColumn(label + " (" + currency + ")", value, FONT, 9);
     }
 
     private String shortId(UUID id) {

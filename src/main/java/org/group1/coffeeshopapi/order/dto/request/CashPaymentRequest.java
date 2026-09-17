@@ -14,6 +14,11 @@ public record CashPaymentRequest(
 
         @NotNull(message = "Amount tendered is required")
         @DecimalMin(value = "0.0", inclusive = false, message = "Amount tendered must be greater than zero")
-        BigDecimal amountTendered
+        BigDecimal amountTendered,
+
+        // Which currency to give the change back in. Optional — defaults to the same currency
+        // tendered, so USD in gives USD change and KHR in gives KHR change. Only set this to
+        // switch it, e.g. a customer paying in KHR who wants USD change back.
+        Currency changeCurrency
 ) {
 }

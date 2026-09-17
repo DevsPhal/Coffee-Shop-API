@@ -36,6 +36,7 @@ public record OrderResponse(
         BigDecimal amountTendered,
         Currency amountTenderedCurrency,
         BigDecimal changeDue,
+        Currency changeCurrency,
         String bakongQrString,
         String bakongMd5Hash,
         Currency bakongCurrency,

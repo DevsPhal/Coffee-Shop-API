@@ -139,7 +139,7 @@ class OrderServiceImplFulfillmentFlowTest {
         when(orderRepository.findByIdAndHandledBy(order.getId(), barista)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
-        service.payCash(order.getId(), barista, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00")));
+        service.payCash(order.getId(), barista, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PREPARING);
         assertThat(order.getPaidAt()).isNotNull();
@@ -155,7 +155,7 @@ class OrderServiceImplFulfillmentFlowTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.collectCash(order.getId(), UUID.randomUUID(),
-                new CashPaymentRequest(Currency.USD, new BigDecimal("10.00")));
+                new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.OUT_FOR_DELIVERY);
         assertThat(order.getPaidAt()).isNotNull();
@@ -171,7 +171,7 @@ class OrderServiceImplFulfillmentFlowTest {
         when(orderRepository.findByIdAndHandledBy(order.getId(), barista)).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.payCash(order.getId(), barista,
-                new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"))))
+                new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null)))
                 .isInstanceOf(InvalidOperationException.class)
                 .hasMessageContaining("already been collected");
     }
@@ -185,7 +185,7 @@ class OrderServiceImplFulfillmentFlowTest {
         when(orderRepository.findByIdAndHandledBy(order.getId(), barista)).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.payCash(order.getId(), barista,
-                new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"))))
+                new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null)))
                 .isInstanceOf(InvalidOperationException.class)
                 .hasMessageContaining("cancelled");
     }

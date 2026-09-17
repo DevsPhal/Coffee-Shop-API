@@ -64,6 +64,16 @@ public class CustomerOrderController {
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
+    // Same document, but available as soon as the order is paid — no need to wait for pickup or
+    // delivery.
+    @GetMapping(value = "/{id}/invoice", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> getInvoice(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        orderService.getOwnForCustomer(id, currentUser.getId());
+        byte[] pdf = receiptService.generateInvoicePdf(id);
+        return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "invoice-" + id + ".pdf", true);
+    }
+
     // Despite the name, this applies to delivery orders too.
     @PostMapping("/{id}/pay/cash-on-pickup")
     public ApiResponse<OrderResponse> payCashOnPickup(

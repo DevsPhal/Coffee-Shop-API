@@ -86,7 +86,6 @@ public class Order extends BaseEntity {
     private PaymentMethod paymentMethod;
 
     // How much cash was actually handed over, in whichever currency the customer paid with.
-    // changeDue below is always in USD.
     @Column(precision = 15, scale = 2)
     private BigDecimal amountTendered;
 
@@ -94,8 +93,14 @@ public class Order extends BaseEntity {
     @Column(length = 3)
     private Currency amountTenderedCurrency;
 
-    @Column(precision = 12, scale = 2)
+    // Change given back, in changeCurrency below — normally the same currency as
+    // amountTenderedCurrency, unless the customer asked for the other one.
+    @Column(precision = 15, scale = 2)
     private BigDecimal changeDue;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 3)
+    private Currency changeCurrency;
 
     @Column(columnDefinition = "TEXT")
     private String bakongQrString;
