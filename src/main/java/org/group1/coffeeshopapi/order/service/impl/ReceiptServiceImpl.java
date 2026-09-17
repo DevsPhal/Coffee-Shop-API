@@ -19,8 +19,15 @@ import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.order.service.ReceiptService;
 import org.springframework.stereotype.Service;
 
+import java.awt.FontFormatException;
+import java.awt.Shape;
+import java.awt.font.FontRenderContext;
+import java.awt.font.TextLayout;
+import java.awt.geom.AffineTransform;
+import java.awt.geom.PathIterator;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -43,6 +50,13 @@ public class ReceiptServiceImpl implements ReceiptService {
     private static final PDType1Font FONT = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
     private static final PDType1Font FONT_BOLD = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
     private static final PDType1Font FONT_ITALIC = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
+
+    // Khmer script needs real shaping (subscript consonants, reordering vowels) that PDFBox can't
+    // do on its own, so Khmer text is drawn as filled vector outlines via Java2D instead of as
+    // PDFBox glyph text.
+    private static final String KHMER_FONT_RESOURCE = "/font/NotoSansKhmer-VariableFont_wdth,wght.ttf";
+    private static final java.awt.Font KHMER_FONT = loadKhmerFont();
+    private static final float KHMER_INDENT = 10f;
 
     private static final DateTimeFormatter RECEIPT_DATE_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a");
 
@@ -109,6 +123,9 @@ public class ReceiptServiceImpl implements ReceiptService {
         for (OrderItemResponse item : order.items()) {
             lines.add(ReceiptLine.twoColumn(
                     sanitize(item.quantity() + "x " + titleCase(item.productName())), usd(item.subtotal()), FONT, 9));
+            if (item.productNameKh() != null && !item.productNameKh().isBlank()) {
+                lines.add(ReceiptLine.khmer(item.productNameKh(), 9));
+            }
             String detail = itemDetail(item);
             if (detail != null) {
                 lines.add(ReceiptLine.left("   " + sanitize(detail), FONT, 8));
@@ -174,6 +191,7 @@ public class ReceiptServiceImpl implements ReceiptService {
                     text(cs, line.font(), line.size(), (PAGE_WIDTH - width) / 2f, y, line.left());
                 }
                 case LEFT -> text(cs, line.font(), line.size(), MARGIN, y, line.left());
+                case KHMER -> drawKhmerText(cs, line.left(), MARGIN + KHMER_INDENT, y, line.size());
                 case TWO_COLUMN -> {
                     text(cs, line.font(), line.size(), MARGIN, y, line.left());
                     float width = line.font().getStringWidth(line.right()) / 1000f * line.size();
@@ -191,6 +209,40 @@ public class ReceiptServiceImpl implements ReceiptService {
         cs.newLineAtOffset(x, y);
         cs.showText(value);
         cs.endText();
+    }
+
+    // Shapes the text with Java2D (which handles Khmer subscripts/reordering correctly) and fills
+    // the resulting glyph outlines directly as PDF paths, instead of drawing it as font text.
+    private void drawKhmerText(PDPageContentStream cs, String value, float x, float y, float size) throws IOException {
+        if (value == null || value.isBlank()) {
+            return;
+        }
+        TextLayout layout = new TextLayout(value, KHMER_FONT.deriveFont(size), new FontRenderContext(null, true, true));
+        // PDF page space is y-up; Java2D glyph outlines are y-down, so flip vertically to match.
+        AffineTransform transform = new AffineTransform();
+        transform.translate(x, y);
+        transform.scale(1, -1);
+        Shape outline = layout.getOutline(transform);
+
+        PathIterator path = outline.getPathIterator(null, 0.3);
+        float[] coords = new float[6];
+        while (!path.isDone()) {
+            switch (path.currentSegment(coords)) {
+                case PathIterator.SEG_MOVETO -> cs.moveTo(coords[0], coords[1]);
+                case PathIterator.SEG_LINETO -> cs.lineTo(coords[0], coords[1]);
+                case PathIterator.SEG_CLOSE -> cs.closePath();
+            }
+            path.next();
+        }
+        cs.fill();
+    }
+
+    private static java.awt.Font loadKhmerFont() {
+        try (InputStream in = ReceiptServiceImpl.class.getResourceAsStream(KHMER_FONT_RESOURCE)) {
+            return java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, in);
+        } catch (IOException | FontFormatException e) {
+            throw new IllegalStateException("Failed to load Khmer font", e);
+        }
     }
 
     private String itemDetail(OrderItemResponse item) {
@@ -281,7 +333,7 @@ public class ReceiptServiceImpl implements ReceiptService {
         return sb.toString();
     }
 
-    private enum LineType { CENTER, LEFT, TWO_COLUMN, DIVIDER }
+    private enum LineType { CENTER, LEFT, KHMER, TWO_COLUMN, DIVIDER }
 
     private record ReceiptLine(LineType type, String left, String right, PDFont font, float size) {
         static ReceiptLine center(String text, PDFont font, float size) {
@@ -290,6 +342,10 @@ public class ReceiptServiceImpl implements ReceiptService {
 
         static ReceiptLine left(String text, PDFont font, float size) {
             return new ReceiptLine(LineType.LEFT, text, null, font, size);
+        }
+
+        static ReceiptLine khmer(String text, float size) {
+            return new ReceiptLine(LineType.KHMER, text, null, null, size);
         }
 
         static ReceiptLine twoColumn(String left, String right, PDFont font, float size) {
