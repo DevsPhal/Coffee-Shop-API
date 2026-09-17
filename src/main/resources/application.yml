@@ -80,7 +80,7 @@ bakong:
   merchant-name: ${BAKONG_MERCHANT_NAME:}
   merchant-city: ${BAKONG_MERCHANT_CITY:Phnom Penh}
   merchant-category-code: ${BAKONG_MERCHANT_CATEGORY_CODE:5999}
-  store-label: ${BAKONG_STORE_LABEL:Coffee Shop}
+  store-label: ${BAKONG_STORE_LABEL:590st Cafe}
   terminal-label: ${BAKONG_TERMINAL_LABEL:POS}
   purpose-of-transaction: ${BAKONG_PURPOSE_OF_TRANSACTION:Payment}
   currency: ${BAKONG_CURRENCY:USD}
