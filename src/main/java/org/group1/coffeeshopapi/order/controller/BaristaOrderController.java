@@ -77,6 +77,15 @@ public class BaristaOrderController {
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
+    // Same document, but available as soon as the order is paid.
+    @GetMapping(value = "/{id}/invoice", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> getInvoice(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        orderService.getOwn(id, currentUser.getId());
+        byte[] pdf = receiptService.generateInvoicePdf(id);
+        return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "invoice-" + id + ".pdf", true);
+    }
+
     // Visibility into every order in the system, not just this barista's own.
     @GetMapping("/all")
     public ApiResponse<PageResponse<OrderResponse>> listAll(

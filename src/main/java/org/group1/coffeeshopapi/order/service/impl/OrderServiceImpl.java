@@ -519,11 +519,17 @@ public class OrderServiceImpl implements OrderService {
         if (tenderedInUsd.compareTo(order.getTotalAmount()) < 0) {
             throw new InvalidOperationException("Amount tendered is less than the order total");
         }
+        BigDecimal changeDueUsd = tenderedInUsd.subtract(order.getTotalAmount());
+        // Defaults to whatever currency was tendered, so USD in gives USD change back — but the
+        // customer can ask for the other currency instead.
+        Currency changeCurrency = request.changeCurrency() != null ? request.changeCurrency() : request.currency();
+
         order.setHandledBy(fulfillingActorId);
         order.setPaymentMethod(PaymentMethod.CASH);
         order.setAmountTendered(request.amountTendered());
         order.setAmountTenderedCurrency(request.currency());
-        order.setChangeDue(tenderedInUsd.subtract(order.getTotalAmount()));
+        order.setChangeDue(changeCurrency == Currency.KHR ? usdToKhr(changeDueUsd) : changeDueUsd);
+        order.setChangeCurrency(changeCurrency);
         markPaid(order, fulfillingActorId);
         order = orderRepository.save(order);
         logAudit(order, OrderAuditAction.CASH_COLLECTED, fulfillingActorId);
@@ -537,6 +543,15 @@ public class OrderServiceImpl implements OrderService {
             throw new InvalidOperationException("USD-to-KHR exchange rate is not configured");
         }
         return khrAmount.divide(rate, 2, RoundingMode.HALF_UP);
+    }
+
+    // KHR has no minor unit, so change given back in KHR is rounded to a whole number.
+    private BigDecimal usdToKhr(BigDecimal usdAmount) {
+        BigDecimal rate = bakongExchangeRateService.getCurrentRate();
+        if (rate == null || rate.signum() <= 0) {
+            throw new InvalidOperationException("USD-to-KHR exchange rate is not configured");
+        }
+        return usdAmount.multiply(rate).setScale(0, RoundingMode.HALF_UP);
     }
 
     private BakongQrResponse attachBakongQr(Order order, Currency currency) {
@@ -633,7 +648,7 @@ public class OrderServiceImpl implements OrderService {
         return new OrderInvoice(order.getId(), items, order.getDeliveryFee(), order.getTotalAmount(),
                 order.getPaymentMethod(), order.getBakongCurrency(), order.getBakongAmount(),
                 order.getAmountTendered(), order.getAmountTenderedCurrency(), order.getChangeDue(),
-                order.getPaidAt());
+                order.getChangeCurrency(), order.getPaidAt());
     }
 
     private Order requirePending(Order order) {

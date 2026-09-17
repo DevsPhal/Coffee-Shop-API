@@ -97,6 +97,14 @@ public class AdminOrderController {
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
+    // Same document, but available as soon as the order is paid — no need to wait for it to be
+    // prepared, delivered or completed first.
+    @GetMapping(value = "/{id}/invoice", produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> getInvoice(@PathVariable UUID id) {
+        byte[] pdf = receiptService.generateInvoicePdf(id);
+        return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "invoice-" + id + ".pdf", true);
+    }
+
     // Full audit trail for one order: created, paid, cancelled, etc.
     @GetMapping("/{id}/history")
     public ApiResponse<List<OrderAuditLogResponse>> getHistory(@PathVariable UUID id) {

@@ -22,10 +22,11 @@ public record OrderInvoice(
         Currency bakongCurrency,
         BigDecimal bakongAmount,
 
-        // Set only when paid in cash: how much was handed over and the USD change given back.
+        // Set only when paid in cash: how much was handed over and the change given back.
         BigDecimal amountTendered,
         Currency amountTenderedCurrency,
         BigDecimal changeDue,
+        Currency changeCurrency,
 
         LocalDateTime paidAt
 ) {

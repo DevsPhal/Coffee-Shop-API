@@ -23,11 +23,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers which order states may have a receipt printed. Before this, only OrderStatus.COMPLETED
- * (pickup) was accepted, silently making it impossible to ever print a receipt for a delivered
- * order — see ReceiptServiceImpl#generateReceiptPdf.
- */
+// Covers which order states may get a printed document. A receipt needs the order fully
+// finished (COMPLETED or DELIVERED); an invoice only needs it paid — see
+// ReceiptServiceImpl#generateReceiptPdf/generateInvoicePdf.
 @ExtendWith(MockitoExtension.class)
 class ReceiptServiceImplTest {
 
@@ -38,7 +36,7 @@ class ReceiptServiceImplTest {
     @Test
     void aCompletedPickupOrderGetsAReceipt() {
         UUID orderId = UUID.randomUUID();
-        when(orderService.getAny(orderId)).thenReturn(order(OrderStatus.COMPLETED));
+        when(orderService.getAny(orderId)).thenReturn(order(OrderStatus.COMPLETED, LocalDateTime.now()));
 
         byte[] pdf = service.generateReceiptPdf(orderId);
 
@@ -48,7 +46,7 @@ class ReceiptServiceImplTest {
     @Test
     void aDeliveredDeliveryOrderAlsoGetsAReceipt() {
         UUID orderId = UUID.randomUUID();
-        when(orderService.getAny(orderId)).thenReturn(order(OrderStatus.DELIVERED));
+        when(orderService.getAny(orderId)).thenReturn(order(OrderStatus.DELIVERED, LocalDateTime.now()));
 
         byte[] pdf = service.generateReceiptPdf(orderId);
 
@@ -58,20 +56,40 @@ class ReceiptServiceImplTest {
     @Test
     void anOrderStillInProgressHasNoReceiptYet() {
         UUID orderId = UUID.randomUUID();
-        when(orderService.getAny(orderId)).thenReturn(order(OrderStatus.OUT_FOR_DELIVERY));
+        when(orderService.getAny(orderId)).thenReturn(order(OrderStatus.OUT_FOR_DELIVERY, LocalDateTime.now()));
 
         assertThatThrownBy(() -> service.generateReceiptPdf(orderId))
                 .isInstanceOf(InvalidOperationException.class);
     }
 
-    private OrderResponse order(OrderStatus status) {
+    @Test
+    void aPaidOrderStillBeingPreparedAlreadyGetsAnInvoice() {
+        UUID orderId = UUID.randomUUID();
+        when(orderService.getAny(orderId)).thenReturn(order(OrderStatus.PREPARING, LocalDateTime.now()));
+
+        byte[] pdf = service.generateInvoicePdf(orderId);
+
+        assertThat(pdf).isNotEmpty();
+    }
+
+    @Test
+    void anUnpaidOrderHasNoInvoiceYet() {
+        UUID orderId = UUID.randomUUID();
+        when(orderService.getAny(orderId)).thenReturn(order(OrderStatus.PENDING, null));
+
+        assertThatThrownBy(() -> service.generateInvoicePdf(orderId))
+                .isInstanceOf(InvalidOperationException.class)
+                .hasMessageContaining("hasn't been paid");
+    }
+
+    private OrderResponse order(OrderStatus status, LocalDateTime paidAt) {
         return new OrderResponse(
                 UUID.randomUUID(), null, null, null, null, null,
                 status, List.of(), new BigDecimal("10.00"),
                 FulfillmentMethod.PICKUP, null, null, null, null, null,
-                PaymentMethod.CASH, new BigDecimal("10.00"), Currency.USD, BigDecimal.ZERO,
+                PaymentMethod.CASH, new BigDecimal("10.00"), Currency.USD, BigDecimal.ZERO, Currency.USD,
                 null, null, null, null,
-                null, LocalDateTime.now(), LocalDateTime.now(),
+                null, paidAt, LocalDateTime.now(),
                 null, null, null, null);
     }
 }

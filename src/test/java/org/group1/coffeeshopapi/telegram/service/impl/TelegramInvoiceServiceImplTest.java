@@ -36,29 +36,43 @@ class TelegramInvoiceServiceImplTest {
     @InjectMocks private TelegramInvoiceServiceImpl service;
 
     @Test
-    void cashInvoiceShowsAmountTenderedInUsdAndTheChangeGivenBack() {
+    void cashInvoiceShowsTenderedAndChangeBothInUsd() {
         UUID customerId = UUID.randomUUID();
         when(customerRepository.findById(customerId)).thenReturn(Optional.of(customerWithChat()));
 
-        OrderInvoice invoice = cashInvoice(new BigDecimal("20.00"), Currency.USD, new BigDecimal("5.50"));
+        OrderInvoice invoice = cashInvoice(new BigDecimal("20.00"), Currency.USD, new BigDecimal("5.50"), Currency.USD);
         service.sendInvoice(customerId, invoice);
 
         String message = capturedMessage();
         assertThat(message).contains("Tendered (USD): $20.00");
-        assertThat(message).contains("Change: $5.50");
+        assertThat(message).contains("Change (USD): $5.50");
     }
 
     @Test
-    void cashInvoiceShowsAmountTenderedInKhrButChangeStaysInUsd() {
+    void cashInvoiceShowsTenderedAndChangeBothInKhrWhenPaidInKhr() {
         UUID customerId = UUID.randomUUID();
         when(customerRepository.findById(customerId)).thenReturn(Optional.of(customerWithChat()));
 
-        OrderInvoice invoice = cashInvoice(new BigDecimal("80000"), Currency.KHR, new BigDecimal("1.25"));
+        OrderInvoice invoice = cashInvoice(new BigDecimal("80000"), Currency.KHR, new BigDecimal("5000"), Currency.KHR);
         service.sendInvoice(customerId, invoice);
 
         String message = capturedMessage();
         assertThat(message).contains("Tendered (KHR): 80000 KHR");
-        assertThat(message).contains("Change: $1.25");
+        assertThat(message).contains("Change (KHR): 5000 KHR");
+    }
+
+    @Test
+    void cashInvoiceCanShowChangeInADifferentCurrencyThanWhatWasTendered() {
+        UUID customerId = UUID.randomUUID();
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customerWithChat()));
+
+        // Paid in KHR, but the customer asked for their change back in USD.
+        OrderInvoice invoice = cashInvoice(new BigDecimal("80000"), Currency.KHR, new BigDecimal("1.25"), Currency.USD);
+        service.sendInvoice(customerId, invoice);
+
+        String message = capturedMessage();
+        assertThat(message).contains("Tendered (KHR): 80000 KHR");
+        assertThat(message).contains("Change (USD): $1.25");
     }
 
     @Test
@@ -68,11 +82,11 @@ class TelegramInvoiceServiceImplTest {
 
         OrderInvoice invoice = new OrderInvoice(UUID.randomUUID(), List.of(lineItem()), null,
                 new BigDecimal("14.50"), PaymentMethod.BAKONG, Currency.USD, new BigDecimal("14.50"),
-                null, null, null, LocalDateTime.now());
+                null, null, null, null, LocalDateTime.now());
         service.sendInvoice(customerId, invoice);
 
         String message = capturedMessage();
-        assertThat(message).doesNotContain("Tendered").doesNotContain("Change:");
+        assertThat(message).doesNotContain("Tendered").doesNotContain("Change");
     }
 
     @Test
@@ -82,14 +96,16 @@ class TelegramInvoiceServiceImplTest {
         unlinked.setId(customerId);
         when(customerRepository.findById(customerId)).thenReturn(Optional.of(unlinked));
 
-        service.sendInvoice(customerId, cashInvoice(BigDecimal.TEN, Currency.USD, BigDecimal.ZERO));
+        service.sendInvoice(customerId, cashInvoice(BigDecimal.TEN, Currency.USD, BigDecimal.ZERO, Currency.USD));
 
         verifyNoInteractions(apiClient);
     }
 
-    private OrderInvoice cashInvoice(BigDecimal amountTendered, Currency tenderedCurrency, BigDecimal changeDue) {
+    private OrderInvoice cashInvoice(
+            BigDecimal amountTendered, Currency tenderedCurrency, BigDecimal changeDue, Currency changeCurrency) {
         return new OrderInvoice(UUID.randomUUID(), List.of(lineItem()), null, new BigDecimal("14.50"),
-                PaymentMethod.CASH, null, null, amountTendered, tenderedCurrency, changeDue, LocalDateTime.now());
+                PaymentMethod.CASH, null, null, amountTendered, tenderedCurrency, changeDue, changeCurrency,
+                LocalDateTime.now());
     }
 
     private OrderInvoiceLineItem lineItem() {
