@@ -137,6 +137,12 @@ public class ProductServiceImpl implements ProductService {
         if (request.description() != null) {
             product.setDescription(request.description());
         }
+        if (request.sku() != null) {
+            if (productRepository.existsBySkuIgnoreCaseAndIdNot(request.sku(), product.getId())) {
+                throw new DuplicateResourceException("A product with this SKU already exists");
+            }
+            product.setSku(request.sku());
+        }
         if (request.stockUnit() != null) {
             product.setStockUnit(request.stockUnit());
         }
