@@ -6,6 +6,7 @@ import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
+import org.group1.coffeeshopapi.order.dto.response.OrderItemResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.junit.jupiter.api.Test;
@@ -81,10 +82,31 @@ class ReceiptServiceImplTest {
                 .hasMessageContaining("hasn't been paid");
     }
 
+    // The Khmer name is shaped and drawn as vector paths, not as font text, so this just checks
+    // that path doesn't blow up rather than the actual glyph shapes.
+    @Test
+    void aProductWithAKhmerNameStillProducesAReceipt() {
+        UUID orderId = UUID.randomUUID();
+        OrderItemResponse item = new OrderItemResponse(
+                UUID.randomUUID(), UUID.randomUUID(), "Iced Coffee", "កាហ្វេទឹកកក",
+                1, new BigDecimal("1.50"), new BigDecimal("1.50"),
+                null, null, null, null, List.of());
+        when(orderService.getAny(orderId))
+                .thenReturn(order(OrderStatus.COMPLETED, LocalDateTime.now(), List.of(item)));
+
+        byte[] pdf = service.generateReceiptPdf(orderId);
+
+        assertThat(pdf).isNotEmpty();
+    }
+
     private OrderResponse order(OrderStatus status, LocalDateTime paidAt) {
+        return order(status, paidAt, List.of());
+    }
+
+    private OrderResponse order(OrderStatus status, LocalDateTime paidAt, List<OrderItemResponse> items) {
         return new OrderResponse(
                 UUID.randomUUID(), null, null, null, null, null,
-                status, List.of(), new BigDecimal("10.00"),
+                status, items, new BigDecimal("10.00"),
                 FulfillmentMethod.PICKUP, null, null, null, null, null,
                 PaymentMethod.CASH, new BigDecimal("10.00"), Currency.USD, BigDecimal.ZERO, Currency.USD,
                 null, null, null, null,
