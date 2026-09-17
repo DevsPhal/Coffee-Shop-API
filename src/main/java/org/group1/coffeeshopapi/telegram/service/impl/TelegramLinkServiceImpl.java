@@ -54,20 +54,13 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         }
         redisTemplate.delete(key);
 
-        // Role-agnostic on purpose: this same code path now links a chat for a Customer
-        // (self-registration/profile linking) or an Admin/Barista invited via Telegram (see
-        // StaffServiceImpl#createViaTelegram) — findById/save on UserRepository dispatch to the
-        // right physical table either way (TABLE_PER_CLASS).
+        // Works the same for a Customer, Admin, or Barista account.
         User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new ResourceNotFoundException("❌ Account no longer exists."));
 
         if (user.getStatus() == UserStatus.PENDING_VERIFICATION && user.getRegisterType() == RegisterType.TELEGRAM) {
-            // A staff account invited via Telegram (StaffServiceImpl#createViaTelegram) — a
-            // customer never lands here PENDING_VERIFICATION, since generating a link code
-            // (UserController) requires already being authenticated, which a PENDING_VERIFICATION
-            // account can't do (CustomUserDetails#isEnabled). Don't link/activate yet: stash which
-            // account this chat is verifying for and ask it to share its contact — verifyPendingContact
-            // finishes the job once that arrives.
+            // A staff invite pending phone verification. Don't activate yet — ask for their
+            // contact first; verifyPendingContact finishes the job.
             redisTemplate.opsForValue().set(
                     RedisKeys.TELEGRAM_PENDING_CONTACT_PREFIX + chatId,
                     user.getId().toString(),
@@ -75,13 +68,13 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
             telegramApiClient.sendContactRequest(chatId,
                     "👋 Hi " + user.getFullName() + "! To activate your account, please confirm it's really you "
                             + "by sharing your phone number below.");
-            // Already replied above — nothing further for the caller to send.
+            // Already replied above.
             return null;
         }
 
         Optional<User> currentlyLinked = userRepository.findByTelegramChatId(chatId.toString());
         if (currentlyLinked.map(User::getId).filter(id -> id.equals(user.getId())).isPresent()) {
-            // Re-sending a code for the account this chat is already linked to — nothing to do.
+            // Already linked to this account — nothing to do.
             return "✅ <b>You're already linked</b> as " + TelegramFormat.escape(user.getFullName()) + ".";
         }
 
@@ -101,10 +94,8 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
                     + "send /start &lt;code&gt; with your invite code first.";
         }
 
-        // A request_contact button only ever shares the tapper's own card, but nothing stops
-        // someone from forwarding a different contact card into this chat instead — reject that
-        // rather than let it spoof a phone-number match. Key deliberately left in place so they
-        // can immediately retry by tapping the button themselves.
+        // Reject a forwarded contact card that isn't the sender's own — the key stays in place so
+        // they can retry with the button themselves.
         if (contact.userId() == null || !contact.userId().equals(senderUserId)) {
             return "⚠️ Please share your own phone number using the button below, not someone else's contact.";
         }
@@ -132,15 +123,12 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
                 + "Open the app and log in with the Telegram button to get started.";
     }
 
-    // Shared by both link paths: hands this chat id over to `user`, first freeing it from whoever
-    // (if anyone) currently holds it.
+    // Hands this chat id to `user`, first freeing it from whoever currently holds it.
     private void claimChat(User user, Optional<User> currentlyLinked, Long chatId) {
         currentlyLinked.ifPresent(existing -> {
             existing.setTelegramChatId(null);
-            // Flush immediately: this chat id is still unique-constrained, so the old
-            // owner's row must actually clear in the DB before the new owner's row below
-            // claims it — otherwise Hibernate may flush both UPDATEs in the wrong order
-            // and both rows briefly hold the same chat id, tripping the constraint.
+            // Flush now so the old owner clears before the new owner claims the same chat id
+            // (it's unique-constrained).
             userRepository.saveAndFlush(existing);
             authUserSyncService.sync(existing);
         });

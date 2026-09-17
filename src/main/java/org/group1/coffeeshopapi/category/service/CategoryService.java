@@ -11,7 +11,7 @@ import org.springframework.data.domain.Pageable;
 import java.util.List;
 import java.util.UUID;
 
-// actorAdmin is null when the Super Admin is the one acting — see CurrentActor.adminRef().
+// actorAdmin is null when the Super Admin is the one acting.
 public interface CategoryService {
     CategoryResponse create(CreateCategoryRequest request, Admin actorAdmin);
     CategoryResponse getById(UUID id);
@@ -19,7 +19,6 @@ public interface CategoryService {
     CategoryResponse update(UUID id, UpdateCategoryRequest request, Admin actorAdmin);
     void delete(UUID id);
 
-    // Public/customer-facing: active categories only, no staff audit identities — what a
-    // customer app browses to build a product category filter.
+    // Customer-facing: active categories only.
     List<CustomerCategoryResponse> listActive();
 }

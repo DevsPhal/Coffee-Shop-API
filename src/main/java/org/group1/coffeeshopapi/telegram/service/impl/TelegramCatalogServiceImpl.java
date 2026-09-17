@@ -45,9 +45,7 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
             return "🛒 The menu is empty right now — please check back soon!";
         }
 
-        // Case-insensitive TreeMap for alphabetical category order (matches the DB collation used
-        // by /categories); within each group, products stay in the name-sorted order they were
-        // fetched in.
+        // Alphabetical by category, case-insensitive.
         Map<String, List<Product>> byCategory = products.stream()
                 .collect(Collectors.groupingBy(p -> p.getCategory().getName(),
                         () -> new TreeMap<>(String.CASE_INSENSITIVE_ORDER), Collectors.toList()));
@@ -120,8 +118,7 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
         return byProduct;
     }
 
-    // Shows the cheapest active variant's price, prefixed with "from" when the product has more
-    // than one — a product with no priced variant yet is shown without a price.
+    // Shows the cheapest variant's price, prefixed with "from" if there's more than one.
     private void appendProductLine(StringBuilder sb, Product product, List<ProductVariant> variants) {
         LocalDateTime now = LocalDateTime.now();
         sb.append("• ").append(TelegramFormat.escape(TelegramFormat.titleCase(product.getName()))).append(" — ");

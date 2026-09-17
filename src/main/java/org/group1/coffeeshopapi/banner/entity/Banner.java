@@ -38,10 +38,7 @@ public class Banner extends BaseEntity {
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
 
-    // Banners are only ever touched by ADMIN/SUPER_ADMIN, so this is named for that specific
-    // relation rather than a generic "createdBy" — null both for pre-existing rows and for a
-    // change made by the Super Admin, which deliberately has no row in "admins" to reference
-    // (see CurrentActor.adminRef()).
+    // Who created this banner — null if it was the Super Admin.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "admin_id")
     private Admin admin;

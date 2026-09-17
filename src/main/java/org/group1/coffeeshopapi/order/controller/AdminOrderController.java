@@ -44,15 +44,10 @@ public class AdminOrderController {
 
     private final OrderService orderService;
     private final ReceiptService receiptService;
-    // Every action endpoint here is reachable by the Super Admin too (hasRole("ADMIN") + role
-    // hierarchy), whose principal isn't a CustomUserDetails — see CurrentActor's javadoc.
+    // Also reachable by the Super Admin (hasRole("ADMIN") + role hierarchy).
     private final CurrentActor currentActor;
 
-    // Rings up a walk-in sale in person, same as a barista can — one order, carrying one or more
-    // items (see StaffCreateOrderRequest.items), always pickup since the customer is standing
-    // right there. Reuses OrderService.create/payCash/generateBakongQr/confirmBakongPayment as-is:
-    // they're keyed off a plain actor id (Order.handledBy — see its javadoc), not a
-    // barista-specific type, so an admin's own id scopes exactly the same way.
+    // Rings up a walk-in sale in person, same as a barista can. Always pickup.
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> create(@Valid @RequestBody StaffCreateOrderRequest request) {
         OrderResponse response = orderService.create(request, currentActor.id());
@@ -95,25 +90,20 @@ public class AdminOrderController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, orderService.getAny(id));
     }
 
-    // The printable receipt for any completed order — an admin can produce it the same as
-    // whichever barista actually handled the sale.
+    // The printable receipt for any finished order (COMPLETED or DELIVERED).
     @GetMapping(value = "/{id}/receipt", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> getReceipt(@PathVariable UUID id) {
         byte[] pdf = receiptService.generateReceiptPdf(id);
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
-    // Full audit trail for one order — who created it, who collected/confirmed payment, who
-    // cancelled it — since OrderResponse.handledById alone only ever shows the most recent actor.
+    // Full audit trail for one order: created, paid, cancelled, etc.
     @GetMapping("/{id}/history")
     public ApiResponse<List<OrderAuditLogResponse>> getHistory(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, orderService.getHistory(id));
     }
 
-    // A scannable rendering of whatever Bakong QR string is already stored on the order (customer
-    // self-checkout, or a barista's or this admin's own walk-up sale via generateBakongQr above)
-    // — useful for displaying it again at the register. Unlike generateBakongQr, this just reads
-    // whatever's already stored — not scoped to orders this admin rang up themselves.
+    // Renders whatever Bakong QR is already stored on the order, for showing again at the register.
     @GetMapping(value = "/{id}/pay/bakong/qr/image", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getBakongQrImage(@PathVariable UUID id) {
         OrderResponse order = orderService.getAny(id);
@@ -124,8 +114,7 @@ public class AdminOrderController {
         return FileResponseUtil.respond(png, MediaType.IMAGE_PNG, "order-" + id + "-qr.png", true);
     }
 
-    // The pickup queue: customer cash-on-pickup orders no admin/barista has claimed yet — what an
-    // admin browses to find an order to accept via collect-cash below.
+    // Customer cash orders no staff member has claimed yet.
     @GetMapping("/awaiting-pickup")
     public ApiResponse<PageResponse<OrderResponse>> listAwaitingPickup(
             @RequestParam(required = false) Integer page,
@@ -134,9 +123,7 @@ public class AdminOrderController {
                 PageResponse.of(orderService.listAwaitingPickup(PageUtil.buildPageable(page, size))));
     }
 
-    // Collects cash in person for a customer's cash order (pickup or delivery), same as a barista
-    // would — whether it's still PENDING or already being prepared/out for delivery (see
-    // OrderService#collectCash).
+    // Collects cash in person for a customer's cash order, pending or already being prepared.
     @PostMapping("/{id}/collect-cash")
     public ApiResponse<OrderResponse> collectCash(
             @PathVariable UUID id,
@@ -145,8 +132,7 @@ public class AdminOrderController {
         return ApiResponse.of(HttpStatus.OK, "Cash collected successfully.", response);
     }
 
-    // The Bakong counterpart to awaiting-pickup: customer orders with a QR generated, still
-    // PENDING, that no admin/barista has claimed yet.
+    // Customer orders with a Bakong QR generated, still unclaimed by staff.
     @GetMapping("/awaiting-bakong-confirmation")
     public ApiResponse<PageResponse<OrderResponse>> listAwaitingBakongConfirmation(
             @RequestParam(required = false) Integer page,
@@ -155,25 +141,21 @@ public class AdminOrderController {
                 PageResponse.of(orderService.listAwaitingBakongConfirmation(PageUtil.buildPageable(page, size))));
     }
 
-    // The Bakong counterpart to collect-cash: confirms/accepts a customer's Bakong-paid order,
-    // same as a barista would.
+    // Confirms/accepts a customer's Bakong-paid order.
     @PostMapping("/{id}/accept-bakong")
     public ApiResponse<OrderResponse> acceptBakongPayment(@PathVariable UUID id) {
         OrderResponse response = orderService.acceptBakongPayment(id, currentActor.id());
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, response);
     }
 
-    // Cancels any still-pending order (not scoped to one the admin themselves rang up).
+    // Cancels any still-pending order, not just ones this admin rang up.
     @PostMapping("/{id}/cancel")
     public ApiResponse<OrderResponse> cancel(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order cancelled successfully.",
                 orderService.cancelAny(id, currentActor.id()));
     }
 
-    // Sets (or revises) the delivery fee for a customer's delivery order — see
-    // OrderResponse.deliveryLatitude/deliveryLongitude/distanceMeters for what an admin has to go
-    // on when evaluating it. Immediately reflected in totalAmount. Not scoped to one the admin
-    // themselves has claimed — any still-pending delivery order can be evaluated.
+    // Sets or revises the delivery fee for a pending delivery order.
     @PostMapping("/{id}/delivery-fee")
     public ApiResponse<OrderResponse> setDeliveryFee(
             @PathVariable UUID id, @Valid @RequestBody DeliveryFeeRequest request) {
@@ -181,9 +163,7 @@ public class AdminOrderController {
         return ApiResponse.of(HttpStatus.OK, "Delivery fee set successfully.", response);
     }
 
-    // The kitchen queue: orders ready to start on right now — PAID ones, plus a customer's cash
-    // order that hasn't been paid yet but is fair game anyway (see startPreparing) — what an
-    // admin browses to find one to start via prepare below.
+    // The kitchen queue: PAID orders plus unpaid cash orders, which are fair game to start on.
     @GetMapping("/awaiting-preparation")
     public ApiResponse<PageResponse<OrderResponse>> listAwaitingPreparation(
             @RequestParam(required = false) Integer page,
@@ -192,44 +172,35 @@ public class AdminOrderController {
                 PageResponse.of(orderService.listAwaitingPreparation(PageUtil.buildPageable(page, size))));
     }
 
-    // PAID -> PREPARING, or (cash only) PENDING -> PREPARING — cash can be collected up front or
-    // at handover, so a cash order doesn't have to wait for payment to be started on. Not scoped
-    // to who collected payment — any admin/barista can start on any order sitting in the queue
-    // above.
+    // Moves an order to PREPARING. A cash order can start here unpaid; cash is collected later.
     @PostMapping("/{id}/prepare")
     public ApiResponse<OrderResponse> startPreparing(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order marked as preparing.",
                 orderService.startPreparing(id, currentActor.id()));
     }
 
-    // PREPARING -> COMPLETED — handed to the customer at the counter. Pickup orders only; a
-    // delivery order goes through dispatch/deliver below instead. Rejects an unpaid cash order —
-    // collect via /collect-cash first.
+    // Marks a pickup order as handed over. Rejects a delivery order or an unpaid cash order.
     @PostMapping("/{id}/complete")
     public ApiResponse<OrderResponse> completePickup(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order completed successfully.",
                 orderService.completePickup(id, currentActor.id()));
     }
 
-    // PREPARING -> OUT_FOR_DELIVERY — the order has left the shop with a courier. Delivery orders
-    // only.
+    // Marks a delivery order as out with a courier.
     @PostMapping("/{id}/dispatch")
     public ApiResponse<OrderResponse> dispatchForDelivery(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order dispatched for delivery.",
                 orderService.dispatchForDelivery(id, currentActor.id()));
     }
 
-    // OUT_FOR_DELIVERY -> DELIVERED — the courier confirms it arrived. Rejects an unpaid cash
-    // order — collect via /collect-cash first (cash-on-delivery is collected on arrival, before
-    // this call).
+    // Marks a delivery as arrived. Rejects an unpaid cash order — collect it first.
     @PostMapping("/{id}/deliver")
     public ApiResponse<OrderResponse> markDelivered(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order marked as delivered.",
                 orderService.markDelivered(id, currentActor.id()));
     }
 
-    // The delivery board: everything currently out with a courier, oldest dispatch first — what
-    // an admin browses to find one to confirm via deliver above.
+    // Everything currently out with a courier, oldest dispatch first.
     @GetMapping("/delivery-board")
     public ApiResponse<PageResponse<OrderResponse>> listDeliveryBoard(
             @RequestParam(required = false) Integer page,

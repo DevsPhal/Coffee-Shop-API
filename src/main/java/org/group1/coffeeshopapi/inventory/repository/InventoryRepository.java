@@ -15,15 +15,12 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
 
     Optional<Inventory> findByProductId(UUID productId);
 
-    // Locks the row for the duration of the stock-in/stock-cut transaction so concurrent
-    // requests against the same product serialize instead of racing on quantityOnHand.
+    // Locks the row so concurrent stock-in/stock-cut requests for the same product don't race.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select i from Inventory i where i.product.id = :productId")
     Optional<Inventory> findByProductIdForUpdate(UUID productId);
 
-    // Comparing two columns of the same row isn't expressible as a derived query method, hence
-    // the explicit JPQL. Ordered worst-first (most depleted relative to its reorder point) so the
-    // most urgent restocks surface at the top of the report.
+    // Worst-first: most depleted relative to its reorder point comes first.
     @Query("select i from Inventory i where i.quantityOnHand <= i.reorderLevel " +
             "order by (i.quantityOnHand - i.reorderLevel) asc")
     Page<Inventory> findLowStock(Pageable pageable);

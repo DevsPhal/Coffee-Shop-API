@@ -48,8 +48,7 @@ public class UserProfileServiceImpl implements UserProfileService {
             }
             user.setFullName(fullName);
         }
-        // Blank phone number clears the field; null leaves it untouched. Gender has no such
-        // "clear" form — the enum has no empty member, so null can only mean "unchanged".
+        // A blank phone number clears the field; null leaves it untouched.
         if (request.phoneNumber() != null) {
             String phoneNumber = request.phoneNumber().trim();
             user.setPhoneNumber(phoneNumber.isEmpty() ? null : phoneNumber);
@@ -58,10 +57,7 @@ public class UserProfileServiceImpl implements UserProfileService {
             user.setGender(request.gender());
         }
 
-        // Phone numbers carry a unique constraint per role table (uk_admins_phone_number and
-        // friends), so flush here to turn a collision into a 409 with a usable message instead
-        // of letting it surface as a 500 at commit time. The constraint is per-table, which is
-        // why this defers to the database rather than pre-checking across all roles.
+        // Flush now so a duplicate phone number surfaces as a clear error, not a raw DB failure.
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
@@ -87,9 +83,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         userRepository.save(user);
         authUserSyncService.sync(user);
 
-        // Every other session signed in with the old password is now stale — drop the refresh
-        // token so they cannot silently renew. The caller's own access token stays valid until
-        // it expires, so the change does not sign the user out of the tab they made it in.
+        // Revoke the refresh token so other sessions can't silently renew with the old password.
         tokenService.revokeRefreshToken(user.getId());
     }
 

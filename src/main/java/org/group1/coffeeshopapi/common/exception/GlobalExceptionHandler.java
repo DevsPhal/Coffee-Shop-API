@@ -93,8 +93,7 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "Required form part '" + ex.getRequestPartName() + "' is missing", request);
     }
 
-    // Malformed multipart body — e.g. a client sending "Content-Type: multipart/form-data" with
-    // no boundary, or a truncated upload. Client-side mistake, not a server error.
+    // Malformed multipart body — a client mistake, not a server error.
     @ExceptionHandler(MultipartException.class)
     public ResponseEntity<ErrorResponse> handleMultipartError(HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST,
@@ -102,11 +101,8 @@ public class GlobalExceptionHandler {
                         + "with a valid boundary (let your HTTP client set this header automatically)", request);
     }
 
-    // Two distinct causes share this exception type: a unique-constraint hit on create/update
-    // (e.g. registering with a phone number already in use) vs. a delete blocked by a foreign key
-    // (e.g. a product still has variants, stock history, or order items). The SQLState tells
-    // them apart (23505 vs. everything else) so the client gets a message that actually matches
-    // what happened instead of always describing a blocked delete.
+    // This can mean either a duplicate value (unique constraint) or a blocked delete (foreign
+    // key) — SQLState 23505 tells them apart.
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex,
                                                                        HttpServletRequest request) {

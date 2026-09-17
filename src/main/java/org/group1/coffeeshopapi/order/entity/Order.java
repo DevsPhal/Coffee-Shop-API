@@ -25,42 +25,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Either a POS sale rung up by staff ({@code handledBy} set, {@code customer} null) or a
- * self-service order placed by a customer ({@code customer} set). A customer order that chooses
- * cash keeps {@code customer} and stays {@link OrderStatus#PENDING}, {@code paymentMethod} = CASH,
- * until either a staff member collects the cash in person (still PENDING) or a barista starts
- * making it first and collects later, at handover — the real-world flow for cash-on-pickup and
- * cash-on-delivery alike. Either way, {@code handledBy} gets set the moment staff first touches
- * the order, whichever of those two happens first (who placed it vs. who fulfilled/served it).
- * <p>
- * {@code handledBy} is an audit-style id (resolved via {@code ActorLookupService}, like
- * {@code StockMovement.performedBy}/{@code Product.createdBy}) rather than a real relation, since
- * either an Admin or a Barista can ring up/collect/serve an order — unlike {@code customer},
- * which is always a real {@code Customer} row (the Super Admin never touches an order — see
- * SecurityConfig). Every action that sets it also appends an {@link OrderAuditLog} row, since
- * {@code handledBy} alone is overwritten each time a different staff member touches the order and
- * so can't answer "who did what and when" on its own.
- * <p>
- * Stock is cut from inventory the moment a sale is actually committed to — for a Bakong order, or
- * a cash order paid up front, that's when it reaches {@link OrderStatus#PAID}; for a cash order
- * let through to the kitchen unpaid, it's the moment {@link OrderStatus#PREPARING} starts instead
- * (see {@code OrderServiceImpl#startPreparing}). Either way stock only ever moves once per order.
- * A still-{@code PENDING} order that gets cancelled never touched inventory, so cancellation needs
- * no restock logic — and once an order has moved past PENDING it can no longer be cancelled through
- * this app's normal endpoints at all. {@code paidAt}, not {@code status}, is the one field that
- * says whether money has actually changed hands; a PREPARING or OUT_FOR_DELIVERY cash order may
- * still have it null, and {@link OrderStatus#COMPLETED}/{@link OrderStatus#DELIVERED} are only
- * reachable once it is set. See {@link OrderStatus} for the full lifecycle.
- */
+// A staff-rung POS sale (handledBy set, no customer) or a customer's own order (customer set).
+// A cash order can start being prepared before it's actually paid — payment may be collected
+// up front or at handover. handledBy is set the first time staff touches the order, whichever
+// comes first.
+//
+// Stock is cut exactly once per order: at PAID, or at PREPARING if a cash order got there
+// unpaid. paidAt (not status) is the real signal for "has this been paid" — a PREPARING or
+// OUT_FOR_DELIVERY cash order can still have it null.
 @Getter
 @Setter
 @Entity
 @Table(name = "orders")
 public class Order extends BaseEntity {
 
-    // The admin or barista who rang up / collected payment for / served this order — null until
-    // one of them does. See the class javadoc for why this is a plain id and not a relation.
+    // The admin or barista who rang up, collected payment for, or served this order — null until
+    // one of them does.
     @Column
     private UUID handledBy;
 
@@ -82,9 +62,7 @@ public class Order extends BaseEntity {
     @Column(length = 20)
     private FulfillmentMethod fulfillmentMethod = FulfillmentMethod.PICKUP;
 
-    // Set by whichever admin/barista evaluates the delivery (see OrderService.setDeliveryFee) —
-    // zero until they do, even for a delivery order. Included in totalAmount once set; see
-    // OrderServiceImpl.recalculateTotal.
+    // Set by staff once they evaluate the delivery — zero until then, even for a delivery order.
     @Column(precision = 12, scale = 2)
     private BigDecimal deliveryFee = BigDecimal.ZERO;
 
@@ -107,10 +85,8 @@ public class Order extends BaseEntity {
     @Column(length = 20)
     private PaymentMethod paymentMethod;
 
-    // How much cash was actually handed over, in whichever currency the customer paid with — a
-    // cash sale in Cambodia can be tendered in either (see CashPaymentRequest.currency). changeDue
-    // below is always the USD-equivalent excess, converted at the rate in effect when the payment
-    // was collected (see OrderServiceImpl.chargeCash).
+    // How much cash was actually handed over, in whichever currency the customer paid with.
+    // changeDue below is always in USD.
     @Column(precision = 15, scale = 2)
     private BigDecimal amountTendered;
 
@@ -131,8 +107,8 @@ public class Order extends BaseEntity {
     @Column(length = 3)
     private Currency bakongCurrency;
 
-    // The amount actually encoded in the QR, in bakongCurrency — differs from totalAmount (always
-    // USD) when bakongCurrency is KHR, since that's converted via bakong.khr-per-usd-rate.
+    // The amount encoded in the QR, in bakongCurrency — differs from totalAmount (always USD)
+    // when bakongCurrency is KHR.
     @Column(precision = 15, scale = 2)
     private BigDecimal bakongAmount;
 
@@ -142,28 +118,23 @@ public class Order extends BaseEntity {
     @Column
     private LocalDateTime bakongExpiresAt;
 
-    // Two lines: whatever the customer typed for the barista, then the pickup/delivery
-    // logistics composed at checkout. TEXT rather than the default varchar(255) because a
-    // delivery address plus a free-text request overruns 255 easily — and losing the note is
-    // losing an instruction about what to actually make.
+    // Free-text note from the customer/barista. TEXT rather than varchar(255) since a delivery
+    // address plus a note can easily run long.
     @Column(columnDefinition = "TEXT")
     private String note;
 
     @Column
     private LocalDateTime paidAt;
 
-    // Where the customer pinned the shop to deliver to at checkout — null means this is a
-    // pickup order (a POS sale is always pickup, so these are only ever set via
-    // OrderService.createForCustomer). Both set together or not at all.
+    // The GPS pin the customer dropped at checkout — null for a pickup order. Both set together
+    // or not at all.
     @Column(precision = 9, scale = 6)
     private BigDecimal deliveryLatitude;
 
     @Column(precision = 9, scale = 6)
     private BigDecimal deliveryLongitude;
 
-    // True if either signal says this is a delivery: the explicit fulfillmentMethod (set at
-    // checkout via CheckoutDetailsRequest — the authoritative one going forward), or a pinned GPS
-    // location (the older signal, kept for orders/callers that only ever set that).
+    // True if either fulfillmentMethod or a pinned GPS location says this is a delivery.
     public boolean isDelivery() {
         return fulfillmentMethod == FulfillmentMethod.DELIVERY || (deliveryLatitude != null && deliveryLongitude != null);
     }

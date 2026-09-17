@@ -12,9 +12,7 @@ import org.hibernate.annotations.BatchSize;
 
 import java.util.UUID;
 
-// BatchSize: several entities (Product, Category, Event, Banner, ...) track "which admin did
-// this" as a lazy @ManyToOne here — this batches those proxy initializations into one IN-clause
-// query per distinct group of admins referenced on a page, instead of one query per row.
+// BatchSize avoids one query per row when a page of entities each lazily loads their admin.
 @Getter
 @Setter
 @Entity

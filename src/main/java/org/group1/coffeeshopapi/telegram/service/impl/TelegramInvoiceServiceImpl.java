@@ -58,9 +58,7 @@ public class TelegramInvoiceServiceImpl implements TelegramInvoiceService {
         }
         sb.append('\n');
 
-        // Delivery fee is already folded into totalAmount (see OrderServiceImpl.recalculateTotal)
-        // — broken out as its own line, same as the shop's printed receipt does (ReceiptServiceImpl),
-        // so the total here never looks like it doesn't add up to what's itemized above it.
+        // Broken out as its own line even though it's already folded into the total below.
         if (invoice.deliveryFee() != null) {
             BigDecimal itemsSubtotal = invoice.items().stream()
                     .map(OrderInvoiceLineItem::subtotal)
@@ -71,9 +69,7 @@ public class TelegramInvoiceServiceImpl implements TelegramInvoiceService {
 
         sb.append("<b>Total: ").append(TelegramFormat.usd(invoice.totalAmount())).append("</b>\n");
         sb.append("Payment: ").append(paymentSummary(invoice)).append('\n');
-        // Same two lines the printed receipt shows for a cash sale (see ReceiptServiceImpl) — the
-        // customer handed over cash in whichever currency, so both what they gave and the USD
-        // change they got back need to be spelled out, not just the total.
+        // Shows what was tendered and the change given back for a cash sale.
         if (invoice.paymentMethod() == PaymentMethod.CASH && invoice.amountTendered() != null) {
             String tenderedLabel = invoice.amountTenderedCurrency() == Currency.KHR ? "Tendered (KHR)" : "Tendered (USD)";
             String tenderedValue = invoice.amountTenderedCurrency() == Currency.KHR

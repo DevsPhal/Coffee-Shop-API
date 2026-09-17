@@ -13,10 +13,8 @@ import org.group1.coffeeshopapi.common.entity.BaseEntity;
 
 import java.time.LocalDateTime;
 
-// One row per barista work shift: a check-in, and (once checked out) the matching check-out and
-// the minutes worked between them. checkOutAt == null means the shift is still open — a barista
-// can only have one open shift at a time, enforced in AttendanceServiceImpl rather than a DB
-// constraint. See AttendanceAuditLog for the audit trail of who checked in/out or corrected this.
+// One row per barista work shift. checkOutAt is null while the shift is still open — a barista
+// can only have one open shift at a time.
 @Getter
 @Setter
 @Entity

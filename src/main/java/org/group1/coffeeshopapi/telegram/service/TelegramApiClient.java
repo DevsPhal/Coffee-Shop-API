@@ -5,35 +5,24 @@ import java.math.BigDecimal;
 public interface TelegramApiClient {
     void sendMessage(Long chatId, String text);
 
-    // Same delivery, but with Telegram's HTML parse mode on — used for menu/discount/invoice
-    // messages that need bold headers, bullets, and strikethrough prices. Callers are responsible
-    // for HTML-escaping any interpolated user/admin-entered text (product names, etc.).
+    // Same as sendMessage, but with Telegram's HTML formatting turned on.
     void sendHtmlMessage(Long chatId, String html);
 
-    // Same as sendMessage/sendHtmlMessage, but with the bot's persistent quick-action inline
-    // keyboard (see TelegramApiClientImpl#QUICK_ACTIONS_KEYBOARD) attached below the text — one
-    // button per command, so a chat can keep browsing by tapping instead of typing. Used for every
-    // command reply (see TelegramUpdateHandler) so the keyboard is always one tap away.
+    // Same as sendMessage/sendHtmlMessage, but with the quick-action inline keyboard attached.
     void sendMessageWithButtons(Long chatId, String text);
     void sendHtmlMessageWithButtons(Long chatId, String html);
 
-    // Sends an image (by its publicly reachable URL — see FileStorageService) with an optional
-    // HTML-parse-mode caption underneath, e.g. an event's flyer. Caller is responsible for
-    // HTML-escaping any interpolated text, same as sendHtmlMessage.
+    // Sends an image by URL, with an optional HTML caption underneath.
     void sendPhoto(Long chatId, String photoUrl, String captionHtml);
 
-    // Drops a map pin at the given coordinates — e.g. an event's venue, sent right after its
-    // announcement/reminder message.
+    // Drops a map pin at the given coordinates.
     void sendLocation(Long chatId, BigDecimal latitude, BigDecimal longitude);
 
-    // Prompts the chat with a native "Share phone number" button (Telegram's request_contact
-    // keyboard) — used to verify a Telegram-invited staff member's phone number matches the one
-    // their admin entered at invite time (see TelegramLinkServiceImpl#verifyPendingContact).
+    // Prompts the chat with a native "Share phone number" button.
     void sendContactRequest(Long chatId, String text);
 
-    // Clears the loading spinner Telegram puts on a tapped inline button until this is called —
-    // required after every callback query, win or lose. toastText is an optional small popup
-    // shown over the chat (not a chat message); pass null/blank for a silent acknowledgement.
+    // Clears the loading spinner on a tapped inline button. toastText is an optional small popup;
+    // pass null for a silent acknowledgement.
     void answerCallbackQuery(String callbackQueryId, String toastText);
 
     void registerWebhook();

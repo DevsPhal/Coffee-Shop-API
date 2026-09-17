@@ -13,21 +13,19 @@ import java.util.UUID;
 
 public record OrderResponse(
         UUID id,
-        // Who rang up/fulfilled/served this sale — an admin or a barista. Set for a POS sale from
-        // the start, and also set on a customer order once staff collects cash or confirms
-        // payment for it. See order/{id}/history for the full handling audit trail.
+        // Which staff member rang up or fulfilled this sale. Set from the start for a POS sale,
+        // or once staff collects cash/confirms payment for a customer order.
         UUID handledById,
         String handledByName,
         Role handledByRole,
-        // Who placed this order — null for a barista POS sale rung up for a walk-in customer.
+        // Who placed this order — null for a walk-in sale rung up by staff.
         UUID customerId,
         String customerName,
         OrderStatus status,
         List<OrderItemResponse> items,
         BigDecimal totalAmount,
-        // How this order is fulfilled, and — for DELIVERY — the human-facing address/contact a
-        // courier needs (set at checkout via CheckoutDetailsRequest). dispatchedAt/deliveredAt
-        // stay null until the order actually reaches OUT_FOR_DELIVERY/DELIVERED — see OrderStatus.
+        // For DELIVERY, the address/contact a courier needs. dispatchedAt/deliveredAt stay null
+        // until the order actually gets there.
         FulfillmentMethod fulfillmentMethod,
         String deliveryAddress,
         String contactName,
@@ -45,16 +43,13 @@ public record OrderResponse(
         String note,
         LocalDateTime paidAt,
         LocalDateTime createdAt,
-        // Null for a pickup order (every POS sale, or a customer order that didn't pin a
-        // location). Both set together or not at all — see Order.isDelivery.
+        // Null for a pickup order. Both set together or not at all.
         BigDecimal deliveryLatitude,
         BigDecimal deliveryLongitude,
-        // Null until an admin/barista evaluates it (see OrderService.setDeliveryFee), even for a
-        // delivery order. Already folded into totalAmount once set.
+        // Null until staff evaluates it, even for a delivery order. Already folded into totalAmount.
         BigDecimal deliveryFee,
-        // Straight-line distance from the shop to deliveryLatitude/deliveryLongitude, for whoever
-        // is evaluating the fee above — null for a pickup order, or if shop.location isn't
-        // configured (see ShopLocationProperties).
+        // Straight-line distance from the shop to the delivery location — null for pickup, or if
+        // the shop's own location isn't configured.
         BigDecimal distanceMeters
 ) {
 }

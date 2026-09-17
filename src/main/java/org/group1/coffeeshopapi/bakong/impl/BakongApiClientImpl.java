@@ -34,8 +34,7 @@ public class BakongApiClientImpl implements BakongApiClient {
         try {
             return interpret(call(md5Hash, tokenService.currentToken()));
         } catch (HttpClientErrorException.Unauthorized e) {
-            // NBC tokens last about 90 days. Rather than let every confirmation fail until
-            // someone pastes in a new one, renew against the registered email and try once more.
+            // Token expired — renew it and try once more before giving up.
             log.info("Bakong rejected the access token; attempting to renew it");
             String renewed = tokenService.renew();
             if (renewed == null) {
@@ -66,11 +65,7 @@ public class BakongApiClientImpl implements BakongApiClient {
                 .body(BakongCheckTransactionResponse.class);
     }
 
-    /**
-     * A non-zero {@code responseCode} here is a real answer, not an error — for an unpaid order
-     * it is "Transaction could not be found", which is exactly what a QR nobody has scanned yet
-     * looks like.
-     */
+    // A non-zero responseCode is a real answer, not an error — it just means not paid yet.
     private BakongTransactionCheckResult interpret(BakongCheckTransactionResponse response) {
         if (response == null) {
             return BakongTransactionCheckResult.failed("Empty response from Bakong");

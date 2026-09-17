@@ -15,12 +15,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-/**
- * Turns an audit id (who performed a stock movement, who created a product, ...) into a
- * displayable name + role. The Super Admin is special-cased since it's config-driven and has no
- * backing row (see {@link SuperAdminUserDetails}); everyone else is looked up across the
- * Admin/Barista/Customer tables via {@link UserRepository}.
- */
+// Turns an audit id into a displayable name + role. The Super Admin is special-cased since it
+// has no backing row; everyone else is a normal user lookup.
 @Service
 @RequiredArgsConstructor
 public class ActorLookupService {
@@ -42,7 +38,7 @@ public class ActorLookupService {
                 .orElseGet(() -> new ActorSummary(actorId, DELETED_ACCOUNT_DISPLAY_NAME, null));
     }
 
-    /** Batched form of {@link #resolve(UUID)} for list responses, to avoid one query per row. */
+    // Batched form of resolve(), for list responses — avoids one query per row.
     public Map<UUID, ActorSummary> resolveAll(Collection<UUID> actorIds) {
         Set<UUID> distinctIds = new LinkedHashSet<>();
         for (UUID id : actorIds) {

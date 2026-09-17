@@ -9,8 +9,7 @@ import org.group1.coffeeshopapi.common.enums.StockUnit;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-// No price here — a product has no price of its own; add one or more variants via
-// ProductVariantService after creating it (see ProductPriceResolver).
+// No price here — add one or more variants after creating the product.
 public record CreateProductRequest(
         @NotBlank(message = "Product name is required")
         String name,

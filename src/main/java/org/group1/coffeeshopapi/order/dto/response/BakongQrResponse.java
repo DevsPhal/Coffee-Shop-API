@@ -6,16 +6,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-/**
- * {@code amount} is what the QR actually encodes, already converted for the chosen currency —
- * a KHR code carries whole riel, not the order's USD total. Payment screens should display this
- * rather than converting the total themselves, so the figure shown always matches the figure
- * the customer's wallet will charge.
- * <p>
- * {@code expiresAt} is a zone-less shop-local time, which is fine for display but wrong to count
- * down from on a phone in another timezone. {@code expiresInSeconds} is the same deadline as a
- * duration, so a countdown can be driven from it without knowing either clock's offset.
- */
+// amount is what the QR actually encodes (e.g. whole riel for KHR) — show this, not the order
+// total. expiresInSeconds is the same deadline as expiresAt, but as a duration a phone in any
+// timezone can safely count down from.
 public record BakongQrResponse(
         UUID orderId,
         String qrString,

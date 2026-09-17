@@ -14,8 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// Browsing the menu itself is customer-only in this app (see CustomerProductController) — a
-// customer has to build the same categoryId filter it accepts, so this needs the same access.
+// Used to build the category filter on the customer menu.
 @RestController
 @RequestMapping("/api/customer/categories")
 @RequiredArgsConstructor

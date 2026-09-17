@@ -9,9 +9,8 @@ public record CreateCategoryRequest(
 
         String description,
 
-        // Which cart/order customizations products in this category accept — see
-        // ProductVariantPolicy. Optional: leave null for an internal, non-menu category (e.g.
-        // stock-in raw materials) that customers never order directly.
+        // Which customizations products in this category accept. Leave null for an internal
+        // category customers never order from directly.
         CategoryGroup categoryGroup
 ) {
 }

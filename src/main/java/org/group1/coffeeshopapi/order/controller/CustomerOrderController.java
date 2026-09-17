@@ -55,8 +55,7 @@ public class CustomerOrderController {
                 orderService.getOwnForCustomer(id, currentUser.getId()));
     }
 
-    // The downloadable "link" to this order's receipt once it's COMPLETED — for a customer who
-    // placed the order themselves rather than being handed a printed one in person.
+    // The receipt for a finished order (COMPLETED or DELIVERED).
     @GetMapping(value = "/{id}/receipt", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> getReceipt(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -65,8 +64,7 @@ public class CustomerOrderController {
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
-    // Despite the URL/method name, this applies to delivery orders too — see
-    // OrderService#selectCashOnPickup.
+    // Despite the name, this applies to delivery orders too.
     @PostMapping("/{id}/pay/cash-on-pickup")
     public ApiResponse<OrderResponse> payCashOnPickup(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -90,8 +88,7 @@ public class CustomerOrderController {
                 orderService.confirmBakongPaymentForCustomer(id, currentUser.getId()));
     }
 
-    // A scannable rendering of the QR string generateBakongQr above already produced (and stored
-    // on the order) — that endpoint returns raw payload text a banking app can't scan directly.
+    // Renders the QR string generateBakongQr already produced as a scannable image.
     @GetMapping(value = "/{id}/pay/bakong/qr/image", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getBakongQrImage(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {

@@ -15,10 +15,8 @@ import org.group1.coffeeshopapi.common.enums.AttendanceAuditAction;
 
 import java.util.UUID;
 
-// One row per attendance-affecting action (check-in / check-out / admin backfill / admin
-// correction), attributed to whichever barista or admin performed it — see ActorLookupService.
-// Together these form the audit trail for "who touched this attendance record and when",
-// matching the OrderAuditLog/StockMovement pattern used elsewhere in this codebase.
+// One row per attendance action (check-in, check-out, admin backfill/correction) — who did it and
+// when.
 @Getter
 @Setter
 @Entity

@@ -26,8 +26,8 @@ public class TelegramEventServiceImpl implements TelegramEventService {
 
     private static final DateTimeFormatter EVENT_DATE_FORMAT = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a");
 
-    // Once an event's reminder fires, this just needs to outlive the 24h lookahead window so a
-    // later scheduler run never re-sends it — a week is generous headroom, not a meaningful cost.
+    // How long a "reminder already sent" mark sticks around — just needs to outlive the 24h
+    // lookahead window.
     private static final Duration REMINDER_MARK_TTL = Duration.ofDays(7);
 
     private final EventRepository eventRepository;
@@ -47,9 +47,7 @@ public class TelegramEventServiceImpl implements TelegramEventService {
         for (Event event : events) {
             sendEvent(chatId, event, null);
         }
-        // Each event above is its own message (possibly a photo/location), so the quick-action
-        // keyboard can't ride along with any of them — this trailer is the one place it lands,
-        // keeping the rest of the browsing menu one tap away after the list.
+        // Brings back the quick-action keyboard after the event list.
         apiClient.sendMessageWithButtons(chatId, "Use the buttons below to keep exploring 👇");
     }
 
@@ -82,8 +80,7 @@ public class TelegramEventServiceImpl implements TelegramEventService {
                 continue;
             }
 
-            // Fetched lazily so a lookahead window with nothing new to remind about never queries
-            // the customer table at all.
+            // Fetched lazily so an empty lookahead window skips the customer query entirely.
             if (recipients == null) {
                 recipients = customerRepository.findByTelegramChatIdIsNotNull();
             }
@@ -95,8 +92,8 @@ public class TelegramEventServiceImpl implements TelegramEventService {
         }
     }
 
-    // Sends one event as its own message — a photo with caption when it has a flyer image, plain
-    // HTML text otherwise — followed by a dropped pin when it has a venue location.
+    // Sends one event: a photo with caption if it has a flyer, plain text otherwise, then a map
+    // pin if it has a location.
     private void sendEvent(Long chatId, Event event, String footer) {
         StringBuilder sb = new StringBuilder();
         appendEventBlock(sb, event);

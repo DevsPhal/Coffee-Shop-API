@@ -16,8 +16,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     boolean existsBySkuIgnoreCase(String sku);
     Optional<Product> findBySkuIgnoreCase(String sku);
 
-    // The update-time duplicate check: excludes the product's own row, so re-saving it with the
-    // same SKU it already has isn't flagged as a clash with itself.
+    // Used on update: excludes the product's own row from the duplicate check.
     boolean existsBySkuIgnoreCaseAndIdNot(String sku, UUID id);
     boolean existsByCategoryId(UUID categoryId);
     Page<Product> findByCategoryId(UUID categoryId, Pageable pageable);
@@ -29,12 +28,7 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     List<Product> findByStatusOrderByNameAsc(Status status);
     List<Product> findByCategoryIdAndStatusOrderByNameAsc(UUID categoryId, Status status);
 
-    // "In stock" (quantityOnHand > 0) can't be a derived query method since it compares against
-    // a field on the related Inventory row, not Product itself — hence the explicit JOIN. Backs
-    // every customer-facing catalog read (REST and Telegram alike, see ProductServiceImpl
-    // #listActive / TelegramCatalogServiceImpl): a customer shouldn't see, let alone be able to
-    // add to cart, a product with nothing to sell. The admin catalog (ProductServiceImpl#list)
-    // deliberately doesn't use these — staff still need to see and restock a depleted product.
+    // Only shows products with stock on hand — used for customer-facing catalog reads.
     @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
             "WHERE p.status = :status AND i.quantityOnHand > 0")
     Page<Product> findByStatusAndInStock(@Param("status") Status status, Pageable pageable);

@@ -8,7 +8,7 @@ public record AuthTokenResponse(
         // Milliseconds, kept for clients that already parse this numerically.
         long expiresIn,
 
-        // Same value as expiresIn, broken into days/hours/minutes for display, e.g. "1 day" or "23 hours 59 minutes".
+        // Same value as expiresIn, formatted for display (e.g. "1 day").
         String expiresInReadable
 ) {
 }

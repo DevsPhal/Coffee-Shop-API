@@ -10,9 +10,7 @@ public record FinanceSummaryResponse(
         BigDecimal bakongIn,
         BigDecimal totalIn,
 
-        // The two streams totalOut adds together — broken out so "why is totalOut not zero" is
-        // never a mystery: stockPurchasesOut is never a manual entry, it's auto-recorded the
-        // moment stock is restocked (see InventoryServiceImpl.recordStockPurchaseExpense).
+        // The two streams that add up to totalOut — manual entries vs. auto-recorded stock costs.
         BigDecimal manualExpensesOut,
         BigDecimal stockPurchasesOut,
 

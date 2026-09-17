@@ -7,8 +7,7 @@ import org.group1.coffeeshopapi.common.enums.Status;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// latitude/longitude are optional and must both be given together (see EventServiceImpl.update)
-// — omit both to leave the event's venue pin unchanged.
+// latitude/longitude must be given together, or omitted to leave the venue pin unchanged.
 public record UpdateEventRequest(
         String title,
         String description,

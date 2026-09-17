@@ -6,11 +6,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 
-/**
- * Password change for the signed-in account. The current password is required so a hijacked
- * session cannot lock the real owner out — unlike the forgot-password flow, which proves
- * ownership by email OTP instead.
- */
+// Password change for the signed-in account. Requires the current password so a hijacked
+// session can't lock the real owner out.
 public record ChangePasswordRequest(
         @NotBlank(message = "Current password is required")
         @Schema(example = "Qwert!12@")

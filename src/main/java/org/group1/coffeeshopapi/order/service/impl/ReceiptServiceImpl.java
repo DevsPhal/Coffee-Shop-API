@@ -35,9 +35,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ReceiptServiceImpl implements ReceiptService {
 
-    // An 80mm-wide thermal-receipt page (1mm ≈ 2.83pt) so this prints correctly on a standard POS
-    // receipt printer with no page-size setup needed; height is computed per receipt from its
-    // line count below rather than fixed, since an order can have any number of items.
+    // 80mm-wide thermal-receipt page. Height is computed per receipt from its line count.
     private static final float PAGE_WIDTH = 227f;
     private static final float MARGIN = 14f;
     private static final float LINE_HEIGHT = 14f;
@@ -54,8 +52,8 @@ public class ReceiptServiceImpl implements ReceiptService {
     @Override
     public byte[] generateReceiptPdf(UUID orderId) {
         OrderResponse order = orderService.getAny(orderId);
-        if (order.status() != OrderStatus.COMPLETED) {
-            throw new InvalidOperationException("Only a completed order has a receipt");
+        if (order.status() != OrderStatus.COMPLETED && order.status() != OrderStatus.DELIVERED) {
+            throw new InvalidOperationException("Only a completed or delivered order has a receipt");
         }
         return render(buildLines(order));
     }
@@ -134,8 +132,7 @@ public class ReceiptServiceImpl implements ReceiptService {
         return lines;
     }
 
-    // e.g. "Barista Phal" — the role reads oddly on its own and the name reads oddly without it,
-    // since "who served this" is really the pairing of both.
+    // e.g. "Barista Phal".
     private String servedByLabel(OrderResponse order) {
         if (order.handledByName() == null || order.handledByName().isBlank()) {
             return "-----";
@@ -150,8 +147,6 @@ public class ReceiptServiceImpl implements ReceiptService {
                 : "Walk-in Customer";
     }
 
-    // Matches the wording TelegramInvoiceServiceImpl already uses for a customer-facing payment
-    // summary, so "cash" vs "Bakong KHQR" reads the same everywhere a customer sees it.
     private String paymentLabel(PaymentMethod method) {
         return switch (method) {
             case CASH -> "Cash";
@@ -226,9 +221,7 @@ public class ReceiptServiceImpl implements ReceiptService {
         return sb.toString();
     }
 
-    // Names come from however they were originally typed at signup/hiring — "phal", "SOPHAL NEM",
-    // etc. — so this normalizes any of that to "Phal"/"Sophal Nem" for a consistent, professional
-    // look on the printed receipt regardless of how the account data was entered.
+    // Normalizes however a name was typed at signup (e.g. "SOPHAL NEM") to "Sophal Nem".
     private String titleCase(String text) {
         if (text == null || text.isBlank()) {
             return text;
@@ -261,10 +254,8 @@ public class ReceiptServiceImpl implements ReceiptService {
         return value == null || value.isBlank() ? fallback : value;
     }
 
-    // PDFBox's base-14 fonts have no embedded font behind them, so they only render plain ASCII
-    // reliably — anything outside it (e.g. a name typed in Khmer or another non-Latin script)
-    // would throw at render time. Swapping unsupported characters out instead of failing the
-    // whole receipt is the safer default until this embeds a Unicode-capable font.
+    // These fonts only render plain ASCII — swap out anything else (e.g. Khmer text) rather than
+    // failing the whole receipt.
     private String sanitize(String text) {
         if (text == null) {
             return "";

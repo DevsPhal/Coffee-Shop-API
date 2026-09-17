@@ -24,9 +24,7 @@ import java.util.List;
 @Table(name = "carts", uniqueConstraints = @UniqueConstraint(name = "uk_carts_customer_id", columnNames = "customer_id"))
 public class Cart extends BaseEntity {
 
-    // Always a real Customer — unlike Order.handledBy/StockMovement.performedBy and similar audit
-    // ids elsewhere, this endpoint is customer-only (see CartController/SecurityConfig) and never
-    // reachable by the row-less Super Admin, so a genuine relation is safe here.
+    // Always a real Customer — carts are customer-only, never touched by staff.
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;

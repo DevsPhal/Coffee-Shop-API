@@ -50,7 +50,7 @@ public class BannerServiceImpl implements BannerService {
 
     @Override
     public Page<BannerResponse> list(Pageable pageable) {
-        // admin/updatedByAdmin are batched by Hibernate itself — see Admin's @BatchSize.
+        // admin/updatedByAdmin are batched by Hibernate itself.
         return bannerRepository.findAllByOrderBySortOrderAsc(pageable).map(bannerMapper::toResponse);
     }
 

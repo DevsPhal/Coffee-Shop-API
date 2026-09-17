@@ -53,9 +53,7 @@ public class StaffServiceImpl implements StaffService {
     @Override
     @Transactional
     public UserResponse create(CreateStaffRequest request, Role role, UUID createdBy) {
-        // Created directly by a higher-privileged role, so it's trusted — active immediately, no
-        // OTP verification (unlike createViaTelegram, which isn't trusted until the invitee
-        // proves they own that Telegram chat).
+        // Created by an admin, so it's trusted — active immediately, no OTP step.
         User staff = buildStaff(request, role, createdBy, UserStatus.ACTIVE, RegisterType.EMAIL);
         authUserSyncService.sync(staff);
         return userMapper.toResponse(staff);
@@ -66,9 +64,7 @@ public class StaffServiceImpl implements StaffService {
     public TelegramLinkCodeResponse createViaTelegram(InviteStaffRequest request, Role role, UUID createdBy) {
         User staff = buildInvitedStaff(request, role, createdBy);
         authUserSyncService.sync(staff);
-        // Can't verify them yet — Telegram only allows messaging a chat the invitee has opened.
-        // Returning a link code instead; opening it is what actually prompts them to share their
-        // contact for phone-number verification (see TelegramLinkServiceImpl#resolveLinkCode).
+        // We can't message them yet — Telegram only allows that once they open the link.
         return telegramLinkService.generateLinkCode(staff.getId());
     }
 
@@ -125,10 +121,8 @@ public class StaffServiceImpl implements StaffService {
             default -> throw new IllegalArgumentException("Unsupported staff role: " + role);
         };
         staff.setFullName(request.fullName());
-        // No email/password collected for an invite — login is Telegram-widget-only afterward
-        // (AuthServiceImpl#loginViaTelegramWidget). See TelegramAccountUtil for why both still get
-        // an unguessable placeholder. UserMapper#toResponse hides the placeholder email from API
-        // responses.
+        // No email/password collected for an invite — both get an unguessable placeholder, hidden
+        // from API responses, since login afterward is Telegram-only.
         staff.setEmail(TelegramAccountUtil.placeholderEmail());
         staff.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         staff.setPhoneNumber(request.phoneNumber());
@@ -178,8 +172,7 @@ public class StaffServiceImpl implements StaffService {
         if (request.status() != null) {
             staff.setStatus(request.status());
             if (request.status() != UserStatus.ACTIVE) {
-                // Block new access tokens immediately; JwtAuthFilter's isEnabled() re-check
-                // handles any already-issued access token still inside its lifetime.
+                // Block them from getting a new access token once deactivated.
                 tokenService.revokeRefreshToken(staff.getId());
             }
         }
@@ -189,10 +182,7 @@ public class StaffServiceImpl implements StaffService {
         return userMapper.toResponse(staff);
     }
 
-    // Delegates to the same shared avatar storage every account type uses (see
-    // UserProfileServiceImpl#uploadAvatar) once the target id is confirmed to actually be a
-    // {@code role} account — validating that first, rather than letting UserProfileService blindly
-    // overwrite whatever account that id belongs to, is the whole reason this method exists.
+    // Confirms the id actually belongs to this role before delegating to the shared avatar upload.
     @Override
     public UserResponse uploadAvatar(UUID id, MultipartFile file, Role role) {
         findByIdAndRole(id, role);

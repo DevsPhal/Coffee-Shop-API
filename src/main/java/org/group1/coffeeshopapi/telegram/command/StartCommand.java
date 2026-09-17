@@ -31,16 +31,13 @@ public class StartCommand implements TelegramCommand {
     public String execute(TelegramMessage message, String argument) {
         Long chatId = message.chat().id();
 
-        // No code given — behavior depends entirely on whether this chat is already linked.
+        // No code given — just show whether this chat is already linked.
         if (argument == null || argument.isBlank()) {
             return telegramLinkService.linkedUserName(chatId)
                     .map(this::welcomeBack)
                     .orElse(WELCOME_NOT_LINKED);
         }
 
-        // A code was given — resolveLinkCode itself handles all three outcomes: not linked yet
-        // (links now), already linked to this same account (no-op, says so), or linked to a
-        // different account (switches, unlinking the old one first).
         try {
             return telegramLinkService.resolveLinkCode(argument.trim(), chatId);
         } catch (ApiException ex) {

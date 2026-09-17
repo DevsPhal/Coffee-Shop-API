@@ -1,11 +1,7 @@
 package org.group1.coffeeshopapi.auth.dto.response;
 
-/**
- * Unified login result. Most accounts get {@code otpRequired=true} and must call
- * verify-login-otp next; the super admin account skips OTP entirely and gets {@code tokens}
- * directly from /login. The user-facing message lives in the enclosing ApiResponse envelope,
- * chosen by the controller based on {@code otpRequired}.
- */
+// Most accounts get otpRequired=true and must verify next; the super admin skips OTP and gets
+// tokens directly.
 public record LoginResponse(boolean otpRequired, String loginTicket, AuthTokenResponse tokens) {
 
     public static LoginResponse otpChallenge(String loginTicket) {

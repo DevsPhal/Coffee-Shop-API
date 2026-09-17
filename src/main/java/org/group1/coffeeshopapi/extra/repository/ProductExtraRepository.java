@@ -19,7 +19,6 @@ public interface ProductExtraRepository extends JpaRepository<ProductExtra, UUID
     Optional<ProductExtra> findByProductIdAndExtraId(UUID productId, UUID extraId);
     boolean existsByProductIdAndExtraId(UUID productId, UUID extraId);
 
-    // Used to validate a set of chosen extraIds all belong to (and are active on) one product —
-    // see CartServiceImpl/OrderServiceImpl resolving a cart/order item's extras.
+    // Validates a set of chosen extra ids all belong to and are active on one product.
     List<ProductExtra> findByProductIdAndExtraIdInAndStatus(UUID productId, List<UUID> extraIds, Status status);
 }

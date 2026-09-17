@@ -4,7 +4,6 @@ import java.time.YearMonth;
 
 public interface StockExpenseReportService {
 
-    // Every stock-purchase expense (see InventoryServiceImpl.recordStockPurchaseExpense) recorded
-    // in the given month, as an .xlsx workbook.
+    // Every stock-purchase expense recorded in the given month, as an .xlsx workbook.
     byte[] generateMonthlyReport(YearMonth month);
 }

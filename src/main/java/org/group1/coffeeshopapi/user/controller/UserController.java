@@ -57,13 +57,8 @@ public class UserController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, profile);
     }
 
-    /**
-     * Self-service edit of your own name, phone and gender. Works for every role but the super
-     * admin, so an admin or barista can maintain their own record without a super admin doing it
-     * for them — {@code /api/admin/admins/**} is SUPER_ADMIN-only by design. The super admin's
-     * profile is fixed by configuration (see {@link SuperAdminUserDetails}), so there's nothing
-     * here for it to edit.
-     */
+    // Self-service edit of your own name, phone and gender. Not available to the super admin,
+    // whose profile is fixed by configuration.
     @PatchMapping("/me")
     public ApiResponse<UserResponse> updateMe(
             @Valid @RequestBody UpdateProfileRequest request,
@@ -113,10 +108,8 @@ public class UserController {
         return requireCustomUser(principal, "Super admin does not have an avatar");
     }
 
-    /**
-     * The super admin has no {@code User} row at all (see {@link SuperAdminUserDetails}), so
-     * every self-service write here has to turn it away with a reason the UI can show.
-     */
+    // The super admin has no User row, so every self-service write here turns it away with a
+    // reason the UI can show.
     private CustomUserDetails requireCustomUser(UserDetails principal, String message) {
         if (!(principal instanceof CustomUserDetails customUserDetails)) {
             throw new InvalidOperationException(message);

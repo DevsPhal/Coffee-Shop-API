@@ -90,8 +90,7 @@ public class ProductServiceImpl implements ProductService {
         product.setUpdatedByAdmin(actorAdmin);
         product = productRepository.save(product);
 
-        // Every product gets exactly one inventory record the moment it's created, so stock-in/
-        // stock-cut never has to special-case a product with no inventory row yet.
+        // Every product gets its own inventory record right away.
         Inventory inventory = new Inventory();
         inventory.setProduct(product);
         inventory.setQuantityOnHand(BigDecimal.ZERO);
@@ -115,9 +114,7 @@ public class ProductServiceImpl implements ProductService {
         return toResponsePage(products);
     }
 
-    // Customer-facing only (see CustomerProductController) — also requires actual stock, unlike
-    // list() above, since there's nothing for a customer to buy otherwise. Deliberately not
-    // applied to the admin catalog, which still needs to see (and restock) a depleted product.
+    // Customer-facing: only shows products that are actually in stock.
     @Override
     public Page<ProductResponse> listActive(UUID categoryId, Pageable pageable) {
         Page<Product> products = categoryId != null
@@ -266,24 +263,14 @@ public class ProductServiceImpl implements ProductService {
             Sheet sheet = workbook.getSheetAt(0);
             DataFormatter formatter = new DataFormatter();
 
-            // Row 0 is the header (name, description, sku, stockUnit, price, category,
-            // reorderLevel, variants, sellUnit, unitsPerStock). stockUnit must be one of
-            // StockUnit's names (PACK/BOX/CARTON/PIECE).
+            // Row 0 is the header: name, description, sku, stockUnit, price, category,
+            // reorderLevel, variants, sellUnit, unitsPerStock.
             //
-            // variants (optional) lets one row seed more than the single default MEDIUM size
-            // (see parseVariants): "MEDIUM:1.50;LARGE:1.75". Each name must be one of
-            // VariantLabel's constants (MEDIUM/LARGE/PIECE) — anything else is a row error. When
-            // given, it's the complete set of variants for the row — price is then
-            // optional/ignored, since each pair already carries its own price. When left blank,
-            // price is required and seeds a single "MEDIUM" variant, same as before this column
-            // existed.
+            // variants is optional, e.g. "MEDIUM:1.50;LARGE:1.75" — lets one row set several
+            // sizes at once. If given, price is ignored; if blank, price is required and creates
+            // a single MEDIUM variant.
             //
-            // sellUnit (optional) must be one of SellUnit's names (PLATE/BOTTLE/CAN/CUP/CARTON/
-            // PACKAGE/TANK/PIECE) — defaults to CUP when blank, same default this column used to
-            // be hardcoded to (see db/add-product-sell-unit-columns.sql for the same default used
-            // when this column set was backfilled onto pre-existing rows). unitsPerStock
-            // (optional) is how many sellUnits one stockUnit yields, e.g. a CARTON of 24 CANs ->
-            // 24 — defaults to 1 when blank.
+            // sellUnit defaults to CUP, unitsPerStock defaults to 1, when left blank.
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
                 if (row == null || isRowEmpty(row, formatter)) {
@@ -378,9 +365,7 @@ public class ProductServiceImpl implements ProductService {
                     continue;
                 }
 
-                // Every field above is validated before this point, so this insert cannot fail —
-                // important, because a Postgres constraint violation would abort the whole
-                // transaction and silently fail every row after it.
+                // Everything is validated above, so this save should never fail.
                 Product product = new Product();
                 product.setName(name);
                 product.setDescription(description.isBlank() ? null : description);
@@ -433,10 +418,7 @@ public class ProductServiceImpl implements ProductService {
     private record ParsedVariant(VariantLabel name, BigDecimal price) {
     }
 
-    // "MEDIUM:1.50;LARGE:1.75" -> one ProductVariant per "name:price" pair, in the order given
-    // (that order becomes each variant's sortOrder — see the caller). Each name must be one of
-    // VariantLabel's constants. Throws IllegalArgumentException with a row-error-ready message on
-    // anything malformed, so the caller can just surface it as a ProductImportRowError.
+    // Parses "MEDIUM:1.50;LARGE:1.75" into one variant per pair.
     private List<ParsedVariant> parseVariants(String text) {
         List<ParsedVariant> parsed = new ArrayList<>();
         Set<VariantLabel> namesSeen = new HashSet<>();
@@ -507,9 +489,7 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(product, inventory, variants, extras);
     }
 
-    // Batches variants/extras for a whole page instead of resolving each row individually.
-    // createdByAdmin/updatedByAdmin are batched too, but by Hibernate itself — see Admin's
-    // @BatchSize — rather than anything explicit here.
+    // Loads variants/extras for a whole page in one query each, instead of per row.
     private Page<ProductResponse> toResponsePage(Page<Product> products) {
         List<UUID> productIds = products.stream().map(Product::getId).toList();
 

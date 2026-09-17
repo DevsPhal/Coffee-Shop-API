@@ -13,11 +13,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
 
-/**
- * Renders raw QR payload text (e.g. a KHQR string) into a scannable PNG image — the payment
- * endpoints only ever generate/store the text itself, so this is what turns it into something a
- * banking app's camera can actually read.
- */
+// Renders raw QR payload text (e.g. a KHQR string) into a scannable PNG image.
 public final class QrImageUtil {
 
     private QrImageUtil() {

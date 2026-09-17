@@ -23,9 +23,7 @@ import org.group1.coffeeshopapi.user.entity.User;
 })
 public class Barista extends User {
 
-    // Which admin created this account — null both for pre-existing rows and for one created by
-    // the Super Admin, which deliberately has no row in "admins" to reference (see
-    // CurrentActor.adminRef()).
+    // Which admin created this account. Null if created by the Super Admin instead.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private Admin createdByAdmin;

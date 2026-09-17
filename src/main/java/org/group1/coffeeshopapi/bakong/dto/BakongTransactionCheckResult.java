@@ -2,12 +2,8 @@ package org.group1.coffeeshopapi.bakong.dto;
 
 import java.math.BigDecimal;
 
-/**
- * Outcome of a payment lookup. {@code paid} false has two very different causes that callers
- * must not treat alike: the customer genuinely has not paid yet, or the call never really
- * happened ({@code failed} — expired token, unreachable API). Reporting the second as the first
- * makes a broken integration look like a patient customer.
- */
+// Outcome of a payment lookup. `failed` tells apart "genuinely not paid yet" from "the API call
+// itself didn't work" — treating them the same would hide a broken integration.
 public record BakongTransactionCheckResult(
         boolean paid,
         String transactionHash,

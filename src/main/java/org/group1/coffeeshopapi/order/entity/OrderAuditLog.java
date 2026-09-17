@@ -15,11 +15,9 @@ import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
 
 import java.util.UUID;
 
-// One row per order-handling action (created / cash collected / Bakong confirmed / cancelled),
-// each attributed to whichever admin, barista, or customer performed it — see ActorLookupService.
-// Together these form the audit trail for "who handled/processed/served this order", which
-// Order.handledBy alone can't answer since it's overwritten every time a different staff member
-// touches the order (e.g. barista A rings it up, barista B or an admin later collects the cash).
+// One row per order-handling action (created, cash collected, cancelled, etc.), attributed to
+// whoever performed it. Order.handledBy alone can't answer "who did what" since it gets
+// overwritten each time a different staff member touches the order.
 @Getter
 @Setter
 @Entity

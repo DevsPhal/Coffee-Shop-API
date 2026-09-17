@@ -17,9 +17,7 @@ import java.util.UUID;
 
 public interface OrderService {
 
-    // --- Walk-in (POS) sales — barista or admin, ringing up their own sale. Always a pickup
-    // order (see StaffCreateOrderRequest) — the customer is standing at the counter, so there's
-    // no delivery leg to this. ---
+    // --- Walk-in (POS) sales — barista or admin, ringing up their own sale. Always pickup. ---
 
     OrderResponse create(StaffCreateOrderRequest request, UUID baristaId);
 
@@ -36,53 +34,40 @@ public interface OrderService {
 
     OrderResponse cancel(UUID id, UUID baristaId);
 
-    // Staff (barista or admin) collecting cash in person for a customer's cash-on-pickup order
-    // (not one they created).
+    // Staff collecting cash in person for a customer's cash order they didn't create.
     OrderResponse collectCash(UUID id, UUID actorId, CashPaymentRequest request);
 
-    // The pickup queue: customer cash-on-pickup orders no staff member has claimed yet — what
-    // collectCash above is meant to be called on.
+    // Customer cash orders no staff member has claimed yet.
     Page<OrderResponse> listAwaitingPickup(Pageable pageable);
 
-    // The Bakong counterpart to collectCash: staff confirming/accepting a customer's Bakong-paid
-    // order they didn't create. Checks payment status the same way the customer's own confirm
-    // does, and attributes the order to this staff member once paid.
+    // The Bakong counterpart to collectCash — confirms a customer's Bakong payment on their behalf.
     OrderResponse acceptBakongPayment(UUID id, UUID actorId);
 
-    // The Bakong counterpart to listAwaitingPickup: customer orders with a Bakong QR generated,
-    // still PENDING, that no staff member has claimed yet.
+    // Customer orders with a Bakong QR generated, still unclaimed by staff.
     Page<OrderResponse> listAwaitingBakongConfirmation(Pageable pageable);
 
-    // Staff (barista or admin) evaluating/revising the delivery fee for any still-PENDING delivery
-    // order (not scoped to one they've claimed) — folded into totalAmount immediately. Rejects an
-    // order with no pinned delivery location (see Order.isDelivery) or one already paid for.
+    // Sets/revises the delivery fee on a pending delivery order. Rejects a pickup order or one
+    // already paid.
     OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId);
 
-    // --- Fulfillment (barista or admin, not scoped to who collected payment — see OrderStatus
-    // for the full lifecycle each of these moves an order through) ---
+    // --- Fulfillment (barista or admin, not scoped to who collected payment) ---
 
-    // PAID -> PREPARING, same as always for a Bakong order. A cash order can instead go straight
-    // from PENDING -> PREPARING with no payment yet — the real-world "make it, collect at
-    // handover" flow for cash-on-pickup and cash-on-delivery — cutting stock right here instead of
-    // at PAID, since PAID may never happen for this order. Rejects a still-PENDING Bakong order.
+    // Moves an order to PREPARING. A cash order can start here straight from PENDING, unpaid —
+    // cash may be collected later, at handover. A Bakong order must already be PAID.
     OrderResponse startPreparing(UUID id, UUID actorId);
 
-    // PREPARING -> OUT_FOR_DELIVERY: the order has left the shop with a courier. Delivery orders
-    // only — rejects a pickup order (see Order.isDelivery). A cash order's payment need not be
-    // collected yet — that can happen on arrival.
+    // Moves a delivery order to OUT_FOR_DELIVERY. Rejects a pickup order.
     OrderResponse dispatchForDelivery(UUID id, UUID actorId);
 
-    // OUT_FOR_DELIVERY -> DELIVERED: the courier confirms it arrived. Terminal. Rejects a cash
-    // order whose payment hasn't been collected yet — collect it (collectCash) before delivering.
+    // Marks a delivery as arrived. Rejects a cash order whose payment hasn't been collected yet.
     OrderResponse markDelivered(UUID id, UUID actorId);
 
-    // PREPARING -> COMPLETED: handed to the customer at the counter. Pickup orders only — rejects
-    // a delivery order (dispatch/deliver it instead). Terminal. Rejects a cash order whose payment
-    // hasn't been collected yet — collect it (collectCash) before completing.
+    // Marks a pickup order as handed over. Rejects a delivery order, or a cash order that's
+    // still unpaid.
     OrderResponse completePickup(UUID id, UUID actorId);
 
-    // The kitchen queue: everything a barista can start making right now — orders already PAID,
-    // plus PENDING cash orders that haven't been paid yet but are fair game to start on anyway.
+    // The kitchen queue: PAID orders plus unpaid PENDING cash orders, which are fair game to
+    // start on anyway.
     Page<OrderResponse> listAwaitingPreparation(Pageable pageable);
 
     // The delivery board: everything currently out with a courier, oldest dispatch first.
@@ -90,8 +75,7 @@ public interface OrderService {
 
     // --- Customer self-service orders ---
 
-    // deliveryLatitude/deliveryLongitude are optional and must both be given together — null for
-    // both means a pickup order, the shop's default.
+    // deliveryLatitude/deliveryLongitude must be given together, or not at all (pickup).
     OrderResponse createForCustomer(CreateOrderRequest request, UUID customerId,
             BigDecimal deliveryLatitude, BigDecimal deliveryLongitude);
 
@@ -99,9 +83,8 @@ public interface OrderService {
 
     Page<OrderResponse> listOwnForCustomer(UUID customerId, OrderStatus status, Pageable pageable);
 
-    // Customer picks to pay cash rather than Bakong — works the same for pickup and delivery
-    // orders despite the name. Stays PENDING; a barista may start preparing it before its cash is
-    // ever collected (see startPreparing), with collectCash settling payment whenever it happens.
+    // Customer picks to pay cash rather than Bakong — works for both pickup and delivery despite
+    // the name. Stays PENDING; may get prepared before the cash is actually collected.
     OrderResponse selectCashOnPickup(UUID id, UUID customerId);
 
     BakongQrResponse generateBakongQrForCustomer(UUID id, UUID customerId, Currency currency);
@@ -116,12 +99,9 @@ public interface OrderService {
 
     Page<OrderResponse> listAll(UUID baristaId, UUID customerId, OrderStatus status, Pageable pageable);
 
-    // An admin cancelling any pending order (not scoped to one they created), unlike cancel()
-    // above which only cancels orders the caller themselves rang up.
+    // An admin cancelling any pending order, not just ones they rang up themselves.
     OrderResponse cancelAny(UUID id, UUID actorId);
 
-    // The full handling audit trail for one order — created / cash collected / Bakong confirmed /
-    // cancelled, each with who did it — since handledBy on the order itself only ever holds the
-    // most recent actor.
+    // Full audit trail for one order — who created it, collected payment, cancelled it, etc.
     List<OrderAuditLogResponse> getHistory(UUID orderId);
 }

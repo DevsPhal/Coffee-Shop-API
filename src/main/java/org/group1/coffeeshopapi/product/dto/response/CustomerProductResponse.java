@@ -12,14 +12,8 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Customer-facing menu projection of {@link ProductResponse} — deliberately excludes internal
- * fields (inventory counts, reorder thresholds, and staff audit identities) that {@code
- * ProductResponse} carries for the admin catalog view but that a customer has no business seeing.
- * categoryGroup is kept, unlike those — the app needs it to decide whether to show
- * size/sugar/ice/milk pickers, a size-only picker, or nothing at all for this product (see
- * ProductVariantPolicy).
- */
+// Customer-facing menu view of a product — leaves out internal fields like inventory counts and
+// staff audit info that only the admin catalog needs.
 public record CustomerProductResponse(
         UUID id,
         String name,

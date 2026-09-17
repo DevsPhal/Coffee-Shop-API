@@ -13,12 +13,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-// Turns the extraIds a caller asked for (on a cart item or an order item) into the actual Extra
-// rows to price/snapshot — every id must be offered (and currently active) on this specific
-// product, i.e. present in activeAttached (see ProductExtra), otherwise the whole request is
-// rejected rather than silently dropping the bad one(s). Shared by CartServiceImpl (add/update) and
-// OrderServiceImpl (checkout's re-validation and a barista/admin's direct walk-in sale) so both
-// stay in lockstep — same reasoning as, and lives alongside, ProductPriceResolver/ProductVariantPolicy.
+// Turns requested extra ids into actual Extra rows. Every id must be offered and active on the
+// product, or the whole request is rejected.
 public final class ProductExtraResolver {
     private ProductExtraResolver() {}
 
@@ -43,8 +39,7 @@ public final class ProductExtraResolver {
                 throw new InvalidOperationException(
                         "One or more extras aren't available on '" + product.getName() + "'");
             }
-            // Null quantityOnHand means this extra isn't stock-tracked — always available (see
-            // Extra.quantityOnHand); only an explicit zero-or-less blocks it.
+            // Null means not stock-tracked — always available.
             if (extra.getQuantityOnHand() != null && extra.getQuantityOnHand().signum() <= 0) {
                 throw new InvalidOperationException("'" + extra.getName() + "' is out of stock");
             }

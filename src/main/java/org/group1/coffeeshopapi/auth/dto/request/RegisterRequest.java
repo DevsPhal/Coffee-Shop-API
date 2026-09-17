@@ -10,7 +10,7 @@ import org.group1.coffeeshopapi.common.enums.Gender;
 
 public record RegisterRequest(
         @NotBlank(message = "Full name is required")
-        @Schema(example = "Customer Vip")
+        @Schema(example = "Customer")
         String fullName,
 
         @NotBlank(message = "Email is required")

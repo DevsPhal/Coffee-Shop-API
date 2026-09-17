@@ -51,13 +51,8 @@ public class OrderItem extends BaseEntity {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal subtotal;
 
-    // Live relation to the chosen variant — same as CartItem.variant. Optional, since not
-    // every product is a customizable drink. Unlike productName, this is not also snapshotted as
-    // a string: a variant can't be deleted while any order still references it (a delete
-    // attempt is rejected — see GlobalExceptionHandler's DataIntegrityViolationException handler),
-    // so the relation can't dangle; renaming one does change how past orders display it. Column
-    // stays "size_option_id" — see ProductVariant's javadoc on why the Java-side rename doesn't
-    // touch physical schema.
+    // The chosen variant, if any — not every product is customizable. A variant can't be deleted
+    // while any order still references it, so this relation never dangles.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "size_option_id")
     private ProductVariant variant;
@@ -74,8 +69,7 @@ public class OrderItem extends BaseEntity {
     @Column(length = 20)
     private MilkType milkType;
 
-    // Extras (e.g. Pearl) the customer added — snapshotted per row, same reasoning as productName
-    // above. unitPrice/subtotal already include each extra's price (see OrderServiceImpl.buildOrder).
+    // Extras (e.g. Pearl) the customer added. unitPrice/subtotal already include their price.
     @OneToMany(mappedBy = "orderItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<OrderItemExtra> extras = new ArrayList<>();
 

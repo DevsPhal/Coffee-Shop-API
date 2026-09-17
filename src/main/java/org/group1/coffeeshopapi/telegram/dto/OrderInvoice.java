@@ -12,23 +12,17 @@ public record OrderInvoice(
         UUID orderId,
         List<OrderInvoiceLineItem> items,
 
-        // Null for a walk-in/pickup order; set for a delivery order — shown as its own line
-        // alongside the items subtotal so totalAmount (which already includes it) never looks
-        // like it doesn't add up to what's itemized above it.
+        // Null for pickup; set for delivery.
         BigDecimal deliveryFee,
 
         BigDecimal totalAmount,
         PaymentMethod paymentMethod,
 
-        // Set only when paymentMethod is BAKONG and the QR wasn't generated in USD — the amount
-        // actually charged in that currency (see Order.bakongAmount), shown alongside totalAmount
-        // (always USD) so the invoice makes sense regardless of which currency was paid.
+        // Set only when paid by Bakong in a non-USD currency.
         Currency bakongCurrency,
         BigDecimal bakongAmount,
 
-        // Set only when paymentMethod is CASH — how much the customer actually handed over
-        // (amountTenderedCurrency says whether that's USD or KHR, see CashPaymentRequest) and the
-        // USD change given back (see Order.changeDue). Null for any other payment method.
+        // Set only when paid in cash: how much was handed over and the USD change given back.
         BigDecimal amountTendered,
         Currency amountTenderedCurrency,
         BigDecimal changeDue,

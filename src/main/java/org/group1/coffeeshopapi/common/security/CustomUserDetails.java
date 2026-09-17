@@ -59,9 +59,7 @@ public class CustomUserDetails implements UserDetails {
         return true;
     }
 
-    // Only an ACTIVE account can authenticate — PENDING_VERIFICATION, DEACTIVATED, SUSPENDED,
-    // BANNED, and DELETED all block login the same way (re-checked on every request, not just at
-    // login — see JwtAuthFilter).
+    // Only an ACTIVE account can log in or stay logged in.
     @Override
     public boolean isEnabled() {
         return user.getStatus() == UserStatus.ACTIVE;

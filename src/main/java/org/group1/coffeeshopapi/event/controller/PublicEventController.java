@@ -13,8 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// No auth required — the Telegram bot's /events command already serves this same content to
-// anyone, linked account or not (see EventsCommand), same as PublicBannerController.
+// No auth required — anyone can see upcoming events.
 @RestController
 @RequestMapping("/api/events")
 @RequiredArgsConstructor

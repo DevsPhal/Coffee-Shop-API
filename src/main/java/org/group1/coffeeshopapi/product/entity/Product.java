@@ -49,14 +49,11 @@ public class Product extends BaseEntity {
     @Column(nullable = false)
     private SellUnit sellUnit;
 
-    // How many sell units one stock unit yields, e.g. a CARTON of 24 CANs -> 24. Used to cut
-    // inventory by the right amount when an order sells sellUnit-denominated quantities.
+    // How many sell units one stock unit yields, e.g. a CARTON of 24 CANs -> 24.
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal unitsPerStock = BigDecimal.ONE;
 
-    // A product has no price of its own — every price comes from one of its ProductVariant
-    // rows (see ProductPriceResolver). Discount config below still lives here since it applies
-    // uniformly to whichever variant prices a given line.
+    // A product has no price of its own — every price comes from one of its variants.
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
@@ -80,9 +77,7 @@ public class Product extends BaseEntity {
     @Column
     private LocalDateTime discountEndAt;
 
-    // Which admin created or last modified this product — null both for pre-existing rows (from
-    // before this tracking existed) and for a change made by the Super Admin, which deliberately
-    // has no row in "admins" to reference (see CurrentActor.adminRef()).
+    // Which admin created or last modified this product — null if it was the Super Admin.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private Admin createdByAdmin;

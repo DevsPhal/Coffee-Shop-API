@@ -43,11 +43,8 @@ public class CartItem extends BaseEntity {
     @Column(nullable = false)
     private Integer quantity;
 
-    // Variant selection — all optional, since not every product is a customizable drink. Held as
-    // a live relation (unlike OrderItem, which snapshots these at checkout) because CartItem
-    // prices are computed live from the product/size until checkout — see the Cart javadoc.
-    // Column stays "size_option_id" — see ProductVariant's javadoc on why the Java-side rename
-    // doesn't touch physical schema.
+    // Optional — not every product is customizable. A live relation, since cart prices are
+    // computed live until checkout (unlike an order, which snapshots them).
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "size_option_id")
     private ProductVariant variant;
@@ -64,17 +61,11 @@ public class CartItem extends BaseEntity {
     @Column(length = 20)
     private MilkType milkType;
 
-    // Which extras (e.g. Pearl) the customer opted to add — a plain yes/no toggle per extra, not
-    // a quantity. Held live (like variant) rather than snapshotted, since CartItem prices are
-    // computed live until checkout — see the Cart javadoc and OrderItemExtra for the snapshot.
-    // Its own entity/table (CartItemExtra), same as ProductExtra/OrderItemExtra, rather than a bare
-    // join table — keeps every "who's linked to this extra" relation modeled the same way.
+    // Which extras (e.g. Pearl) were added — a yes/no toggle per extra, not a quantity.
     @OneToMany(mappedBy = "cartItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItemExtra> extras = new ArrayList<>();
 
-    // Replaces the whole selection in one go — orphanRemoval clears whatever was there before, one
-    // CartItemExtra row per extra chosen. Used by both addItem (a fresh item) and updateItem
-    // (replacing an existing one); an empty set clears every extra off this item.
+    // Replaces the whole selection in one go — an empty set clears every extra off this item.
     public void setExtraSelection(Set<Extra> selected) {
         extras.clear();
         for (Extra extra : selected) {
@@ -85,9 +76,7 @@ public class CartItem extends BaseEntity {
         }
     }
 
-    // Reads the selection back as plain Extra entities — what pricing, the same-line-item
-    // comparison, and checkout's forward-to-order-item all actually need, without every caller
-    // re-deriving it from the CartItemExtra rows themselves.
+    // Reads the selection back as plain Extra entities.
     public Set<Extra> getSelectedExtras() {
         return extras.stream().map(CartItemExtra::getExtra).collect(Collectors.toCollection(LinkedHashSet::new));
     }

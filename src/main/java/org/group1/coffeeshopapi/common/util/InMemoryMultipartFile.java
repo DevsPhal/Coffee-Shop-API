@@ -9,11 +9,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-/**
- * In-memory {@link MultipartFile} wrapping already-decoded bytes, used to hand processed image
- * data (e.g. output of {@link ImageResizer}) back into APIs that only accept a
- * {@link MultipartFile}.
- */
+// A MultipartFile backed by in-memory bytes, for handing already-processed data (e.g. a resized
+// image) to code that expects a MultipartFile.
 public class InMemoryMultipartFile implements MultipartFile {
 
     private final String name;

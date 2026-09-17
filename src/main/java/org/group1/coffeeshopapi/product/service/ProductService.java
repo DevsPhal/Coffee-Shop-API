@@ -12,7 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
-// actorAdmin is null when the Super Admin is the one acting — see CurrentActor.adminRef().
+// actorAdmin is null when the Super Admin is the one acting.
 public interface ProductService {
     ProductResponse create(CreateProductRequest request, Admin actorAdmin);
     ProductResponse getById(UUID id);
@@ -29,9 +29,7 @@ public interface ProductService {
     ProductResponse uploadImage(UUID id, MultipartFile file, Admin actorAdmin);
     ProductResponse removeImage(UUID id, Admin actorAdmin);
 
-    // Bulk-creates products from an .xlsx sheet (columns: name, description, sku, unit, price,
-    // category name, reorder level). Rows that fail validation are skipped and reported, valid
-    // rows are still committed — see ProductServiceImpl for why this is safe against Postgres's
-    // abort-whole-transaction-on-error behavior.
+    // Bulk-creates products from an .xlsx sheet. Rows that fail validation are skipped and
+    // reported; valid rows are still created.
     ProductImportResponse importFromExcel(MultipartFile file, Admin actorAdmin);
 }

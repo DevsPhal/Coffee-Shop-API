@@ -45,12 +45,8 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, message, result));
     }
 
-    // No email/password at all — the official Telegram Login Widget signs this payload itself
-    // (https://core.telegram.org/widgets/login), so a valid signature is proof enough of identity.
-    // One request, one response — unlike the bot-code flow this replaces, there's no polling step.
-    // Register-or-login: a first-time Telegram id becomes a new Customer on the spot (see
-    // AuthServiceImpl#registerCustomerViaTelegram) rather than an error — one button covers both a
-    // brand-new customer and one logging back in.
+    // Logs in via the Telegram Login Widget — no email/password needed. A first-time Telegram id
+    // registers a new customer on the spot instead of erroring.
     @PostMapping("/login/telegram")
     public ResponseEntity<ApiResponse<AuthTokenResponse>> loginViaTelegramWidget(
             @Valid @RequestBody TelegramWidgetAuthRequest request) {
