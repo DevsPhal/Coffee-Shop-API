@@ -11,7 +11,7 @@ import java.util.UUID;
 
 // Resolves the id of whoever is making the current request — a real Admin/Barista/Customer, or
 // the Super Admin, which has no database row of its own. Use this on any endpoint the Super Admin
-// can reach, instead of binding straight to CustomUserDetails (which would be null for them).
+// can reach.
 @Component
 @RequiredArgsConstructor
 public class CurrentActor {

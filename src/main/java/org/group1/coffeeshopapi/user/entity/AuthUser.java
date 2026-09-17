@@ -18,8 +18,7 @@ import org.group1.coffeeshopapi.common.enums.UserStatus;
 import java.util.UUID;
 
 // One row per account (admin, barista, customer, or the super admin), so any caller can list or
-// search every account in one place without knowing the role ahead of time. Kept in sync by
-// AuthUserSyncService whenever the source account is created or changed.
+// search every account in one place without knowing the role ahead of time.
 @Getter
 @Setter
 @Entity

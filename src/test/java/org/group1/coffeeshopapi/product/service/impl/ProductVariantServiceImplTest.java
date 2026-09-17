@@ -26,10 +26,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the one-variant-name-per-product uniqueness rule — untested before. See
- * ProductVariantServiceImpl.
- */
+// Covers the one-variant-name-per-product uniqueness rule.
 @ExtendWith(MockitoExtension.class)
 class ProductVariantServiceImplTest {
 

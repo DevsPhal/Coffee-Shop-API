@@ -14,9 +14,8 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// toResponse() itself is plain field-for-field mapping, not worth a test of its own — this only
-// covers toCustomerResponse's one bit of real logic: hiding an out-of-stock extra from the
-// customer view (see Extra.quantityOnHand / ProductMapper#inStockOnly).
+// Plain field-for-field mapping isn't worth a test of its own — this only covers the one bit of
+// real logic: hiding an out-of-stock extra from the customer view.
 class ProductMapperTest {
 
     private final ProductMapper mapper = new ProductMapperImpl();

@@ -26,13 +26,8 @@ import java.util.List;
 import java.util.UUID;
 
 // A staff-rung POS sale (handledBy set, no customer) or a customer's own order (customer set).
-// A cash order can start being prepared before it's actually paid — payment may be collected
-// up front or at handover. handledBy is set the first time staff touches the order, whichever
-// comes first.
-//
-// Stock is cut exactly once per order: at PAID, or at PREPARING if a cash order got there
-// unpaid. paidAt (not status) is the real signal for "has this been paid" — a PREPARING or
-// OUT_FOR_DELIVERY cash order can still have it null.
+// A cash order can start being prepared before it's actually paid, so paidAt — not status — is
+// the real signal for whether it's been paid.
 @Getter
 @Setter
 @Entity

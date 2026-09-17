@@ -19,9 +19,6 @@ import java.math.BigDecimal;
 
 // A per-product variant choice (e.g. Medium/Large), each with its own price. A product has no
 // price of its own — every price comes from one of these rows.
-//
-// The table is still named "product_size_options" (this class was renamed from
-// ProductSizeOption) — kept as-is to avoid orphaning existing data on deploy.
 @Getter
 @Setter
 @Entity

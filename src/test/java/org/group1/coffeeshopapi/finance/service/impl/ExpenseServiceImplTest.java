@@ -21,10 +21,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the one real bit of logic in an otherwise thin CRUD service — defaulting expenseDate to
- * today when omitted — untested before. See ExpenseServiceImpl.
- */
+// Covers the one real bit of logic in an otherwise thin CRUD service: defaulting the expense
+// date to today when omitted.
 @ExtendWith(MockitoExtension.class)
 class ExpenseServiceImplTest {
 

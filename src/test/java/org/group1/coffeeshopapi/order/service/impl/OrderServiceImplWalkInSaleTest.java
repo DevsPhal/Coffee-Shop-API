@@ -45,12 +45,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * A walk-in sale rung up by staff (admin or barista) is always served in person at the counter —
- * there's no courier, no GPS pin, and StaffCreateOrderRequest has no delivery option to begin
- * with. This just confirms the resulting order actually lands as a plain pickup order rather than
- * silently defaulting to something else. See StaffCreateOrderRequest / OrderServiceImpl#create.
- */
+// A walk-in sale rung up by staff is always served in person at the counter — confirms it lands
+// as a plain pickup order instead of silently defaulting to something else.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplWalkInSaleTest {
 

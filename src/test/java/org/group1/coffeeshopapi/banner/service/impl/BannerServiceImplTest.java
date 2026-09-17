@@ -22,11 +22,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the two bits of real logic in an otherwise thin CRUD service — the default sort order
- * and the delete-previous-image-on-replace/remove behavior — untested before. See
- * BannerServiceImpl.
- */
+// Covers the two bits of real logic in an otherwise thin CRUD service: the default sort order
+// and deleting the previous image on replace/remove.
 @ExtendWith(MockitoExtension.class)
 class BannerServiceImplTest {
 

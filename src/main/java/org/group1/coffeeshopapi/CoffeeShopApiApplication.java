@@ -14,12 +14,8 @@ import java.util.TimeZone;
 @EnableJpaAuditing
 public class CoffeeShopApiApplication {
 
-    // Every bare LocalDate(Time).now() in the codebase, plus BaseEntity's @CreatedDate/
-    // @LastModifiedDate auditing, resolves "now" against the JVM's default zone. Fixing it once
-    // here — before anything else in the app runs — keeps all of them (report/expense "today"
-    // defaults, order.paidAt, createdAt/updatedAt, ...) consistently on the shop's real-world
-    // clock (see application.yml's bakong.merchant-city) regardless of what timezone the host
-    // OS/container happens to be set to.
+    // Pins the JVM's default timezone to the shop's real-world clock, so every date/time
+    // field stays correct no matter what timezone the host is set to.
     static {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Phnom_Penh"));
     }

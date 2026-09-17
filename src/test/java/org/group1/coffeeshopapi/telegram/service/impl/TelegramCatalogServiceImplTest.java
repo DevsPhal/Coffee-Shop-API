@@ -25,11 +25,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the Telegram catalog message formatting — cheapest-variant pricing with the "from"
- * prefix, discount badges, and the empty-catalog/unknown-category messages — untested before. See
- * TelegramCatalogServiceImpl.
- */
+// Covers the Telegram catalog message formatting: cheapest-variant pricing with the "from"
+// prefix, discount badges, and the empty-catalog/unknown-category messages.
 @ExtendWith(MockitoExtension.class)
 class TelegramCatalogServiceImplTest {
 

@@ -42,11 +42,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Focused on the new extra-stock deduction {@code markPaid} does on top of the existing product
- * stockCut — not a general OrderServiceImpl test (the class has far too much surface for that
- * here). See Extra.quantityOnHand / ProductExtraResolver for the rest of this feature.
- */
+// Covers the extra-stock deduction that happens on top of the regular product stock cut when
+// an order is paid.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplExtraStockTest {
 
@@ -144,7 +141,7 @@ class OrderServiceImplExtraStockTest {
     void payingCashLeavesAnUntrackedExtraAloneAndNeverSavesIt() {
         Extra untracked = new Extra();
         untracked.setId(UUID.randomUUID());
-        // quantityOnHand left null on purpose — see Extra.quantityOnHand.
+        // Left null on purpose — null means this extra's stock isn't tracked.
 
         OrderItemExtra orderItemExtra = new OrderItemExtra();
         orderItemExtra.setExtra(untracked);

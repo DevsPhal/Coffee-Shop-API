@@ -23,9 +23,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
-// Covers which order states may get a printed document. A receipt needs the order fully
-// finished (COMPLETED or DELIVERED); an invoice only needs it paid — see
-// ReceiptServiceImpl#generateReceiptPdf/generateInvoicePdf.
+// Covers which order states may get a printed document: a receipt needs the order fully
+// finished, while an invoice only needs it paid.
 @ExtendWith(MockitoExtension.class)
 class ReceiptServiceImplTest {
 

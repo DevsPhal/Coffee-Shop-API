@@ -29,11 +29,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the Telegram account-linking security checks — contact-card spoofing rejection and
- * phone-number matching for a staff invite — neither of which had test coverage before. See
- * TelegramLinkServiceImpl#resolveLinkCode/verifyPendingContact.
- */
+// Covers the Telegram account-linking security checks: contact-card spoofing rejection and
+// phone-number matching for a staff invite.
 @ExtendWith(MockitoExtension.class)
 class TelegramLinkServiceImplTest {
 

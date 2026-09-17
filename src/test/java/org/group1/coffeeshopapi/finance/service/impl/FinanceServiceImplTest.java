@@ -24,10 +24,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the daily/monthly/yearly money-in vs money-out summary math — none of which had test
- * coverage before, despite backing the shop's core financial reporting. See FinanceServiceImpl.
- */
+// Covers the daily/monthly/yearly money-in vs. money-out summary math behind the shop's
+// financial reporting.
 @ExtendWith(MockitoExtension.class)
 class FinanceServiceImplTest {
 

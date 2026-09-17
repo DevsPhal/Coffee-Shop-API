@@ -71,11 +71,9 @@ class StaffCreationIntegrationTest {
         assertThat(passwordEncoder.matches(PASSWORD, stored.getPassword())).isTrue();
         assertThat(authUserRepository.findById(id).orElseThrow().getRole()).isEqualTo(targetRole);
 
-        // Admin.createdBy is a plain audit id, so it still captures the Super Admin's reserved id
-        // even though the Super Admin has no row of its own (see Admin's javadoc). Barista
-        // .createdByAdmin is a real FK to "admins" instead, and there's nothing there for it to
-        // point to (see AdminRepository#referenceOrNull) — null is the correct, documented
-        // outcome for a Super-Admin-created barista, not a bug.
+        // An admin created by the Super Admin still records its reserved id. A barista can't,
+        // since that link is a real foreign key and the Super Admin has no row to point to —
+        // null here is expected, not a bug.
         if (targetRole == Role.ADMIN) {
             assertThat(data.at("/createdBy").asText()).isEqualTo(SuperAdminUserDetails.ID.toString());
         } else {
