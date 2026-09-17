@@ -46,12 +46,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the cash-on-delivery/pickup real-business flow: a cash order can be prepared before its
- * cash is ever collected, so payment (paidAt) and fulfillment progress (OrderStatus) are no
- * longer the same signal. A Bakong order is unaffected — it still has to clear before prep starts,
- * since there's no in-person moment to fall back on. See OrderServiceImpl#startPreparing/markPaid.
- */
+// Covers the cash-on-delivery/pickup flow: a cash order can start being prepared before its
+// cash is actually collected, so payment and fulfillment progress aren't the same signal.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplFulfillmentFlowTest {
 

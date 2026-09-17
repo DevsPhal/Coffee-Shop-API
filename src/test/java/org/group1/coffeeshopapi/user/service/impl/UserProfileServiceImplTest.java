@@ -31,11 +31,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers profile self-service — the blank-phone-clears convention, duplicate-phone handling, and
- * the password-change safety checks (wrong current password, new == old, refresh token
- * revocation) — none of which had test coverage before. See UserProfileServiceImpl.
- */
+// Covers profile self-service: the blank-phone-clears convention, duplicate-phone handling, and
+// the password-change safety checks.
 @ExtendWith(MockitoExtension.class)
 class UserProfileServiceImplTest {
 

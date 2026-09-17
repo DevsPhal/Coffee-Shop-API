@@ -21,10 +21,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the Redis-backed login ticket / refresh token / denylist bookkeeping — security-critical
- * and, until now, untested. See TokenServiceImpl.
- */
+// Covers the Redis-backed login ticket / refresh token / denylist bookkeeping — security-critical
+// and previously untested.
 @ExtendWith(MockitoExtension.class)
 class TokenServiceImplTest {
 

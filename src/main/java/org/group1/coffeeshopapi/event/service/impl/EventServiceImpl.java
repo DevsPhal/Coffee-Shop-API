@@ -68,7 +68,7 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public Page<EventResponse> list(Pageable pageable) {
-        // createdByAdmin is batched by Hibernate itself — see Admin's @BatchSize.
+        // createdByAdmin loads batched, not N+1, across this page's rows.
         return eventRepository.findAll(pageable).map(eventMapper::toResponse);
     }
 

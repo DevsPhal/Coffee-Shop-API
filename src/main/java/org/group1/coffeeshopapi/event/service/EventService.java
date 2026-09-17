@@ -12,7 +12,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.UUID;
 
-// actorAdmin is null when the Super Admin is the one acting — see CurrentActor.adminRef().
+// actorAdmin is null when the Super Admin is the one acting.
 public interface EventService {
     EventResponse create(CreateEventRequest request, Admin actorAdmin);
     EventResponse getById(UUID id);

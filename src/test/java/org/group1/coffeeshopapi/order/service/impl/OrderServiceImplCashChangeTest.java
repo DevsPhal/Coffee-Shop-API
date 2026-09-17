@@ -39,7 +39,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 // Change is given back in whichever currency the customer wants — normally whatever they
-// tendered in, but they can ask for the other one instead. See OrderServiceImpl#chargeCash.
+// tendered in, but they can ask for the other one instead.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplCashChangeTest {
 

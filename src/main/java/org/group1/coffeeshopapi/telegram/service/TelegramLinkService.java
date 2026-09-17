@@ -7,8 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 // Links a Telegram chat to a Customer, Admin, or Barista account. A staff account invited via
-// Telegram isn't activated on link alone — it must also confirm its phone number first, via
-// verifyPendingContact.
+// Telegram isn't activated on link alone — it must also confirm its phone number first.
 public interface TelegramLinkService {
     TelegramLinkCodeResponse generateLinkCode(UUID userId);
 

@@ -27,13 +27,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/**
- * The super admin has no {@code User} row and its profile is fixed by configuration (see
- * {@link SuperAdminUserDetails}) — every self-service write endpoint here has to turn it away
- * instead of touching {@link UserProfileService}, while a real account's requests pass straight
- * through. Exercised as a plain unit test (no MockMvc/Spring context) since the branching is on
- * the resolved {@code UserDetails} type, not on HTTP concerns.
- */
+// The super admin has no real user row and a fixed, config-driven profile, so every
+// self-service write endpoint here has to turn it away instead of applying the change.
 @ExtendWith(MockitoExtension.class)
 class UserControllerTest {
 

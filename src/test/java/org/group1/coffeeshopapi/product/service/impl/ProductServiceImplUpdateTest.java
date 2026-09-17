@@ -29,11 +29,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers UpdateProductRequest.sku — a product's SKU could be set at creation but never corrected
- * afterward until this field was added to the update request. See UpdateProductRequest /
- * ProductServiceImpl#update.
- */
+// Covers updating a product's SKU — it could be set at creation but never corrected afterward
+// until this field was added to the update request.
 @ExtendWith(MockitoExtension.class)
 class ProductServiceImplUpdateTest {
 

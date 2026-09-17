@@ -25,10 +25,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the OTP verification lockout/cooldown logic — security-critical and, until now,
- * untested. See OtpServiceImpl#verify/generateAndSend/resend.
- */
+// Covers the OTP verification lockout/cooldown logic — security-critical and previously untested.
 @ExtendWith(MockitoExtension.class)
 class OtpServiceImplTest {
 

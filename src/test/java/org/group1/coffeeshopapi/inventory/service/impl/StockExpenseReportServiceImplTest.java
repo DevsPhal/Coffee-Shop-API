@@ -24,10 +24,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the generated Excel report's shape — header row, one row per expense, and a correctly
- * summed total row — untested before. See StockExpenseReportServiceImpl.
- */
+// Covers the generated Excel report's shape: header row, one row per expense, and a correctly
+// summed total row.
 @ExtendWith(MockitoExtension.class)
 class StockExpenseReportServiceImplTest {
 

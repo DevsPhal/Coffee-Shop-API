@@ -38,10 +38,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the FIFO/LIFO stock-cut algorithm and stock-in bookkeeping — the core of the inventory
- * module and, until now, entirely untested. See InventoryServiceImpl#stockCut/stockIn.
- */
+// Covers the FIFO/LIFO stock-cut algorithm and stock-in bookkeeping — the core of the inventory
+// module.
 @ExtendWith(MockitoExtension.class)
 class InventoryServiceImplTest {
 

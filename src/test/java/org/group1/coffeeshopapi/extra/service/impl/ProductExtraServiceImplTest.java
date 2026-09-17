@@ -23,10 +23,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-/**
- * Covers the one-attachment-per-product-per-extra uniqueness rule — untested before. See
- * ProductExtraServiceImpl.
- */
+// Covers the one-attachment-per-product-per-extra uniqueness rule.
 @ExtendWith(MockitoExtension.class)
 class ProductExtraServiceImplTest {
 

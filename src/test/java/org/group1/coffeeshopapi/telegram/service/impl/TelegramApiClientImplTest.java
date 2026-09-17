@@ -7,12 +7,8 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-/**
- * No bot token is configured in any test profile, so every call here takes the same early-return
- * path as the existing sendMessage/sendContactRequest methods (see TelegramApiClientImpl#call) —
- * this only guards that sendPhoto/sendLocation follow that same no-token-configured contract
- * instead of NPEing on a null bot token.
- */
+// No bot token is configured in tests, so this just guards that every send method takes the
+// same early-return path instead of NPEing on a null token.
 class TelegramApiClientImplTest {
 
     private final TelegramApiClientImpl client = new TelegramApiClientImpl(new TelegramProperties());
