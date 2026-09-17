@@ -10,19 +10,8 @@ public interface AuthService {
     void verifyRegistration(VerifyRegistrationRequest request);
     LoginResponse login(LoginRequest request);
 
-    /**
-     * Authenticates via the official Telegram Login Widget
-     * (https://core.telegram.org/widgets/login) — no email/password at all. Telegram itself signs
-     * the payload with the bot's secret token, so verifying that signature (see
-     * TelegramWidgetAuthVerifier) is proof enough of identity; there's no separate password or OTP
-     * step. Register-or-login: if the signed Telegram id is already linked to an account (email
-     * {@link #register} + linking Telegram from its profile — see
-     * TelegramLinkService#generateLinkCode — or an admin/super-admin-created staff account invited
-     * via Telegram — see StaffService#createViaTelegram), this just logs it in; otherwise a brand
-     * new Customer is created on the spot, active immediately. Always Role.CUSTOMER when creating
-     * — there's no way to request ADMIN/BARISTA this way, and never should be; those stay
-     * invite-only.
-     */
+    // Logs in via the Telegram Login Widget — no email/password. Registers a new customer on the
+    // spot if this Telegram id isn't linked to an account yet, otherwise just logs it in.
     AuthTokenResponse loginViaTelegramWidget(TelegramWidgetAuthRequest request);
 
     AuthTokenResponse verifyLoginOtp(VerifyLoginOtpRequest request);

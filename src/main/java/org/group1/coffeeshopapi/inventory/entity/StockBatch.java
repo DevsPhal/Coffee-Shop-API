@@ -13,11 +13,8 @@ import org.group1.coffeeshopapi.product.entity.Product;
 
 import java.math.BigDecimal;
 
-/**
- * A single stock receipt ("lot") for a product. {@code remainingQuantity} is drawn down as
- * stock is cut; {@code createdAt} (inherited, immutable) is the FIFO/LIFO ordering key — the
- * oldest batch by {@code createdAt} is consumed first under FIFO, the newest first under LIFO.
- */
+// One stock receipt ("lot") for a product. remainingQuantity is drawn down as stock is cut, oldest
+// batch first under FIFO or newest first under LIFO.
 @Getter
 @Setter
 @Entity

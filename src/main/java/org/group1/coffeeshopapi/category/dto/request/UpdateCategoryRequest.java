@@ -8,8 +8,7 @@ public record UpdateCategoryRequest(
         String description,
         Status status,
 
-        // See CreateCategoryRequest.categoryGroup — null here means "leave unchanged", same as
-        // every other field on this request.
+        // Null means leave unchanged, same as every other field here.
         CategoryGroup categoryGroup
 ) {
 }

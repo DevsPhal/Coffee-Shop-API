@@ -107,9 +107,7 @@ public class InventoryServiceImpl implements InventoryService {
         return toResponse(movement);
     }
 
-    // The "money out" side of a stock-in — every purchase becomes a StockExpense row so admin
-    // reporting (see ReportServiceImpl's monthly expense export) never has to re-derive spend from
-    // stock movements/batches by hand.
+    // Records the money side of a stock-in, so reporting doesn't have to re-derive spend by hand.
     private void recordStockPurchaseExpense(Product product, StockMovement movement, BigDecimal quantity, BigDecimal unitCost) {
         StockExpense expense = new StockExpense();
         expense.setProduct(product);
@@ -136,11 +134,8 @@ public class InventoryServiceImpl implements InventoryService {
             Sheet sheet = workbook.getSheetAt(0);
             DataFormatter formatter = new DataFormatter();
 
-            // Row 0 is the header (sku, quantity, unitCost, note). Each valid row runs through
-            // stockIn(...) exactly like one manual receipt — same new StockBatch, StockMovement
-            // and StockExpense side effects (see stockIn/recordStockPurchaseExpense above) — so a
-            // delivery invoice covering many products becomes one file instead of one form
-            // submission per line. Valid rows are recorded even if others fail.
+            // Row 0 is the header (sku, quantity, unitCost, note). Each valid row is stocked in
+            // just like a manual receipt; valid rows are still saved even if others fail.
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
                 if (row == null || isStockInRowEmpty(row, formatter)) {

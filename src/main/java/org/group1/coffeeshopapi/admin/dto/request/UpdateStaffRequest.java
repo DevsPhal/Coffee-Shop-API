@@ -6,10 +6,7 @@ import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 import org.group1.coffeeshopapi.common.enums.Gender;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
 
-/**
- * Partial update — any field left {@code null} is left unchanged. Email and password are
- * deliberately not editable here; those go through the dedicated auth flows.
- */
+// Partial update — a null field is left unchanged. Email and password aren't editable here.
 public record UpdateStaffRequest(
         String fullName,
 

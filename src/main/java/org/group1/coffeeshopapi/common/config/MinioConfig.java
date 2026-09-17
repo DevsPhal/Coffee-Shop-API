@@ -27,10 +27,8 @@ public class MinioConfig {
                 .build();
     }
 
-    /**
-     * Uploaded images are served straight from MinIO (no signed/proxied download endpoint), so
-     * the target bucket must exist and allow anonymous GetObject before the first upload runs.
-     */
+    // Makes sure the bucket exists and is publicly readable, since images are served straight
+    // from MinIO.
     @Bean
     public ApplicationRunner minioBucketInitializer(MinioClient minioClient) {
         return (ApplicationArguments args) -> {

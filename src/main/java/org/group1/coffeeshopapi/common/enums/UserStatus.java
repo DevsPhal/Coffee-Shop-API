@@ -1,12 +1,10 @@
 package org.group1.coffeeshopapi.common.enums;
 
-// Account lifecycle status for a User row (Admin/Barista/Customer) — kept separate from the
-// catalog-facing Status (Product/Category/Event/...), since "banned"/"deleted" have no meaning
-// there. See User.status and CustomUserDetails.isEnabled() for how this gates login.
+// Account lifecycle status for a User (Admin/Barista/Customer).
 public enum UserStatus {
     // Can log in and use the account normally.
     ACTIVE,
-    // Registered but hasn't completed OTP verification yet — see AuthServiceImpl.register.
+    // Registered but hasn't completed OTP verification yet.
     PENDING_VERIFICATION,
     // Voluntarily or administratively turned off (e.g. a staff member who left) — can be
     // reactivated later.

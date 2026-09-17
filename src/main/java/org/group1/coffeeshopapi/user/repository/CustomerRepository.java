@@ -11,8 +11,7 @@ public interface CustomerRepository extends JpaRepository<Customer, UUID> {
     Optional<Customer> findByEmail(String email);
     Optional<Customer> findByTelegramChatId(String telegramChatId);
 
-    // Phone numbers carry a unique constraint (uk_customers_phone_number). Checking up front
-    // turns a duplicate into a clean 409 instead of letting the insert fail as a 500.
+    // Checked up front so a duplicate phone number gets a clean error, not a raw DB failure.
     boolean existsByPhoneNumber(String phoneNumber);
 
     // Broadcast targets for Telegram announcements (new events, reminders, ...).

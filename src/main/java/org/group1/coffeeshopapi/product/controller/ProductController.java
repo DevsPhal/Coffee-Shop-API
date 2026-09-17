@@ -89,14 +89,9 @@ public class ProductController {
                 productService.removeImage(id, currentActor.adminRef()));
     }
 
-    // Expected columns (row 1 = header, data from row 2): name, description, sku, unit
-    // (stockUnit — PACK/BOX/CARTON/PIECE), price, category name, reorder level (optional), size
-    // options (optional — "name:price;name:price", e.g. "SMALL:1.25;MEDIUM:1.50;LARGE:1.75"; when
-    // given it replaces the single default MEDIUM variant price would otherwise seed, so
-    // price can be left blank), sell unit (optional — PLATE/BOTTLE/CAN/CUP/CARTON/PACKAGE/TANK/
-    // PIECE, defaults to CUP), units per stock (optional — how many sell units one stock unit
-    // yields, e.g. a CARTON of 24 CANs -> 24; defaults to 1). Valid rows are created even if
-    // others fail.
+    // Columns: name, description, sku, unit, price, category, reorder level, size options
+    // (optional), sell unit (optional), units per stock (optional). Valid rows are created even
+    // if others fail.
     @PostMapping(value = "/import", consumes = "multipart/form-data")
     public ApiResponse<ProductImportResponse> importExcel(@RequestParam("file") MultipartFile file) {
         ProductImportResponse response = productService.importFromExcel(file, currentActor.adminRef());

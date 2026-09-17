@@ -24,8 +24,7 @@ public record ProductResponse(
         BigDecimal unitsPerStock,
         UUID categoryId,
         String categoryName,
-        // Which cart/order customizations this product accepts (size/sugar/ice/milk vs. size-only
-        // vs. none), inherited from its category — see ProductVariantPolicy.
+        // Which customizations this product accepts, inherited from its category.
         CategoryGroup categoryGroup,
         Status status,
         BigDecimal quantityOnHand,
@@ -35,11 +34,9 @@ public record ProductResponse(
         LocalDateTime discountStartAt,
         LocalDateTime discountEndAt,
         boolean discountActive,
-        // A product has no price of its own — each option below carries its own price/finalPrice
-        // (see ProductPriceResolver). Empty means the product isn't purchasable yet.
+        // Empty means the product isn't purchasable yet.
         List<ProductVariantResponse> variants,
-        // Extras (e.g. Pearl) this product offers — the customer chooses to add or not add each
-        // one at cart time. Empty means no extras are offered on this product.
+        // Extras this product offers. Empty means none.
         List<ProductExtraResponse> extras,
         UUID createdBy,
         String createdByName,

@@ -99,9 +99,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse create(StaffCreateOrderRequest request, UUID baristaId) {
-        // No delivery leg here by construction (see StaffCreateOrderRequest) — buildOrder leaves
-        // fulfillmentMethod at its PICKUP default, same as a customer order that never picks
-        // delivery.
+        // Always pickup — a walk-in sale has no delivery leg.
         Order order = buildOrder(new CreateOrderRequest(request.items(), request.note()));
         order.setHandledBy(baristaId);
         order = orderRepository.save(order);
@@ -192,9 +190,7 @@ public class OrderServiceImpl implements OrderService {
         }
         order.setDeliveryFee(fee);
         recalculateTotal(order);
-        // A Bakong QR generated before the fee was evaluated encodes the pre-fee amount — discard
-        // it so a stale QR can't be paid against the wrong total; generateBakongQr must be called
-        // again to get one for the corrected total.
+        // Any existing QR now encodes the wrong total — clear it so a new one has to be generated.
         if (order.getBakongMd5Hash() != null) {
             order.setBakongQrString(null);
             order.setBakongMd5Hash(null);
@@ -214,10 +210,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse startPreparing(UUID id, UUID actorId) {
         Order order = findAny(id);
         if (order.getStatus() == OrderStatus.PENDING) {
-            // Real cash-sale flow: make the drink first, collect the cash when it's handed over —
-            // for both pickup and delivery, that's how the counter/courier actually works, so a
-            // cash order is fair game for the kitchen the moment it's placed. A Bakong order has no
-            // such fallback if the transfer never lands, so it still has to clear (PAID) first.
+            // Cash orders can be made before they're paid; Bakong orders must clear first.
             if (order.getPaymentMethod() != PaymentMethod.CASH) {
                 throw new InvalidOperationException("Order is not paid (currently pending)");
             }
@@ -454,8 +447,7 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // Applies the checkout-time fulfillment choice — null means "not given", so the order stays a
-    // pickup (FulfillmentMethod's default on the entity), same as before this field existed.
+    // Null delivery means "not given" — the order stays pickup, the default.
     private void applyFulfillmentDetails(Order order, CheckoutDetailsRequest delivery) {
         if (delivery == null) {
             return;
@@ -470,10 +462,8 @@ public class OrderServiceImpl implements OrderService {
         order.setDeliveryAddress(delivery.address());
     }
 
-    // Resolves whichever way the caller picked a size — variantId (already knows the option's
-    // UUID) or variantName (e.g. "Medium", matched case-insensitively — what a walk-up POS
-    // screen's button actually has, not a UUID; variantId wins if somehow both are given).
-    // Returns null if neither was given, meaning "let ProductPriceResolver auto-resolve it".
+    // Resolves a size by variantId or variantName (case-insensitive) — variantId wins if both are
+    // given. Returns null if neither was given, so the caller can auto-resolve instead.
     private ProductVariant resolveExplicitVariant(Product product, OrderItemRequest itemRequest) {
         if (itemRequest.variantId() != null) {
             return requireActiveVariant(variantRepository
@@ -504,8 +494,6 @@ public class OrderServiceImpl implements OrderService {
         return variant;
     }
 
-    // Delegates the actual matching/validation to ProductExtraResolver (shared with
-    // CartServiceImpl) — this just supplies the product's currently active, attached extras.
     private List<Extra> resolveExtras(Product product, List<UUID> extraIds) {
         if (extraIds == null || extraIds.isEmpty()) {
             return List.of();
@@ -515,8 +503,7 @@ public class OrderServiceImpl implements OrderService {
         return ProductExtraResolver.resolve(product, extraIds, attached);
     }
 
-    // Item subtotals plus delivery fee (if any) — the one place totalAmount gets computed, so a
-    // fresh order and a delivery fee set/revised later always agree on what it should be.
+    // The one place totalAmount is computed, so it's always item subtotals plus delivery fee.
     private void recalculateTotal(Order order) {
         BigDecimal itemsTotal = order.getItems().stream()
                 .map(OrderItem::getSubtotal)
@@ -543,9 +530,7 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // Same conversion direction as BakongQrServiceImpl.toKhr, just inverted — prices/totals are
-    // always in USD, so KHR notes handed over as cash have to be converted back before they can
-    // be compared against the order total.
+    // Totals are always in USD, so a KHR cash payment has to be converted back for comparison.
     private BigDecimal khrToUsd(BigDecimal khrAmount) {
         BigDecimal rate = bakongExchangeRateService.getCurrentRate();
         if (rate == null || rate.signum() <= 0) {
@@ -558,9 +543,6 @@ public class OrderServiceImpl implements OrderService {
         String billNumber = "ORD-" + order.getId().toString().substring(0, 8).toUpperCase();
         BakongQrResult qr = bakongQrService.generateQr(order.getTotalAmount(), billNumber, currency);
 
-        // Same deadline BakongQrServiceImpl already encoded into the QR itself (see its
-        // expirationTimestamp) — kept here too so the API can tell the client when to stop
-        // polling/showing this QR without having to decode it back out of the KHQR payload.
         long expiresInSeconds = bakongProperties.getExpirationMinutes() * 60;
         LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(expiresInSeconds);
 
@@ -576,18 +558,14 @@ public class OrderServiceImpl implements OrderService {
                 expiresAt, expiresInSeconds);
     }
 
-    // performedBy is the admin/barista confirming this — a POS sale (confirmBakongPayment), or a
-    // barista/admin accepting a customer's order on their behalf (acceptBakongPayment) — or null
-    // for a customer's own confirm, in which case order.handledBy is left untouched (no staff
-    // involved). The resulting stock cut is always attributed to staff — never the customer, since
-    // stock movements are an internal process (see StockMovement) — falling back to the Super
-    // Admin's id when no staff was actually involved.
+    // performedBy is null for a customer's own confirm — the stock cut then falls back to the
+    // Super Admin's id, since stock movements always need a staff actor.
     private Order confirmBakong(Order order, UUID performedBy) {
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new InvalidOperationException("Order has been cancelled");
         }
         if (order.getStatus() != OrderStatus.PENDING) {
-            // Already paid (or further along the lifecycle since) — idempotent re-confirm.
+            // Already paid — treat a repeat confirm as a no-op.
             return order;
         }
         if (order.getBakongMd5Hash() == null) {
@@ -610,14 +588,8 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // Records that payment has cleared — always stamps paidAt and sends the invoice, since that's
-    // true regardless of when in the order's life it happens. Whether it ALSO cuts stock and moves
-    // status to PAID depends on whether that's already happened: a still-PENDING order (a walk-in
-    // sale, a Bakong transfer just confirmed, or a customer's cash order paid before prep started)
-    // hasn't had its stock cut yet, so this is the moment. A cash order already PREPARING or
-    // further along (see startPreparing) had its stock cut back when prep started — collecting its
-    // cash now must only record the payment, not re-cut stock or regress a real fulfillment status
-    // back down to PAID.
+    // Always stamps paidAt and sends the invoice. Only cuts stock and moves to PAID if that
+    // hasn't already happened — a cash order already PREPARING had its stock cut back then.
     private void markPaid(Order order, UUID stockActorId) {
         if (order.getStatus() == OrderStatus.PENDING) {
             cutStockForOrder(order, stockActorId);
@@ -643,11 +615,7 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    // Simple running-count decrement — not the FIFO batch consumption stockCut above does for
-    // products (see Extra.quantityOnHand for why an extra doesn't need that). Untracked (null)
-    // extras are left alone; a tracked one is floored at zero rather than allowed to go negative,
-    // since this has no reservation/locking of its own and two near-simultaneous orders for the
-    // last unit are possible.
+    // Untracked (null quantityOnHand) extras are left alone; a tracked one is floored at zero.
     private void deductExtraStock(Extra extra, int quantitySold) {
         if (extra.getQuantityOnHand() == null) {
             return;
@@ -672,10 +640,8 @@ public class OrderServiceImpl implements OrderService {
         return requireStatus(order, OrderStatus.PENDING);
     }
 
-    // Looser than requirePending: a cash order can be paid any time before it's handed over, not
-    // just while it's still PENDING — startPreparing may have already moved it on to PREPARING (or
-    // further, for delivery) with nothing collected yet. paidAt, not status, is the source of truth
-    // for "has this been paid," so that's what gets checked here.
+    // Looser than requirePending — a cash order can be paid any time before handover, not just
+    // while still PENDING. Checks paidAt, the real source of truth, rather than status.
     private Order requireUnpaid(Order order) {
         if (order.getPaidAt() != null) {
             throw new InvalidOperationException("Payment has already been collected for this order");
@@ -687,9 +653,7 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // The last gate before an order is handed over: a cash order let through to prep unpaid must
-    // still have its cash collected before it's marked done, or the sale would close out with
-    // nothing ever recorded as paid.
+    // A cash order that was prepared unpaid must still be paid before it's marked done.
     private void requirePaymentSettled(Order order) {
         if (order.getPaidAt() == null) {
             throw new InvalidOperationException("Collect payment for this order before completing it");

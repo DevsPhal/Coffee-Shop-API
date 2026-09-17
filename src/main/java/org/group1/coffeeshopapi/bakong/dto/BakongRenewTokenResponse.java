@@ -2,11 +2,8 @@ package org.group1.coffeeshopapi.bakong.dto;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-/**
- * Raw shape of a POST /v1/renew_token response from the Bakong Open API. A success is
- * {@code responseCode == 0} with the new token in {@code data.token}; failures come back with
- * {@code responseCode == 1} and a reason such as "Not registered yet".
- */
+// Raw shape of a /v1/renew_token response. responseCode 0 means success, with the new token
+// in data.token.
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record BakongRenewTokenResponse(
         int responseCode,

@@ -34,8 +34,7 @@ public class OtpServiceImpl implements OtpService {
     @Override
     public void generateAndSend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink) {
         if (isOnCooldown(email, purpose)) {
-            // A still-valid code was already issued moments ago (e.g. a prior login attempt) —
-            // reuse it silently rather than failing a legitimate flow.
+            // A still-valid code already exists — reuse it silently instead of failing.
             return;
         }
         String otp = generateAndStore(email, purpose);
@@ -66,9 +65,7 @@ public class OtpServiceImpl implements OtpService {
         return Boolean.TRUE.equals(redisTemplate.hasKey(RedisKeys.otpCooldownKey(purpose.name(), email)));
     }
 
-    // Generates a fresh code and does all the Redis bookkeeping (storage, attempts reset,
-    // cooldown) shared by every delivery channel — email or Telegram alike look up/verify the
-    // same code the same way, keyed by email+purpose regardless of how it was delivered.
+    // Generates a fresh code and does the Redis bookkeeping shared by every delivery channel.
     private String generateAndStore(String email, OtpPurpose purpose) {
         String otp = String.valueOf(100000 + RANDOM.nextInt(900000));
         String otpKey = RedisKeys.otpKey(purpose.name(), email);

@@ -9,19 +9,13 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
 
-/**
- * Super-admin-only view across every account regardless of role (ADMIN, BARISTA, CUSTOMER).
- * Unlike {@link StaffService}, which is scoped to a single role at a time, this reads across
- * all three tables at once.
- */
+// Super-admin-only view across every account regardless of role (admin, barista, customer).
 public interface UserAdminService {
     Page<UserResponse> list(Role roleFilter, Pageable pageable);
     UserResponse getById(UUID id);
     UserResponse update(UUID id, UpdateProfileRequest request);
     void delete(UUID id);
 
-    // Moderation action reachable for ANY role (including customers) — e.g. suspending/banning a
-    // customer for abuse, or soft-deleting an account — unlike StaffService.update's status
-    // change, which only ever covers ADMIN/BARISTA.
+    // Suspend/ban/soft-delete any account, including customers.
     UserResponse updateStatus(UUID id, UpdateUserStatusRequest request);
 }

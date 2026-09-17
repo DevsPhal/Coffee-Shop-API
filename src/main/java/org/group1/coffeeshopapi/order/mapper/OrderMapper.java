@@ -15,10 +15,8 @@ import java.math.BigDecimal;
 @Mapper(componentModel = "spring")
 public interface OrderMapper {
 
-    // customer is a real relation on Order (see its javadoc), so its id/name are read straight
-    // off the associated row — MapStruct null-checks the nested path automatically, so an order
-    // with no customer simply maps those fields to null. handledBy is a plain audit id instead,
-    // so its display name/role come from the resolved ActorSummary passed in alongside the order.
+    // handledBy is a plain audit id, so its display name/role come from the ActorSummary
+    // resolved separately and passed in.
     @Mapping(target = "id", source = "order.id")
     @Mapping(target = "handledById", source = "order.handledBy")
     @Mapping(target = "handledByName", source = "handledByActor.name")

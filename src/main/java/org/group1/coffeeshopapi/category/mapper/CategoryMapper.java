@@ -9,9 +9,6 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring")
 public interface CategoryMapper {
 
-    // createdByAdmin/updatedByAdmin are null both for pre-existing rows and for a change made by
-    // the Super Admin (see Category's javadoc) — MapStruct null-checks the nested path
-    // automatically, so createdByName/createdByRole simply come out null too in that case.
     @Mapping(target = "id", source = "category.id")
     @Mapping(target = "name", source = "category.name")
     @Mapping(target = "createdBy", source = "category.createdByAdmin.id")
@@ -22,7 +19,6 @@ public interface CategoryMapper {
     @Mapping(target = "updatedByRole", source = "category.updatedByAdmin.role")
     CategoryResponse toResponse(Category category);
 
-    // Strips staff audit identities before a category reaches a customer — see
-    // CustomerCategoryResponse's javadoc.
+    // Strips staff audit identities before a category reaches a customer.
     CustomerCategoryResponse toCustomerResponse(CategoryResponse response);
 }

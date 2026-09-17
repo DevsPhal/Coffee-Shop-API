@@ -47,9 +47,7 @@ public class InventoryController {
                 PageResponse.of(inventoryService.list(PageUtil.buildPageable(page, size))));
     }
 
-    // Products at or below their reorder level, worst-first — lets Barista flag what needs
-    // restocking without being able to touch the count themselves (stock-in/stock-cut stay
-    // Admin-only, see SecurityConfig).
+    // Products at or below their reorder level, worst-first.
     @GetMapping("/low-stock")
     public ApiResponse<PageResponse<InventoryResponse>> listLowStock(
             @RequestParam(required = false) Integer page,
@@ -78,11 +76,9 @@ public class InventoryController {
         return ApiResponse.of(HttpStatus.OK, "Stock received successfully.", response);
     }
 
-    // Expected columns (row 1 = header, data from row 2): sku, quantity, unitCost, note
-    // (optional). Each valid row runs through stock-in exactly like the single-row endpoint above
-    // — same StockBatch/StockMovement/StockExpense side effects — so a delivery invoice covering
-    // many products is one file instead of one form submission per line. Valid rows are recorded
-    // even if others fail.
+    // Columns: sku, quantity, unitCost, note (optional). Lets one delivery invoice covering many
+    // products be imported in one file instead of one form per line. Valid rows are still saved
+    // even if others in the file fail.
     @PostMapping(value = "/stock-in/import", consumes = "multipart/form-data")
     public ApiResponse<StockInImportResponse> stockInFromExcel(@RequestParam("file") MultipartFile file) {
         StockInImportResponse response = inventoryService.stockInFromExcel(file, currentActor.id());
@@ -95,8 +91,7 @@ public class InventoryController {
         return ApiResponse.of(HttpStatus.OK, "Stock cut successfully.", response);
     }
 
-    // Every stock-purchase expense recorded that month (see InventoryServiceImpl.stockIn), as a
-    // downloadable .xlsx workbook — defaults to the current month.
+    // Every stock-purchase expense that month, as a downloadable .xlsx — defaults to this month.
     @GetMapping("/expenses/report/monthly")
     public ResponseEntity<byte[]> monthlyExpenseReport(
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth month) {

@@ -8,8 +8,7 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// latitude/longitude are optional and must both be given together (see EventServiceImpl.create)
-// — omit both when the event has no fixed venue to pin.
+// latitude/longitude must be given together, or omitted when the event has no fixed venue.
 public record CreateEventRequest(
         @NotBlank(message = "Title is required")
         String title,

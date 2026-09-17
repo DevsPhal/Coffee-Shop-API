@@ -14,16 +14,13 @@ public record UpdateCartItemRequest(
         @Min(value = 1, message = "Quantity must be at least 1")
         Integer quantity,
 
-        // Variant selection — null means "leave unchanged"; there is no way to clear a
-        // previously-set size/sugar/ice/milk back to "unspecified" through this endpoint alone
-        // (remove and re-add the item instead).
+        // Null means "leave unchanged" for these — remove and re-add the item to clear one.
         UUID variantId,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,
 
-        // Extras (e.g. Pearl) to add — null means "leave unchanged", an empty list clears every
-        // extra off this item. Each id must be offered (and active) on the item's product.
+        // Null means "leave unchanged"; an empty list clears every extra off this item.
         List<UUID> extraIds
 ) {
 }

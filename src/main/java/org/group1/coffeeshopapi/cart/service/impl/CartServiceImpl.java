@@ -74,9 +74,7 @@ public class CartServiceImpl implements CartService {
         if (product.getStatus() != Status.ACTIVE) {
             throw new InvalidOperationException("Product '" + product.getName() + "' is not available");
         }
-        // Defense in depth — a customer with a stale product page open shouldn't be able to add
-        // something that's since sold out just because they already had the id (the listing
-        // itself already hides it, see ProductServiceImpl#listActive).
+        // A customer with a stale product page open shouldn't be able to add something sold out.
         BigDecimal stockOnHand = inventoryRepository.findByProductId(product.getId())
                 .map(Inventory::getQuantityOnHand)
                 .orElse(BigDecimal.ZERO);
@@ -130,9 +128,7 @@ public class CartServiceImpl implements CartService {
         if (request.extraIds() != null) {
             item.setExtraSelection(resolveExtras(item.getProduct(), request.extraIds()));
         }
-        // Validate against what the caller actually asked to change here, not the item's current
-        // (possibly auto-resolved, see checkout()'s comment) stored state — same reasoning as
-        // addItem validating request.variantId() rather than the resolved ProductVariant.
+        // Validate against what the caller actually asked to change, not the item's stored state.
         ProductVariantPolicy.validate(item.getProduct(), request.variantId(), request.sugarLevel(),
                 request.iceLevel(), request.milkType());
         return toResponse(cartRepository.save(cart));
@@ -163,11 +159,8 @@ public class CartServiceImpl implements CartService {
             throw new InvalidOperationException("Cart is empty");
         }
 
-        // variant is always set once an item's in the cart — even for a SNACK/no-group product,
-        // which still needs one internally for pricing (see resolveEffectiveVariant) despite
-        // never letting the customer choose it. Forwarding it here unconditionally would make
-        // buildOrder's re-validation see it as an explicit (and, for that product, forbidden)
-        // choice — only forward it where the product's group actually allows picking a size.
+        // Only forward the variant id where the product actually allows picking a size — a
+        // SNACK-type product has one auto-resolved internally, but never let the customer choose.
         List<OrderItemRequest> items = cart.getItems().stream()
                 .map(item -> new OrderItemRequest(item.getProduct().getId(), item.getQuantity(),
                         ProductVariantPolicy.allowsSizeChoice(item.getProduct()) && item.getVariant() != null
@@ -199,8 +192,7 @@ public class CartServiceImpl implements CartService {
         return variant;
     }
 
-    // Explicit choice, or — where the product only has one active option — that option
-    // automatically. See ProductPriceResolver.
+    // Explicit choice, or the product's one active option if it only has one.
     private ProductVariant resolveEffectiveVariant(Product product, UUID variantId) {
         if (variantId != null) {
             return resolveVariant(product.getId(), variantId);
@@ -225,8 +217,6 @@ public class CartServiceImpl implements CartService {
         return extras.stream().map(Extra::getId).collect(Collectors.toSet());
     }
 
-    // Delegates the actual matching/validation to ProductExtraResolver (shared with
-    // OrderServiceImpl) — this just supplies the product's currently active, attached extras.
     private Set<Extra> resolveExtras(Product product, List<UUID> extraIds) {
         if (extraIds == null || extraIds.isEmpty()) {
             return new LinkedHashSet<>();

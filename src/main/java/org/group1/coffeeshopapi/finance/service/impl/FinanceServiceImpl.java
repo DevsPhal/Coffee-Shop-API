@@ -58,9 +58,7 @@ public class FinanceServiceImpl implements FinanceService {
         BigDecimal bakongIn = sumByMethod(orders, PaymentMethod.BAKONG);
         BigDecimal totalIn = cashIn.add(bakongIn);
 
-        // "Money out" is two separate streams that were never merged into one table: manual
-        // entries (rent, wages, ...) via Expense, and auto-recorded stock-purchase costs via
-        // StockExpense (see InventoryServiceImpl.recordStockPurchaseExpense) — both count.
+        // Money out is two streams: manual entries (rent, wages) and auto-recorded stock costs.
         List<Expense> expenses = expenseRepository.findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(
                 startInclusive, endExclusive);
         BigDecimal manualOut = expenses.stream().map(Expense::getAmount).reduce(BigDecimal.ZERO, BigDecimal::add);

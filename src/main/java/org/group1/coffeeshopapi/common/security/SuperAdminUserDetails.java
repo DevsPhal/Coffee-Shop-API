@@ -10,22 +10,14 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Represents the config-driven super admin (SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD).
- * Deliberately not backed by an {@code Admin}/{@code User} row of its own — it exists purely from
- * configuration so it can never be locked out or deleted by an admin/barista/customer-table
- * operation. It does get an {@code auth_users} index row (see
- * {@code AuthUserSyncService#syncSuperAdmin()}, called on every login) purely so it's listable
- * alongside every other account there — that row carries no credentials and isn't what
- * authenticates it.
- */
+// Config-driven super admin login — not a real database row, so it can never be
+// locked out or deleted by mistake.
 public class SuperAdminUserDetails implements UserDetails {
     private static final long serialVersionUID = 1L;
 
     public static final UUID ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
-    // Fixed display name — the super admin's profile is config-driven and not editable (see
-    // SuperAdminResponse), so there's nothing to look up.
+    // Fixed display name — the super admin's profile isn't editable.
     public static final String DISPLAY_NAME = "Super Admin";
 
     private final String email;

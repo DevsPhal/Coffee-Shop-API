@@ -14,16 +14,11 @@ import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 
-/**
- * Verifies a Telegram Login Widget payload — see
- * https://core.telegram.org/widgets/login#checking-authorization. The bot token is the shared
- * secret only this backend and Telegram know, so a hash that checks out proves the payload really
- * came from Telegram, for this bot, unmodified.
- */
+// Verifies a Telegram Login Widget payload really came from Telegram, unmodified, using the bot
+// token as a shared secret.
 public final class TelegramWidgetAuthVerifier {
 
-    // Telegram recommends rejecting a payload once it's "too old" so a captured/replayed widget
-    // response can't be reused indefinitely.
+    // Rejects a payload once it's too old, so a captured response can't be replayed indefinitely.
     private static final long MAX_AUTH_AGE_SECONDS = 86_400;
 
     private TelegramWidgetAuthVerifier() {
@@ -45,9 +40,7 @@ public final class TelegramWidgetAuthVerifier {
         return MessageDigest.isEqual(expected, actual);
     }
 
-    // Alphabetically sorted "key=value" lines, one per field Telegram actually included — join
-    // with \n. None of these keys are a prefix of another, so sorting the whole "key=value"
-    // strings is equivalent to sorting by key alone (matches Telegram's own reference examples).
+    // "key=value" lines, one per field Telegram included, sorted and joined with \n.
     private static String buildDataCheckString(TelegramWidgetAuthRequest request) {
         List<String> fields = new ArrayList<>();
         fields.add("auth_date=" + request.authDate());

@@ -11,9 +11,7 @@ public class TelegramEventReminderScheduler {
 
     private final TelegramEventService telegramEventService;
 
-    // Every 30 minutes is frequent enough that no "starting within 24h" reminder is meaningfully
-    // late, and cheap enough (one query, usually returning nothing) to not matter as overhead.
-    // initialDelay keeps this from firing before the app has fully started up.
+    // Runs every 30 minutes, starting 1 minute after the app boots.
     @Scheduled(initialDelay = 60_000, fixedRate = 1_800_000)
     public void remindUpcomingEvents() {
         telegramEventService.sendStartingSoonReminders();

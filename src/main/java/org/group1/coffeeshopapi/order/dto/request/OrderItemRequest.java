@@ -17,19 +17,15 @@ public record OrderItemRequest(
         @Min(value = 1, message = "Quantity must be at least 1")
         Integer quantity,
 
-        // Variant selection — all optional. Pick a size by whichever's actually on hand: its id
-        // (variantId — a UUID, what a client that already fetched the product's options has)
-        // or its name (variantName, e.g. "Medium" — what a walk-up POS screen's button actually
-        // shows, not a UUID). variantId wins if both are somehow given. When variantId is set
-        // it must belong to productId; variantName is matched case-insensitively.
+        // Pick a size by id or by name (e.g. "Medium", matched case-insensitively). Both optional;
+        // variantId wins if both are given.
         UUID variantId,
         String variantName,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,
 
-        // Extras (e.g. Pearl) to add — each must be offered (and active) on productId, see
-        // ProductExtra. Null/empty means none.
+        // Extras (e.g. Pearl) to add. Null/empty means none.
         List<UUID> extraIds
 ) {
 }

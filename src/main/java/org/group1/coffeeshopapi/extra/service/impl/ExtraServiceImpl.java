@@ -17,12 +17,8 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
-// Deliberately no FIFO stock batches / movement history / low-stock reporting the way
-// InventoryService gives products — those exist for raw-material stock that's bought in dated
-// batches at varying cost (see StockBatch), which doesn't describe a topping like Pearl. A plain
-// running count an admin restocks by PATCHing a new number (see UpdateExtraRequest) is enough:
-// see Extra.quantityOnHand, ProductExtraResolver (blocks adding a 0-stock extra), and
-// OrderServiceImpl.markPaid (decrements it per unit sold).
+// Extras use a plain stock count, not the full FIFO batch tracking products get — a topping like
+// Pearl doesn't need that level of detail.
 @Service
 @RequiredArgsConstructor
 public class ExtraServiceImpl implements ExtraService {
@@ -79,10 +75,7 @@ public class ExtraServiceImpl implements ExtraService {
     @Override
     @Transactional
     public void delete(UUID id) {
-        // Deleting an Extra still referenced by a past order's OrderItemExtra (or attached to a
-        // product via ProductExtra) hits a FK constraint and is rejected — see
-        // GlobalExceptionHandler's DataIntegrityViolationException handler — same as
-        // ProductVariant's delete.
+        // Rejected with a constraint error if this extra is still used by a past order or product.
         extraRepository.delete(findById(id));
     }
 

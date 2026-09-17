@@ -34,10 +34,7 @@ public class MinioFileStorageService implements FileStorageService {
             throw new InvalidOperationException("Image must not exceed 5MB");
         }
 
-        // The client-supplied Content-Type is just metadata the client claims — Swagger UI,
-        // Postman, and some browsers are inconsistent (or outright wrong) about setting it for
-        // multipart uploads. Sniffing the actual file signature is both more reliable and safer
-        // (never trust client-controlled metadata for a security-relevant decision).
+        // Don't trust the client-supplied Content-Type — check the actual file bytes instead.
         byte[] bytes;
         try {
             bytes = file.getBytes();

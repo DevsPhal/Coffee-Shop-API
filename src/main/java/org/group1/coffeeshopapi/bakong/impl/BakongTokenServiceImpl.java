@@ -20,12 +20,8 @@ public class BakongTokenServiceImpl implements BakongTokenService {
     private final RestClient bakongRestClient;
     private final BakongProperties bakongProperties;
 
-    /**
-     * Null until a renewal succeeds, at which point it shadows the configured token for the rest
-     * of this process's life. Deliberately not written back to {@code .env}: the API runs in a
-     * container that has no business rewriting the deployment's config, and a restart simply
-     * renews again on the next 401.
-     */
+    // Null until a renewal succeeds, then holds the renewed token for the rest of this process's
+    // life. Not written back to config — a restart just renews again on the next failure.
     private final AtomicReference<String> renewedToken = new AtomicReference<>();
 
     @Override

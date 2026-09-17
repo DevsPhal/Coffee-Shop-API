@@ -14,21 +14,17 @@ public final class TelegramFormat {
         return "$" + amount.setScale(2, RoundingMode.HALF_UP);
     }
 
-    /** Whole-number currencies (e.g. KHR) have no decimal places to show. */
+    // Whole-number currencies (e.g. KHR) have no decimal places to show.
     public static String wholeAmount(BigDecimal amount, String currencyCode) {
         return amount.setScale(0, RoundingMode.HALF_UP) + " " + currencyCode;
     }
 
-    /** Escapes admin/user-entered text before it's interpolated into an HTML-parse-mode message. */
+    // Escapes text before it's put into an HTML message.
     public static String escape(String text) {
         return HtmlUtils.htmlEscape(text);
     }
 
-    /**
-     * Title-cases a name (e.g. a product, category, or event name) for display — "iced latte"
-     * becomes "Iced Latte" — regardless of how it was typed when created. Call this before
-     * {@link #escape(String)}.
-     */
+    // Title-cases a name for display, e.g. "iced latte" becomes "Iced Latte".
     public static String titleCase(String text) {
         if (text == null || text.isBlank()) {
             return text;
@@ -45,11 +41,7 @@ public final class TelegramFormat {
         return result.toString();
     }
 
-    /**
-     * Normalizes free-text admin content (e.g. an event description) into a professional-looking
-     * sentence: capitalizes the first letter, collapses stray whitespace, and ensures it ends with
-     * terminal punctuation. Call this before {@link #escape(String)}.
-     */
+    // Capitalizes the first letter, collapses stray whitespace, and adds ending punctuation.
     public static String professionalize(String text) {
         if (text == null || text.isBlank()) {
             return text;

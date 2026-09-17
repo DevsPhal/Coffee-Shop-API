@@ -26,7 +26,6 @@ public interface EventService {
     // Flips ACTIVE events whose endAt has passed over to INACTIVE. Polled by EventExpiryScheduler.
     void expireEndedEvents();
 
-    // Public: still-relevant ACTIVE events (hasn't ended yet), soonest first — the REST
-    // equivalent of the Telegram bot's /events command (see EventsCommand).
+    // Public: still-active events that haven't ended yet, soonest first.
     List<CustomerEventResponse> listUpcoming();
 }

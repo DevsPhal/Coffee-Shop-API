@@ -23,8 +23,7 @@ public record AddCartItemRequest(
         IceLevel iceLevel,
         MilkType milkType,
 
-        // Extras (e.g. Pearl) to add — each must be offered (and active) on productId, see
-        // ProductExtra. Null/empty means none.
+        // Extras (e.g. Pearl) to add. Null/empty means none.
         List<UUID> extraIds
 ) {
 }

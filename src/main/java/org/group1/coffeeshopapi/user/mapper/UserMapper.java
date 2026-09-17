@@ -17,15 +17,9 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class UserMapper {
 
-    // Admin.createdBy stays a plain audit id rather than a relation (see its own javadoc: only
-    // the Super Admin can create another Admin, so a real FK there would always be null anyway),
-    // so it's still resolved via ActorLookupService. Barista.createdByAdmin is a real relation —
-    // see Barista's javadoc for why it's still nullable (the Super Admin case).
     private final ActorLookupService actorLookupService;
 
     public UserResponse toResponse(User user) {
-        // telegramChatId lives on the shared User entity — an Admin/Barista invited via Telegram
-        // (see StaffServiceImpl#createViaTelegram) has one linked too, not just customers.
         boolean telegramLinked = user.getTelegramChatId() != null;
 
         UUID createdBy = null;
@@ -45,9 +39,7 @@ public class UserMapper {
             createdByRole = Role.ADMIN;
         }
 
-        // A Telegram-invited staff account (see StaffServiceImpl#buildInvitedStaff) has no real
-        // email — the column just holds an internal, never-seen placeholder — so it's hidden here
-        // rather than shown as a nonsense address in the admin UI.
+        // A Telegram-invited account has no real email — just an internal placeholder — so hide it.
         String email = user.getRegisterType() == RegisterType.TELEGRAM ? null : user.getEmail();
 
         return UserResponse.builder()

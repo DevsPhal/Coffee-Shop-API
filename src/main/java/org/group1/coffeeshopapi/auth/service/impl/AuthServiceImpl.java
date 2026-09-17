@@ -71,9 +71,7 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByEmail(email)) {
             throw new DuplicateResourceException("An account with this email already exists");
         }
-        // Phone numbers are unique too (uk_customers_phone_number). Without this check the
-        // insert below fails on the constraint and the caller gets an opaque 500 instead of
-        // being told which field to change.
+        // Check phone uniqueness up front so a taken number gets a clear error, not a raw DB failure.
         if (request.phoneNumber() != null && !request.phoneNumber().isBlank()
                 && customerRepository.existsByPhoneNumber(request.phoneNumber())) {
             throw new DuplicateResourceException("An account with this phone number already exists");
@@ -96,10 +94,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void verifyRegistration(VerifyRegistrationRequest request) {
         String email = request.email().toLowerCase();
-        // Customer-only: a staff account invited via Telegram (StaffServiceImpl
-        // #createViaTelegram) never has a real email to verify with — it goes
-        // PENDING_VERIFICATION -> ACTIVE via phone-number match instead, see
-        // TelegramLinkServiceImpl#verifyPendingContact.
+        // Staff invited via Telegram verify by phone number instead, not this email flow.
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
 
@@ -118,9 +113,7 @@ public class AuthServiceImpl implements AuthService {
         String email = request.email().toLowerCase();
 
         if (superAdminProperties.matches(email)) {
-            // The super admin is a config-only account: no email inbox, no OTP friction, no
-            // credentials row. It still gets an auth_users row, kept fresh on every login, so it
-            // shows up alongside every other account (see AuthUserSyncService#syncSuperAdmin).
+            // Super admin skips OTP — it's a config-only account, not a real user row.
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(email, request.password()));
             authUserSyncService.syncSuperAdmin();
@@ -149,14 +142,8 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException("Invalid Telegram login signature");
         }
 
-        // Same value as User.telegramChatId for a private chat — Telegram's widget-signed user id
-        // and the bot's chat id are one and the same there, so this is already-linked-or-not
-        // exactly like every other Telegram flow in this app. Register-or-login: a signature that
-        // checks out is Telegram vouching for this identity, exactly as trustworthy as a staff
-        // invite's phone-number match (see StaffServiceImpl#buildInvitedStaff) — so an id nobody's
-        // seen before becomes a brand-new Customer instead of an error, active immediately with no
-        // email/password/OTP of its own. An existing staff/customer account (linked from its
-        // profile — see TelegramLinkService#generateLinkCode) just logs in as before.
+        // A verified Telegram signature is trusted identity proof: an unknown id just registers a
+        // new customer account on the spot, no email/password/OTP needed. A known id just logs in.
         User user = userRepository.findByTelegramChatId(String.valueOf(request.id()))
                 .orElseGet(() -> registerCustomerViaTelegram(request));
         if (user.getStatus() != UserStatus.ACTIVE) {
@@ -165,8 +152,7 @@ public class AuthServiceImpl implements AuthService {
         return issueTokens(user.getId(), user.getEmail(), user.getRole());
     }
 
-    // Always Role.CUSTOMER: the widget payload carries no role of its own, and never should be
-    // trusted to grant one — ADMIN/BARISTA stay invite-only (StaffServiceImpl#createViaTelegram).
+    // Always registers as CUSTOMER — staff accounts are invite-only, never self-registered.
     private Customer registerCustomerViaTelegram(TelegramWidgetAuthRequest request) {
         Customer customer = new Customer();
         customer.setFullName(request.lastName() != null
@@ -198,9 +184,7 @@ public class AuthServiceImpl implements AuthService {
         switch (request.purpose()) {
             case REGISTER -> {
                 String email = requireEmail(request);
-                // Customer-only: a staff account invited via Telegram never registers an OTP here
-                // in the first place (see TelegramLinkServiceImpl#verifyPendingContact), and has
-                // no real email to look up by anyway.
+                // Staff invited via Telegram never register an OTP here, so this is customer-only.
                 User user = userRepository.findByEmail(email)
                         .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
                 if (user.getStatus() == UserStatus.ACTIVE) {
@@ -342,11 +326,7 @@ public class AuthServiceImpl implements AuthService {
         return String.join(" ", parts);
     }
 
-    /**
-     * A login OTP email offers a "Connect Telegram" button only for customers who haven't
-     * linked a chat yet — staff/super-admin have no Telegram concept, and an already-linked
-     * customer doesn't need another code.
-     */
+    // Offers a "Connect Telegram" link only to customers who haven't linked a chat yet.
     private String telegramDeepLinkFor(User user) {
         if (user.getRole() != Role.CUSTOMER || user.getTelegramChatId() != null) {
             return null;

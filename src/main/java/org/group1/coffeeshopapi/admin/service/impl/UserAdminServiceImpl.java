@@ -44,8 +44,7 @@ public class UserAdminServiceImpl implements UserAdminService {
             case ADMIN -> adminRepository.findAll(pageable);
             case BARISTA -> baristaRepository.findAll(pageable);
             case CUSTOMER -> customerRepository.findAll(pageable);
-            // Config-driven — it has an auth_users row (see AuthUserSyncService#syncSuperAdmin)
-            // but no admins/baristas/customers row, so there's no User here for UserMapper to map.
+            // The super admin is config-driven, not a database row — nothing here to list.
             case SUPER_ADMIN -> throw new IllegalArgumentException("Super admin has no listable account record");
         };
         return users.map(userMapper::toResponse);
@@ -81,8 +80,7 @@ public class UserAdminServiceImpl implements UserAdminService {
         userRepository.save(user);
         authUserSyncService.sync(user);
         if (request.status() != UserStatus.ACTIVE) {
-            // Block new access tokens immediately; JwtAuthFilter's isEnabled() re-check handles
-            // any already-issued access token still inside its lifetime.
+            // Block them from getting a new access token once deactivated.
             tokenService.revokeRefreshToken(user.getId());
         }
 

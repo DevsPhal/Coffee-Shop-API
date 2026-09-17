@@ -183,9 +183,7 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (checkIn == null) {
             throw new InvalidOperationException("Check-in time is required");
         }
-        // Attendance records what someone already worked, so neither end may be ahead of the
-        // clock. Naming the field matters: a shift entered just after midnight is entirely in
-        // tomorrow, and "attendance times" alone gave no clue which box to change.
+        // Attendance records what already happened, so neither time may be in the future.
         if (checkIn.isAfter(now)) {
             throw new InvalidOperationException(
                     "Check-in time cannot be in the future — the shift has not started yet");

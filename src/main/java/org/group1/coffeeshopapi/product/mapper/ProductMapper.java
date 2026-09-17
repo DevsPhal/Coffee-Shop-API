@@ -25,9 +25,6 @@ public interface ProductMapper {
     @Mapping(target = "discountActive", expression = "java(product.isDiscountActive(java.time.LocalDateTime.now()))")
     @Mapping(target = "variants", source = "variants")
     @Mapping(target = "extras", source = "extras")
-    // createdByAdmin/updatedByAdmin are null both for pre-existing rows and for a change made by
-    // the Super Admin (see Product's javadoc) — MapStruct null-checks the nested path
-    // automatically, so createdByName/createdByRole simply come out null too in that case.
     @Mapping(target = "createdBy", source = "product.createdByAdmin.id")
     @Mapping(target = "createdByName", source = "product.createdByAdmin.fullName")
     @Mapping(target = "createdByRole", source = "product.createdByAdmin.role")
@@ -39,12 +36,8 @@ public interface ProductMapper {
     ProductResponse toResponse(Product product, Inventory inventory, List<ProductVariantResponse> variants,
             List<ProductExtraResponse> extras);
 
-    // Strips inventory counts, reorder thresholds, and staff audit identities before a product
-    // reaches a customer — see CustomerProductResponse's javadoc. extras is filtered too: an
-    // out-of-stock extra (see Extra.quantityOnHand) is hidden from a customer entirely rather than
-    // offered as a choice they can't actually have. This is done here, not upstream where extras
-    // are fetched (ProductServiceImpl#toResponsePage), because that fetch also backs the admin
-    // catalog, which needs to keep seeing a depleted extra in order to restock it.
+    // Strips internal fields before a product reaches a customer, and hides any out-of-stock
+    // extra entirely rather than offering a choice they can't actually have.
     @Mapping(target = "extras", qualifiedByName = "inStockOnly")
     CustomerProductResponse toCustomerResponse(ProductResponse response);
 

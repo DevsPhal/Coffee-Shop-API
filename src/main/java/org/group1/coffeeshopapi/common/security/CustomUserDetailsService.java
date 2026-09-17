@@ -28,10 +28,7 @@ public class CustomUserDetailsService implements UserDetailsService {
                 .orElseThrow(() -> new UsernameNotFoundException("No account found for email: " + email));
     }
 
-    /**
-     * BCrypt is deliberately slow, so the hash of the configured super admin password is
-     * computed once and cached rather than re-hashed on every login attempt.
-     */
+    // BCrypt is slow, so cache the hash instead of re-hashing on every login.
     private String superAdminPasswordHash() {
         String hash = cachedSuperAdminPasswordHash;
         if (hash == null) {

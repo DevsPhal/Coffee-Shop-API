@@ -17,8 +17,6 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     List<ProductVariant> findByProductIdInAndStatusOrderBySortOrderAscNameAsc(List<UUID> productIds, Status status);
 
     Optional<ProductVariant> findByIdAndProductId(UUID id, UUID productId);
-    // No more IgnoreCase: name is a closed enum now (see VariantLabel), so there's no casing left
-    // to normalize — every valid value is already canonical.
     Optional<ProductVariant> findByProductIdAndName(UUID productId, VariantLabel name);
     boolean existsByProductIdAndName(UUID productId, VariantLabel name);
 }

@@ -66,8 +66,6 @@ public class BakongQrServiceImpl implements BakongQrService {
             throw new InvalidOperationException("Unable to generate Bakong QR: " + message);
         }
 
-        // Same instant that went into the QR, expressed in the shop's zone so the client counts
-        // down to the moment the code really stops working.
         LocalDateTime expiresAt = LocalDateTime.ofInstant(
                 Instant.ofEpochMilli(expiresAtMillis), ZoneId.systemDefault());
 
@@ -75,7 +73,7 @@ public class BakongQrServiceImpl implements BakongQrService {
                 response.getData().getQr(), response.getData().getMd5(), resolvedCurrency, encodedAmount, expiresAt);
     }
 
-    /** Amounts are always priced/stored in USD; KHR has no minor unit, so the converted total must be a whole number. */
+    // KHR has no minor unit, so the converted amount must be a whole number.
     private BigDecimal toKhr(BigDecimal usdAmount) {
         BigDecimal rate = exchangeRateService.getCurrentRate();
         if (rate == null || rate.signum() <= 0) {

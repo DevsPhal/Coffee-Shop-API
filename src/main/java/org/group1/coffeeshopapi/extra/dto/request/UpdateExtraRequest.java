@@ -5,9 +5,7 @@ import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.math.BigDecimal;
 
-// quantityOnHand null means "leave unchanged" — same convention as every other optional field
-// here. This is also how an admin restocks an extra (PATCH a new number in) — see
-// Extra.quantityOnHand for why there's no dedicated stock-in/stock-cut endpoint like Product has.
+// Null fields are left unchanged. quantityOnHand is also how an admin restocks an extra.
 public record UpdateExtraRequest(
         String name,
 

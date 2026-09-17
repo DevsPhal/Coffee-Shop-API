@@ -33,9 +33,7 @@ public class Event extends BaseEntity {
     @Column
     private String imageUrl;
 
-    // GPS pin for the event's venue, shown to customers via the Telegram bot's /events command
-    // (see TelegramEventServiceImpl) — same optional, given-together-or-not-at-all convention as
-    // Order.deliveryLatitude/deliveryLongitude.
+    // GPS pin for the event's venue. Optional; given together or not at all.
     @Column(precision = 9, scale = 6)
     private BigDecimal latitude;
 
@@ -52,8 +50,7 @@ public class Event extends BaseEntity {
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
 
-    // Null for a change made by the Super Admin, which deliberately has no row in "admins" to
-    // reference (see CurrentActor.adminRef()).
+    // Null if created by the Super Admin, who has no row in "admins".
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private Admin createdByAdmin;

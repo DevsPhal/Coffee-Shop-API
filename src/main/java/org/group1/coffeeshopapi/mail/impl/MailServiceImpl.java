@@ -19,8 +19,7 @@ import org.thymeleaf.context.Context;
 @RequiredArgsConstructor
 public class MailServiceImpl implements MailService {
 
-    // Referenced by the template as an inline cid: image rather than a public URL, so the logo
-    // shows up without needing to host it anywhere — see logoUrl handling below.
+    // Embedded inline so the logo shows up without needing a public URL.
     private static final String LOGO_CONTENT_ID = "logo";
     private static final String LOGO_CLASSPATH_LOCATION = "templates/email/images/590stCafeLogo.jpeg";
 
@@ -30,11 +29,8 @@ public class MailServiceImpl implements MailService {
     @Value("${mail.shop.email}")
     private String shopEmail;
 
-    // Synchronous, deliberately: an OTP is the one thing standing between the caller and
-    // register/login actually succeeding, so a failure here must reach them as a real error
-    // instead of a false "check your email" — see MailDeliveryException. (This used to be
-    // @Async, firing the send in the background and swallowing any failure into a log line no
-    // caller ever saw — the request looked successful even when no email ever went out.)
+    // Synchronous on purpose, so a failed send surfaces as a real error instead of a false
+    // "check your email".
     @Override
     public void sendOtpEmail(String to, String fullName, String otp, int expiryMinutes, String purposeLabel,
                               String telegramDeepLink) {

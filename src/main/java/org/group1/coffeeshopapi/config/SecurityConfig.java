@@ -38,12 +38,7 @@ public class SecurityConfig {
         return configuration.getAuthenticationManager();
     }
 
-    // Without this, the browser blocks every request a real frontend (on its own origin) makes to
-    // this API — registration, login, everything — since Spring Security answers with no
-    // Access-Control-Allow-* headers at all otherwise. A tool like curl/Postman never hits this
-    // (CORS is a browser-only restriction), which is exactly why this can look "broken only in
-    // production": a local dev frontend often proxies /api same-origin, masking the gap that a
-    // real deployed frontend then walks straight into. See CorsProperties/CORS_ALLOWED_ORIGINS.
+    // Lets a browser-based frontend on another origin actually call this API.
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -77,10 +72,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/admins/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/users/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/baristas/**").hasRole("ADMIN")
-                        // Baristas need read-only access to the catalog to ring up sales, and to
-                        // stock levels/movements/low-stock so they can see what an order deducted
-                        // and flag what needs restocking — without being able to adjust it
-                        // themselves (stock-in/stock-cut stay Admin-only, matched below).
+                        // Baristas get read-only access to the catalog and stock levels, but can't
+                        // change stock themselves — that stays Admin-only, matched below.
                         .requestMatchers(HttpMethod.GET, "/api/admin/categories/**", "/api/admin/products/**",
                                 "/api/admin/inventory/**", "/api/admin/extras/**")
                         .hasAnyRole("ADMIN", "BARISTA")
@@ -100,12 +93,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/barista/reports/**").hasRole("BARISTA")
                         .requestMatchers("/api/barista/attendance/**").hasRole("BARISTA")
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
-                        // Deny-by-default backstop: every actual admin/barista endpoint above is
-                        // matched by an explicit role rule, so anything still reaching this point
-                        // is either a mistyped path or a new endpoint someone forgot to add a rule
-                        // for — either way it must never fall through to the generic
-                        // anyRequest().authenticated() below, which would let ANY authenticated
-                        // role (including a customer) reach it just for being logged in.
+                        // Deny-by-default backstop for any admin/barista path not explicitly
+                        // matched above, so it can't fall through to anyRequest().authenticated().
                         .requestMatchers("/api/admin/**", "/api/barista/**").denyAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);

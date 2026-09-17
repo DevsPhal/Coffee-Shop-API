@@ -15,11 +15,7 @@ import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.product.entity.Product;
 
-// Marks one Extra (e.g. "Pearl") as offered on one Product (e.g. "Green Tea") — this is what makes
-// an extra something the customer can actually choose to add or not add on that product, rather
-// than just an entry sitting unattached in the global catalog. status lets an admin temporarily
-// pull it from a product's menu (e.g. out of stock) without losing the attachment/sortOrder, the
-// same reasoning ProductVariant uses.
+// Marks one Extra (e.g. "Pearl") as offered on one Product (e.g. "Green Tea").
 @Getter
 @Setter
 @Entity

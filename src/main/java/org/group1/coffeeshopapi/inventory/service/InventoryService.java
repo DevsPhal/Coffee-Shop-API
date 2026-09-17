@@ -16,15 +16,13 @@ public interface InventoryService {
     InventoryResponse getByProduct(UUID productId);
     Page<InventoryResponse> list(Pageable pageable);
 
-    // Products at or below their reorder level — read-only, so both Admin and Barista can check
-    // it without either of them being able to act on it (only Admin can stock-in/stock-cut).
+    // Products at or below their reorder level.
     Page<InventoryResponse> listLowStock(Pageable pageable);
 
     StockMovementResponse stockIn(StockInRequest request, UUID performedBy);
     StockCutResponse stockCut(StockCutRequest request, UUID performedBy);
 
-    // Bulk stock-in from a delivery invoice's worth of products in one file, instead of one
-    // stockIn(...) call per line — see InventoryServiceImpl for the expected columns.
+    // Bulk stock-in from one delivery invoice's worth of products in a single file.
     StockInImportResponse stockInFromExcel(MultipartFile file, UUID performedBy);
 
     Page<StockMovementResponse> listMovements(UUID productId, Pageable pageable);

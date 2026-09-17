@@ -35,9 +35,7 @@ public class Category extends BaseEntity {
     @Column
     private CategoryGroup categoryGroup;
 
-    // Which admin created or last modified this category — null both for pre-existing rows (from
-    // before this tracking existed) and for a change made by the Super Admin, which deliberately
-    // has no row in "admins" to reference (see CurrentActor.adminRef()).
+    // Which admin created or last modified this category — null if it was the Super Admin.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private Admin createdByAdmin;

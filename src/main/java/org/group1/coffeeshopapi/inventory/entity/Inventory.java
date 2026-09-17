@@ -13,11 +13,8 @@ import org.group1.coffeeshopapi.product.entity.Product;
 
 import java.math.BigDecimal;
 
-/**
- * One row per product. {@code quantityOnHand} is a cached running total kept in lockstep with
- * the sum of {@link StockBatch#getRemainingQuantity()} for that product — batches are the
- * source of truth for FIFO/LIFO consumption order, this is the fast-read total.
- */
+// One row per product. quantityOnHand is a running total kept in sync with the batches below —
+// batches are the source of truth, this is just the fast-read total.
 @Getter
 @Setter
 @Entity

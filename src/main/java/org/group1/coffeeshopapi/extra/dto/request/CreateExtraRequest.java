@@ -6,9 +6,7 @@ import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 
-// quantityOnHand is optional and left untracked (always available) when omitted — see
-// Extra.quantityOnHand for why. Give it a real number here only if this extra should actually be
-// stock-limited from the start.
+// quantityOnHand is optional — leave it out for an untracked extra (always available).
 public record CreateExtraRequest(
         @NotBlank(message = "Name is required")
         String name,
