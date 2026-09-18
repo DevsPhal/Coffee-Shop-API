@@ -109,7 +109,7 @@ class TelegramInvoiceServiceImplTest {
     }
 
     private OrderInvoiceLineItem lineItem() {
-        return new OrderInvoiceLineItem("Iced Latte", 1, new BigDecimal("14.50"), new BigDecimal("14.50"), List.of());
+        return new OrderInvoiceLineItem("Iced Latte", null, 1, new BigDecimal("14.50"), new BigDecimal("14.50"), List.of());
     }
 
     private Customer customerWithChat() {

@@ -1,14 +1,3 @@
--- Drops the stale Hibernate-generated CHECK constraints left behind after Gender (ANOTHER ->
--- OTHER), User.status (Status -> UserStatus) and OrderStatus (PENDING/COMPLETED/CANCELLED ->
--- PENDING/PAID/PREPARING/COMPLETED/CANCELLED) changed. ddl-auto: update never updates existing
--- CHECK constraints, so these tables are still enforcing the old enum values and reject any
--- request using the new ones (e.g. gender=OTHER, a fresh registration's status=
--- PENDING_VERIFICATION, or an order moving to PAID). See NoEnumCheckPostgreSQLDialect for why
--- Hibernate will no longer recreate constraints like these going forward.
---
--- Safe to run more than once. Does not touch any row data — only removes the constraint.
--- Run this against every database that already has these tables: local dev DB and production.
-
 DO $$
 DECLARE
     target RECORD;

@@ -121,7 +121,11 @@ public class TelegramCatalogServiceImpl implements TelegramCatalogService {
     // Shows the cheapest variant's price, prefixed with "from" if there's more than one.
     private void appendProductLine(StringBuilder sb, Product product, List<ProductVariant> variants) {
         LocalDateTime now = LocalDateTime.now();
-        sb.append("• ").append(TelegramFormat.escape(TelegramFormat.titleCase(product.getName()))).append(" — ");
+        sb.append("• ").append(TelegramFormat.escape(TelegramFormat.titleCase(product.getName())));
+        if (product.getNameKh() != null && !product.getNameKh().isBlank()) {
+            sb.append(" (").append(TelegramFormat.escape(product.getNameKh())).append(')');
+        }
+        sb.append(" — ");
         if (variants.isEmpty()) {
             sb.append("price not set");
         } else {
