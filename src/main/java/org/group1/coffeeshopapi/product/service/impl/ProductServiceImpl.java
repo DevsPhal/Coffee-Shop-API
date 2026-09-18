@@ -268,13 +268,14 @@ public class ProductServiceImpl implements ProductService {
             DataFormatter formatter = new DataFormatter();
 
             // Row 0 is the header: name, description, sku, stockUnit, price, category,
-            // reorderLevel, variants, sellUnit, unitsPerStock.
+            // reorderLevel, variants, sellUnit, unitsPerStock, nameKh.
             //
             // variants is optional, e.g. "MEDIUM:1.50;LARGE:1.75" — lets one row set several
             // sizes at once. If given, price is ignored; if blank, price is required and creates
             // a single MEDIUM variant.
             //
-            // sellUnit defaults to CUP, unitsPerStock defaults to 1, when left blank.
+            // sellUnit defaults to CUP and unitsPerStock defaults to 1 when left blank; nameKh is
+            // optional.
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
                 if (row == null || isRowEmpty(row, formatter)) {
@@ -293,6 +294,7 @@ public class ProductServiceImpl implements ProductService {
                 String variantsText = formatter.formatCellValue(row.getCell(7)).trim();
                 String sellUnitText = formatter.formatCellValue(row.getCell(8)).trim();
                 String unitsPerStockText = formatter.formatCellValue(row.getCell(9)).trim();
+                String nameKh = formatter.formatCellValue(row.getCell(10)).trim();
 
                 if (name.isBlank() || sku.isBlank() || unitText.isBlank() || categoryName.isBlank()) {
                     errors.add(new ProductImportRowError(excelRowNumber, sku,
@@ -372,6 +374,7 @@ public class ProductServiceImpl implements ProductService {
                 // Everything is validated above, so this save should never fail.
                 Product product = new Product();
                 product.setName(name);
+                product.setNameKh(nameKh.isBlank() ? null : nameKh);
                 product.setDescription(description.isBlank() ? null : description);
                 product.setSku(sku);
                 product.setStockUnit(stockUnit);
@@ -410,7 +413,7 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private boolean isRowEmpty(Row row, DataFormatter formatter) {
-        for (int cellIndex = 0; cellIndex < 10; cellIndex++) {
+        for (int cellIndex = 0; cellIndex < 11; cellIndex++) {
             String value = formatter.formatCellValue(row.getCell(cellIndex));
             if (value != null && !value.isBlank()) {
                 return false;

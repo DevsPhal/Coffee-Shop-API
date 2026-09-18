@@ -643,8 +643,9 @@ public class OrderServiceImpl implements OrderService {
 
     private OrderInvoice toInvoice(Order order) {
         List<OrderInvoiceLineItem> items = order.getItems().stream()
-                .map(item -> new OrderInvoiceLineItem(item.getProductName(), item.getQuantity(), item.getUnitPrice(),
-                        item.getSubtotal(), item.getExtras().stream().map(OrderItemExtra::getExtraName).toList()))
+                .map(item -> new OrderInvoiceLineItem(item.getProductName(), item.getProductNameKh(), item.getQuantity(),
+                        item.getUnitPrice(), item.getSubtotal(),
+                        item.getExtras().stream().map(OrderItemExtra::getExtraName).toList()))
                 .toList();
         return new OrderInvoice(order.getId(), items, order.getDeliveryFee(), order.getTotalAmount(),
                 order.getPaymentMethod(), order.getBakongCurrency(), order.getBakongAmount(),
