@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.user.entity;
 
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -11,6 +12,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Gender;
+import org.group1.coffeeshopapi.common.enums.GenderConverter;
 import org.group1.coffeeshopapi.common.enums.RegisterType;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
@@ -39,7 +41,9 @@ public abstract class User extends BaseEntity {
     @Column
     private String avatarUrl;
 
-    @Enumerated(EnumType.STRING)
+    // A converter, not @Enumerated(EnumType.STRING) — a blank/unrecognized stored value must
+    // become null on read, not throw and crash the whole query. See GenderConverter.
+    @Convert(converter = GenderConverter.class)
     @Column(length = 20)
     private Gender gender;
 
