@@ -54,6 +54,11 @@ public abstract class User extends BaseEntity {
     @Column
     private String telegramChatId;
 
+    // Telegram's own @handle, captured once at Telegram widget registration time — not kept in
+    // sync if the person changes it in Telegram afterward.
+    @Column
+    private String telegramUsername;
+
     // How this account was created/verified — set once and never changed afterward, even if a
     // Telegram chat is linked/unlinked later.
     @Enumerated(EnumType.STRING)

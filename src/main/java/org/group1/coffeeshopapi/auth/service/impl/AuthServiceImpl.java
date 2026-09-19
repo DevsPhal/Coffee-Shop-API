@@ -15,6 +15,7 @@ import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidCredentialsException;
+import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
@@ -157,6 +158,15 @@ public class AuthServiceImpl implements AuthService {
 
     // Always registers as CUSTOMER — staff accounts are invite-only, never self-registered.
     private Customer registerCustomerViaTelegram(TelegramWidgetAuthRequest request) {
+        // Gender is never required here (Telegram doesn't send it, and it's optional everywhere
+        // else too) — but unlike gender, a Telegram username identifies the account, so a
+        // first-time sign-in needs one even though it's optional on the DTO itself (existing
+        // customers logging back in without one still work fine — this only gates registration).
+        if (request.username() == null || request.username().isBlank()) {
+            throw new InvalidOperationException(
+                    "Please set a username in Telegram (Settings → Username) before signing in");
+        }
+
         Customer customer = new Customer();
         customer.setFullName(request.lastName() != null
                 ? request.firstName() + " " + request.lastName()
@@ -167,6 +177,7 @@ public class AuthServiceImpl implements AuthService {
         customer.setStatus(UserStatus.ACTIVE);
         customer.setRegisterType(RegisterType.TELEGRAM);
         customer.setTelegramChatId(String.valueOf(request.id()));
+        customer.setTelegramUsername(request.username());
         customerRepository.saveAndFlush(customer);
         authUserSyncService.sync(customer);
 
@@ -174,7 +185,7 @@ public class AuthServiceImpl implements AuthService {
         // bot, and Telegram forbids a bot from messaging someone who hasn't started one — the
         // client already swallows that failure rather than breaking the login.
         telegramApiClient.sendHtmlMessageWithButtons(request.id(),
-                "🎉 <b>Welcome, " + TelegramFormat.escape(customer.getFullName()) + "!</b>\n\n"
+                "🎉 <b>Welcome, " + TelegramFormat.escape(TelegramFormat.titleCase(customer.getFullName())) + "!</b>\n\n"
                         + "You're now logged in — you'll get your order receipts, new event alerts, "
                         + "and reminders here from now on.");
 

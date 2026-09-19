@@ -66,8 +66,8 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
                     user.getId().toString(),
                     Duration.ofSeconds(properties.getLinkCodeTtlSeconds()));
             telegramApiClient.sendContactRequest(chatId,
-                    "👋 Hi " + user.getFullName() + "! To activate your account, please confirm it's really you "
-                            + "by sharing your phone number below.");
+                    "👋 Hi " + TelegramFormat.titleCase(user.getFullName()) + "! To activate your account, please "
+                            + "confirm it's really you by sharing your phone number below.");
             // Already replied above.
             return null;
         }
@@ -75,12 +75,13 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         Optional<User> currentlyLinked = userRepository.findByTelegramChatId(chatId.toString());
         if (currentlyLinked.map(User::getId).filter(id -> id.equals(user.getId())).isPresent()) {
             // Already linked to this account — nothing to do.
-            return "✅ <b>You're already linked</b> as " + TelegramFormat.escape(user.getFullName()) + ".";
+            return "✅ <b>You're already linked</b> as "
+                    + TelegramFormat.escape(TelegramFormat.titleCase(user.getFullName())) + ".";
         }
 
         claimChat(user, currentlyLinked, chatId);
 
-        return "✅ <b>Linked!</b> Welcome, " + TelegramFormat.escape(user.getFullName()) + ".\n\n"
+        return "✅ <b>Linked!</b> Welcome, " + TelegramFormat.escape(TelegramFormat.titleCase(user.getFullName())) + ".\n\n"
                 + "You'll get your order receipts, new event alerts, and reminders here from now on.";
     }
 

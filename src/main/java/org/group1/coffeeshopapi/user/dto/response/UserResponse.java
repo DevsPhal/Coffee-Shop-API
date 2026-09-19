@@ -19,6 +19,7 @@ public record UserResponse(
         Role role,
         UserStatus status,
         boolean telegramLinked,
+        String telegramUsername,
         RegisterType registerType,
         // Which admin/super admin created this account. Only ever set for ADMIN/BARISTA rows —
         // customers self-register, so this stays null for them.

@@ -52,6 +52,7 @@ public class UserMapper {
                 .role(user.getRole())
                 .status(user.getStatus())
                 .telegramLinked(telegramLinked)
+                .telegramUsername(user.getTelegramUsername())
                 .registerType(user.getRegisterType())
                 .createdBy(createdBy)
                 .createdByName(createdByName)
