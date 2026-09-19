@@ -13,6 +13,7 @@ import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
@@ -53,7 +54,13 @@ public class TelegramEventServiceImpl implements TelegramEventService {
         apiClient.sendMessageWithButtons(chatId, "Use the buttons below to keep exploring 👇");
     }
 
+    // REQUIRES_NEW, not the class-level readOnly transaction: this is called from inside
+    // EventServiceImpl.create()'s own transaction, and joining that one would mean any failure
+    // here (bad data, a broadcast error) marks the caller's transaction rollback-only even though
+    // the caller catches the exception — the event would silently fail to save. A separate
+    // transaction keeps this side effect from ever affecting whether the event gets created.
     @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW, readOnly = true)
     public void announceNewEvent(Event event) {
         List<Customer> recipients = customerRepository.findByTelegramChatIdIsNotNull();
         if (recipients.isEmpty()) {
