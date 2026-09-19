@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.cart.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.cart.dto.request.AddCartItemRequest;
 import org.group1.coffeeshopapi.cart.dto.request.CheckoutRequest;
 import org.group1.coffeeshopapi.cart.dto.request.UpdateCartItemRequest;
@@ -47,6 +48,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -249,6 +251,13 @@ public class CartServiceImpl implements CartService {
         for (CartItem item : cart.getItems()) {
             Product product = item.getProduct();
             ProductVariant variant = item.getVariant();
+            // Every current addItem/updateItem path resolves a variant or rejects the request, so
+            // this shouldn't happen — but a null one can't be priced, so skip it rather than 500
+            // the customer's whole cart over one stale row.
+            if (variant == null) {
+                log.error("Cart item {} on cart {} has no variant — skipping from response", item.getId(), cart.getId());
+                continue;
+            }
             Set<Extra> selectedExtras = item.getSelectedExtras();
             List<CartItemExtraResponse> extras = selectedExtras.stream()
                     .map(extra -> new CartItemExtraResponse(extra.getId(), extra.getName(), extra.getPrice()))
