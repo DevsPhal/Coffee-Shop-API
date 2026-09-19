@@ -20,8 +20,10 @@ import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.common.util.JwtUtil;
 import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
+import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
 import org.group1.coffeeshopapi.telegram.util.TelegramAccountUtil;
+import org.group1.coffeeshopapi.telegram.util.TelegramFormat;
 import org.group1.coffeeshopapi.telegram.util.TelegramWidgetAuthVerifier;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.entity.User;
@@ -54,6 +56,7 @@ public class AuthServiceImpl implements AuthService {
     private final AuthUserSyncService authUserSyncService;
     private final TelegramLinkService telegramLinkService;
     private final TelegramProperties telegramProperties;
+    private final TelegramApiClient telegramApiClient;
 
     @Override
     @Transactional
@@ -166,6 +169,15 @@ public class AuthServiceImpl implements AuthService {
         customer.setTelegramChatId(String.valueOf(request.id()));
         customerRepository.saveAndFlush(customer);
         authUserSyncService.sync(customer);
+
+        // Best-effort: some widget logins come from users who've never opened a chat with the
+        // bot, and Telegram forbids a bot from messaging someone who hasn't started one — the
+        // client already swallows that failure rather than breaking the login.
+        telegramApiClient.sendHtmlMessageWithButtons(request.id(),
+                "🎉 <b>Welcome, " + TelegramFormat.escape(customer.getFullName()) + "!</b>\n\n"
+                        + "You're now logged in — you'll get your order receipts, new event alerts, "
+                        + "and reminders here from now on.");
+
         return customer;
     }
 
