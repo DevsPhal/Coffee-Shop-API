@@ -7,6 +7,7 @@ import org.group1.coffeeshopapi.auth.service.TokenService;
 import org.group1.coffeeshopapi.barista.repository.BaristaRepository;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
+import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.user.dto.request.UpdateUserStatusRequest;
 import org.group1.coffeeshopapi.user.dto.request.UpdateProfileRequest;
@@ -45,7 +46,7 @@ public class UserAdminServiceImpl implements UserAdminService {
             case BARISTA -> baristaRepository.findAll(pageable);
             case CUSTOMER -> customerRepository.findAll(pageable);
             // The super admin is config-driven, not a database row — nothing here to list.
-            case SUPER_ADMIN -> throw new IllegalArgumentException("Super admin has no listable account record");
+            case SUPER_ADMIN -> throw new InvalidOperationException("Super admin has no listable account record");
         };
         return users.map(userMapper::toResponse);
     }

@@ -127,6 +127,14 @@ public class GlobalExceptionHandler {
         return null;
     }
 
+    // Business code occasionally throws this directly for "this value is well-formed but not
+    // acceptable here" (e.g. an enum constant with no handling on this endpoint) — a client
+    // mistake, not a server fault.
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
+        return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
+    }
+
     // A lazy reference (e.g. getReferenceById) pointed at a row that no longer exists — the
     // referencing id was valid when the request started (e.g. a JWT for an admin later deleted)
     // but the row is gone by the time it's actually read.
