@@ -68,6 +68,10 @@ spring:
   # keeps Jackson consistent with that same zone for any zone-aware type (Instant/OffsetDateTime).
   jackson:
     time-zone: Asia/Phnom_Penh
+    # Gender (and any other optional enum field) has no @NotBlank/@NotNull, so an unselected
+    # dropdown sending "" must deserialize to null instead of failing with a 400.
+    deserialization:
+      accept-empty-string-as-null-object: true
 
 bakong:
   base-url: ${BAKONG_BASE_URL:https://api-bakong.nbc.gov.kh}

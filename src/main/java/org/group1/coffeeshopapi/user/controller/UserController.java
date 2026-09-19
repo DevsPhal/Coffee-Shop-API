@@ -15,6 +15,7 @@ import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
 import org.group1.coffeeshopapi.user.dto.request.ChangePasswordRequest;
+import org.group1.coffeeshopapi.user.dto.request.CompleteProfileRequest;
 import org.group1.coffeeshopapi.user.dto.request.UpdateProfileRequest;
 import org.group1.coffeeshopapi.user.dto.response.SuperAdminResponse;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
@@ -66,6 +67,17 @@ public class UserController {
         UUID userId = requireCustomUser(principal, "Super admin's profile is fixed and cannot be edited").getId();
         return ApiResponse.of(HttpStatus.OK, "Profile updated successfully.",
                 userProfileService.updateProfile(userId, request));
+    }
+
+    // For accounts created via Telegram widget login, which never collects a phone number.
+    // Phone is required here even though it's optional on updateMe/UpdateProfileRequest.
+    @PostMapping("/me/complete-profile")
+    public ApiResponse<UserResponse> completeProfile(
+            @Valid @RequestBody CompleteProfileRequest request,
+            @AuthenticationPrincipal UserDetails principal) {
+        UUID userId = requireCustomUser(principal, "Super admin's profile is fixed and cannot be edited").getId();
+        return ApiResponse.of(HttpStatus.OK, "Profile completed successfully.",
+                userProfileService.completeProfile(userId, request));
     }
 
     @PostMapping("/me/change-password")

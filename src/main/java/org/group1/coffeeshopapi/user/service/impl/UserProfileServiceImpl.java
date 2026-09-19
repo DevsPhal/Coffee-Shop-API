@@ -8,6 +8,7 @@ import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.storage.FileStorageService;
 import org.group1.coffeeshopapi.user.dto.request.ChangePasswordRequest;
+import org.group1.coffeeshopapi.user.dto.request.CompleteProfileRequest;
 import org.group1.coffeeshopapi.user.dto.request.UpdateProfileRequest;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.group1.coffeeshopapi.user.entity.User;
@@ -58,6 +59,25 @@ public class UserProfileServiceImpl implements UserProfileService {
         }
 
         // Flush now so a duplicate phone number surfaces as a clear error, not a raw DB failure.
+        try {
+            userRepository.saveAndFlush(user);
+        } catch (DataIntegrityViolationException e) {
+            throw new DuplicateResourceException("That phone number is already used by another account");
+        }
+        authUserSyncService.sync(user);
+        return userMapper.toResponse(user);
+    }
+
+    @Override
+    @Transactional
+    public UserResponse completeProfile(UUID userId, CompleteProfileRequest request) {
+        User user = findById(userId);
+
+        user.setPhoneNumber(request.phoneNumber().trim());
+        if (request.gender() != null) {
+            user.setGender(request.gender());
+        }
+
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
