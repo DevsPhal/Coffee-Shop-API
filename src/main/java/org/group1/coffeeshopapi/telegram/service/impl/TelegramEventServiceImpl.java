@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.telegram.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.common.constant.RedisKeys;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.event.entity.Event;
@@ -19,6 +20,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -123,9 +125,13 @@ public class TelegramEventServiceImpl implements TelegramEventService {
 
     private void broadcast(List<Customer> recipients, Event event, String header, String footer) {
         for (Customer customer : recipients) {
-            Long chatId = Long.parseLong(customer.getTelegramChatId());
-            apiClient.sendHtmlMessage(chatId, header.stripTrailing());
-            sendEvent(chatId, event, footer);
+            try {
+                Long chatId = Long.parseLong(customer.getTelegramChatId());
+                apiClient.sendHtmlMessage(chatId, header.stripTrailing());
+                sendEvent(chatId, event, footer);
+            } catch (Exception ex) {
+                log.error("Failed to send event {} to customer {}", event.getId(), customer.getId(), ex);
+            }
         }
     }
 }

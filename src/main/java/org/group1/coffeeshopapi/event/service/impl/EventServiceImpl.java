@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.event.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EventServiceImpl implements EventService {
@@ -56,7 +58,13 @@ public class EventServiceImpl implements EventService {
         event.setCreatedByAdmin(actorAdmin);
         event = eventRepository.save(event);
 
-        telegramEventService.announceNewEvent(event);
+        // Broadcasting to Telegram is a side effect, not part of "was the event created" — a bad
+        // chat id or a Telegram API hiccup must not turn a successful create into a 500.
+        try {
+            telegramEventService.announceNewEvent(event);
+        } catch (Exception ex) {
+            log.error("Failed to announce new event {} on Telegram", event.getId(), ex);
+        }
 
         return toResponse(event);
     }

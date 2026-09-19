@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.common.exception;
 
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.common.response.ErrorResponse;
@@ -124,6 +125,14 @@ public class GlobalExceptionHandler {
             }
         }
         return null;
+    }
+
+    // A lazy reference (e.g. getReferenceById) pointed at a row that no longer exists — the
+    // referencing id was valid when the request started (e.g. a JWT for an admin later deleted)
+    // but the row is gone by the time it's actually read.
+    @ExceptionHandler(EntityNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleEntityNotFound(HttpServletRequest request) {
+        return build(HttpStatus.CONFLICT, "A referenced record no longer exists — please refresh and try again", request);
     }
 
     @ExceptionHandler(Exception.class)
