@@ -181,6 +181,15 @@ public class BaristaOrderController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, response);
     }
 
+    // Customer delivery orders waiting for a fee quote, oldest first. Each shows distanceMeters.
+    @GetMapping("/awaiting-delivery-fee")
+    public ApiResponse<PageResponse<OrderResponse>> listAwaitingDeliveryFee(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
+                PageResponse.of(orderService.listAwaitingDeliveryFee(PageUtil.buildPageable(page, size))));
+    }
+
     // Sets or revises the delivery fee for a pending delivery order.
     @PostMapping("/{id}/delivery-fee")
     public ApiResponse<OrderResponse> setDeliveryFee(

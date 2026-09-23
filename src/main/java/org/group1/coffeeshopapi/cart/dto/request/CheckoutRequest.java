@@ -8,7 +8,8 @@ import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
 import java.math.BigDecimal;
 
 // deliveryLatitude/deliveryLongitude must be given together, or not at all (pickup, the default).
-// It's a GPS pin for fee evaluation, separate from the delivery details below.
+// A delivery order needs the pin plus delivery details with an address and contact phone; staff
+// then quote the fee from the pin's distance before the order can be paid.
 public record CheckoutRequest(
         String note,
 

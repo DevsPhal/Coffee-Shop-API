@@ -34,5 +34,6 @@ public interface OrderMapper {
     @Mapping(target = "extraId", source = "extra.id")
     @Mapping(target = "name", source = "extraName")
     @Mapping(target = "price", source = "extraPrice")
+    @Mapping(target = "imageUrl", source = "extra.imageUrl")
     OrderItemExtraResponse toItemExtraResponse(OrderItemExtra extra);
 }

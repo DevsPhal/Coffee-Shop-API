@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.extra.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
+import org.group1.coffeeshopapi.common.storage.FileStorageService;
 import org.group1.coffeeshopapi.extra.dto.request.CreateExtraRequest;
 import org.group1.coffeeshopapi.extra.dto.request.UpdateExtraRequest;
 import org.group1.coffeeshopapi.extra.dto.response.ExtraResponse;
@@ -12,6 +13,7 @@ import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
 import org.group1.coffeeshopapi.extra.service.ExtraService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Comparator;
 import java.util.List;
@@ -23,8 +25,11 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ExtraServiceImpl implements ExtraService {
 
+    private static final String IMAGE_FOLDER = "extras";
+
     private final ExtraRepository extraRepository;
     private final ExtraMapper extraMapper;
+    private final FileStorageService fileStorageService;
 
     @Override
     @Transactional
@@ -76,7 +81,40 @@ public class ExtraServiceImpl implements ExtraService {
     @Transactional
     public void delete(UUID id) {
         // Rejected with a constraint error if this extra is still used by a past order or product.
-        extraRepository.delete(findById(id));
+        Extra extra = findById(id);
+        String imageUrl = extra.getImageUrl();
+        extraRepository.delete(extra);
+        extraRepository.flush();
+        if (imageUrl != null) {
+            fileStorageService.delete(imageUrl);
+        }
+    }
+
+    @Override
+    @Transactional
+    public ExtraResponse uploadImage(UUID id, MultipartFile file) {
+        Extra extra = findById(id);
+        String previousImageUrl = extra.getImageUrl();
+
+        extra.setImageUrl(fileStorageService.uploadImage(file, IMAGE_FOLDER));
+        extra = extraRepository.save(extra);
+
+        if (previousImageUrl != null) {
+            fileStorageService.delete(previousImageUrl);
+        }
+        return extraMapper.toResponse(extra);
+    }
+
+    @Override
+    @Transactional
+    public ExtraResponse removeImage(UUID id) {
+        Extra extra = findById(id);
+        if (extra.getImageUrl() != null) {
+            fileStorageService.delete(extra.getImageUrl());
+            extra.setImageUrl(null);
+            extra = extraRepository.save(extra);
+        }
+        return extraMapper.toResponse(extra);
     }
 
     private Extra findById(UUID id) {

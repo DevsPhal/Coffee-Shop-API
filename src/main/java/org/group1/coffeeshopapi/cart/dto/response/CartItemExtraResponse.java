@@ -6,6 +6,7 @@ import java.util.UUID;
 public record CartItemExtraResponse(
         UUID extraId,
         String name,
-        BigDecimal price
+        BigDecimal price,
+        String imageUrl
 ) {
 }

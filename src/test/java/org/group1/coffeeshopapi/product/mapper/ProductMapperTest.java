@@ -36,7 +36,7 @@ class ProductMapperTest {
 
     private ProductExtraResponse extraResponse(String name, BigDecimal quantityOnHand) {
         return new ProductExtraResponse(UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                name, new BigDecimal("0.50"), 1, Status.ACTIVE, quantityOnHand);
+                name, new BigDecimal("0.50"), 1, Status.ACTIVE, quantityOnHand, null);
     }
 
     private ProductResponse productResponse(List<ProductExtraResponse> extras) {

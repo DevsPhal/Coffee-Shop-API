@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.order.repository;
 
+import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.order.entity.Order;
@@ -66,6 +67,14 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             + "and o.status = :status and o.paymentMethod = :paymentMethod")
     Page<Order> findAwaitingBaristaClaim(
             @Param("status") OrderStatus status, @Param("paymentMethod") PaymentMethod paymentMethod, Pageable pageable);
+
+    // Customer delivery orders still waiting for staff to quote a fee, oldest first.
+    @Query("select o from Order o left join fetch o.customer where o.status = :status "
+            + "and o.customer is not null and o.deliveryFeeSetAt is null "
+            + "and (o.fulfillmentMethod = :delivery or o.deliveryLatitude is not null) "
+            + "order by o.createdAt asc")
+    Page<Order> findAwaitingDeliveryFee(
+            @Param("status") OrderStatus status, @Param("delivery") FulfillmentMethod delivery, Pageable pageable);
 
     // The delivery board: everything currently with a courier, oldest dispatch first.
     @Query("select o from Order o left join fetch o.customer where o.status = :status "

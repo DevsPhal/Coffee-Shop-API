@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.order.controller;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.Currency;
@@ -13,6 +14,7 @@ import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
+import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -73,6 +75,17 @@ public class CustomerOrderController {
         orderService.getOwnForCustomer(id, currentUser.getId());
         byte[] pdf = receiptService.generateInvoicePdf(id);
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "invoice-" + id + ".pdf", true);
+    }
+
+    // Pins or moves the delivery location on a pending order. Staff get a live alert to quote the
+    // fee; pay once awaitingDeliveryFee is false and totalAmount includes it.
+    @PutMapping("/{id}/delivery-location")
+    public ApiResponse<OrderResponse> pinDeliveryLocation(
+            @PathVariable UUID id,
+            @Valid @RequestBody DeliveryLocationRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Delivery location pinned. Waiting for the shop to set the delivery fee.",
+                orderService.pinDeliveryLocation(id, currentUser.getId(), request));
     }
 
     // Despite the name, this applies to delivery orders too.

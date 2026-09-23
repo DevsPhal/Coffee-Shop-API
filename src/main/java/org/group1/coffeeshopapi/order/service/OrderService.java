@@ -4,6 +4,7 @@ import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
+import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
@@ -51,6 +52,9 @@ public interface OrderService {
     // already paid.
     OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId);
 
+    // Customer delivery orders still waiting for a fee quote — the staff alert queue.
+    Page<OrderResponse> listAwaitingDeliveryFee(Pageable pageable);
+
     // --- Fulfillment (barista or admin, not scoped to who collected payment) ---
 
     // Moves an order to PREPARING. A cash order can start here straight from PENDING, unpaid —
@@ -87,6 +91,10 @@ public interface OrderService {
     // Customer picks to pay cash rather than Bakong — works for both pickup and delivery despite
     // the name. Stays PENDING; may get prepared before the cash is actually collected.
     OrderResponse selectCashOnPickup(UUID id, UUID customerId);
+
+    // Pins (or moves) the delivery location on a pending order. Turns it into a delivery order
+    // and resets the fee, so staff has to quote it again.
+    OrderResponse pinDeliveryLocation(UUID id, UUID customerId, DeliveryLocationRequest request);
 
     BakongQrResponse generateBakongQrForCustomer(UUID id, UUID customerId, Currency currency);
 

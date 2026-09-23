@@ -17,6 +17,8 @@ public record ProductExtraResponse(
         Status status,
 
         // Null means untracked (always available). Hidden from customers once it hits zero.
-        BigDecimal quantityOnHand
+        BigDecimal quantityOnHand,
+
+        String imageUrl
 ) {
 }

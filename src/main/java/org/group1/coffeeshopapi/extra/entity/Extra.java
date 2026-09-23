@@ -36,4 +36,8 @@ public class Extra extends BaseEntity {
     // Null means not stock-tracked (always available). Once set, 0 or less means out of stock.
     @Column(precision = 12, scale = 3)
     private BigDecimal quantityOnHand;
+
+    // Shown next to the add-on choice (e.g. a photo of Pearl) so customers can see what they're adding.
+    @Column
+    private String imageUrl;
 }

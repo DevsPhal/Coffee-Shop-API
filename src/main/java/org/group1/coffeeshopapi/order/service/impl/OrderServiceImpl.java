@@ -30,6 +30,7 @@ import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
+import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
@@ -165,6 +166,7 @@ public class OrderServiceImpl implements OrderService {
         if (order.getPaymentMethod() != PaymentMethod.CASH) {
             throw new InvalidOperationException("Order is not awaiting cash collection");
         }
+        requireDeliveryFeeQuoted(order);
         return toResponse(chargeCash(order, request, actorId));
     }
 
@@ -198,12 +200,19 @@ public class OrderServiceImpl implements OrderService {
             throw new InvalidOperationException("This order has no pinned delivery location — it's a pickup order");
         }
         order.setDeliveryFee(fee);
+        order.setDeliveryFeeSetAt(LocalDateTime.now());
         recalculateTotal(order);
         // Any existing QR now encodes the wrong total — a new one has to be generated.
         clearBakongQr(order);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.DELIVERY_FEE_SET, actorId);
         return toResponse(order);
+    }
+
+    @Override
+    public Page<OrderResponse> listAwaitingDeliveryFee(Pageable pageable) {
+        return toResponsePage(orderRepository.findAwaitingDeliveryFee(
+                OrderStatus.PENDING, FulfillmentMethod.DELIVERY, pageable));
     }
 
     // ---------- Fulfillment ----------
@@ -217,6 +226,7 @@ public class OrderServiceImpl implements OrderService {
             if (order.getPaymentMethod() != PaymentMethod.CASH) {
                 throw new InvalidOperationException("Order is not paid (currently pending)");
             }
+            requireDeliveryFeeQuoted(order);
             cutStockForOrder(order, actorId);
             if (order.getHandledBy() == null) {
                 order.setHandledBy(actorId);
@@ -294,6 +304,7 @@ public class OrderServiceImpl implements OrderService {
         order.setCustomer(customerRef(customerId));
         order.setDeliveryLatitude(deliveryLatitude);
         order.setDeliveryLongitude(deliveryLongitude);
+        requireConsistentDelivery(order);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.CREATED, customerId);
         return toResponse(order);
@@ -315,12 +326,35 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse selectCashOnPickup(UUID id, UUID customerId) {
-        Order order = requirePending(findByCustomerForUpdate(id, customerId));
+        Order order = requireDeliveryFeeQuoted(requirePending(findByCustomerForUpdate(id, customerId)));
         order.setPaymentMethod(PaymentMethod.CASH);
         // Drop any QR so an old Bakong payment can't also be confirmed on a cash order.
         clearBakongQr(order);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.CASH_SELECTED, customerId);
+        return toResponse(order);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse pinDeliveryLocation(UUID id, UUID customerId, DeliveryLocationRequest request) {
+        Order order = requirePending(findByCustomerForUpdate(id, customerId));
+        order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
+        order.setDeliveryLatitude(request.latitude());
+        order.setDeliveryLongitude(request.longitude());
+        order.setDeliveryAddress(request.address());
+        order.setContactPhone(request.contactPhone());
+        if (request.contactName() != null) {
+            order.setContactName(request.contactName());
+        }
+        // A new location needs a new quote, and the customer picks how to pay once they see it.
+        order.setDeliveryFee(BigDecimal.ZERO);
+        order.setDeliveryFeeSetAt(null);
+        order.setPaymentMethod(null);
+        clearBakongQr(order);
+        recalculateTotal(order);
+        order = orderRepository.save(order);
+        recordChange(order, OrderAuditAction.LOCATION_PINNED, customerId);
         return toResponse(order);
     }
 
@@ -474,10 +508,6 @@ public class OrderServiceImpl implements OrderService {
         if (delivery == null) {
             return;
         }
-        if (delivery.method() == FulfillmentMethod.DELIVERY
-                && (delivery.address() == null || delivery.address().isBlank())) {
-            throw new InvalidOperationException("A delivery address is required for delivery orders");
-        }
         order.setFulfillmentMethod(delivery.method());
         order.setContactName(delivery.contactName());
         order.setContactPhone(delivery.contactPhone());
@@ -527,9 +557,7 @@ public class OrderServiceImpl implements OrderService {
 
     // The one place totalAmount is computed, so it's always item subtotals plus delivery fee.
     private void recalculateTotal(Order order) {
-        BigDecimal itemsTotal = order.getItems().stream()
-                .map(OrderItem::getSubtotal)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal itemsTotal = order.getItemsTotal();
         BigDecimal deliveryFee = order.getDeliveryFee() != null ? order.getDeliveryFee() : BigDecimal.ZERO;
         order.setTotalAmount(itemsTotal.add(deliveryFee));
     }
@@ -577,6 +605,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private BakongQrResponse attachBakongQr(Order order, Currency currency, UUID actorId) {
+        requireDeliveryFeeQuoted(order);
         String billNumber = "ORD-" + order.getId().toString().substring(0, 8).toUpperCase();
         BakongQrResult qr = bakongQrService.generateQr(order.getTotalAmount(), billNumber, currency);
 
@@ -690,6 +719,36 @@ public class OrderServiceImpl implements OrderService {
                     "Order is " + order.getStatus().name().toLowerCase() + " and can no longer be paid");
         }
         return order;
+    }
+
+    // A delivery order's total isn't final until staff quotes the fee, so nothing can be paid or
+    // prepared before then.
+    private Order requireDeliveryFeeQuoted(Order order) {
+        if (order.isAwaitingDeliveryFee()) {
+            throw new InvalidOperationException(
+                    "Waiting for the shop to set the delivery fee — the total isn't final yet");
+        }
+        return order;
+    }
+
+    // A delivery order needs a GPS pin (for distance and the fee) plus an address and phone for
+    // the courier. A pin alone also means delivery.
+    private void requireConsistentDelivery(Order order) {
+        if (order.getDeliveryLatitude() != null) {
+            order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
+        }
+        if (order.getFulfillmentMethod() != FulfillmentMethod.DELIVERY) {
+            return;
+        }
+        if (order.getDeliveryLatitude() == null) {
+            throw new InvalidOperationException("Pin your delivery location on the map");
+        }
+        if (order.getDeliveryAddress() == null || order.getDeliveryAddress().isBlank()) {
+            throw new InvalidOperationException("A delivery address is required for delivery orders");
+        }
+        if (order.getContactPhone() == null || order.getContactPhone().isBlank()) {
+            throw new InvalidOperationException("A contact phone is required for delivery orders");
+        }
     }
 
     // A cash order that was prepared unpaid must still be paid before it's marked done.

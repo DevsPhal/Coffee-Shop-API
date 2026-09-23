@@ -12,6 +12,8 @@ public record ExtraResponse(
         Status status,
 
         // Null means untracked (always available).
-        BigDecimal quantityOnHand
+        BigDecimal quantityOnHand,
+
+        String imageUrl
 ) {
 }

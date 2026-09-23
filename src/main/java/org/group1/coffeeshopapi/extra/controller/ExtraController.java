@@ -13,6 +13,7 @@ import org.group1.coffeeshopapi.extra.service.ExtraService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -41,6 +42,17 @@ public class ExtraController {
     @PatchMapping("/{id}")
     public ApiResponse<ExtraResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateExtraRequest request) {
         return ApiResponse.of(HttpStatus.OK, "Extra updated successfully.", extraService.update(id, request));
+    }
+
+    // Photo shown to customers next to the add-on choice.
+    @PostMapping(value = "/{id}/image", consumes = "multipart/form-data")
+    public ApiResponse<ExtraResponse> uploadImage(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
+        return ApiResponse.of(HttpStatus.OK, "Extra image uploaded successfully.", extraService.uploadImage(id, file));
+    }
+
+    @DeleteMapping("/{id}/image")
+    public ApiResponse<ExtraResponse> removeImage(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Extra image removed successfully.", extraService.removeImage(id));
     }
 
     @DeleteMapping("/{id}")

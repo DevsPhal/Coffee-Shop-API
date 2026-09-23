@@ -61,6 +61,10 @@ public class Order extends BaseEntity {
     @Column(precision = 12, scale = 2)
     private BigDecimal deliveryFee = BigDecimal.ZERO;
 
+    // When staff last quoted the delivery fee. Null means not quoted yet, which is how a real
+    // zero fee (free delivery) is told apart from "still waiting".
+    private LocalDateTime deliveryFeeSetAt;
+
     @Column(length = 500)
     private String deliveryAddress;
 
@@ -137,6 +141,17 @@ public class Order extends BaseEntity {
     // True if either fulfillmentMethod or a pinned GPS location says this is a delivery.
     public boolean isDelivery() {
         return fulfillmentMethod == FulfillmentMethod.DELIVERY || (deliveryLatitude != null && deliveryLongitude != null);
+    }
+
+    // A pending delivery order that can't be paid or prepared yet, because staff hasn't quoted
+    // its fee. Only PENDING counts, since the fee can't be set after that.
+    public boolean isAwaitingDeliveryFee() {
+        return status == OrderStatus.PENDING && isDelivery() && deliveryFeeSetAt == null;
+    }
+
+    // Sum of the line subtotals, before the delivery fee.
+    public BigDecimal getItemsTotal() {
+        return items.stream().map(OrderItem::getSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     public void addItem(OrderItem item) {

@@ -260,7 +260,7 @@ public class CartServiceImpl implements CartService {
             }
             Set<Extra> selectedExtras = item.getSelectedExtras();
             List<CartItemExtraResponse> extras = selectedExtras.stream()
-                    .map(extra -> new CartItemExtraResponse(extra.getId(), extra.getName(), extra.getPrice()))
+                    .map(extra -> new CartItemExtraResponse(extra.getId(), extra.getName(), extra.getPrice(), extra.getImageUrl()))
                     .toList();
             BigDecimal extrasTotal = selectedExtras.stream().map(Extra::getPrice).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal unitPrice = product.getFinalPrice(variant.getPrice(), now).add(extrasTotal);

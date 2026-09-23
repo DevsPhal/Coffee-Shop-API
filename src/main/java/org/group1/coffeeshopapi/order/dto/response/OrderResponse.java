@@ -50,10 +50,17 @@ public record OrderResponse(
         // Null for a pickup order. Both set together or not at all.
         BigDecimal deliveryLatitude,
         BigDecimal deliveryLongitude,
-        // Null until staff evaluates it, even for a delivery order. Already folded into totalAmount.
+        // Zero until staff quotes it — check awaitingDeliveryFee. Already folded into totalAmount.
         BigDecimal deliveryFee,
         // Straight-line distance from the shop to the delivery location — null for pickup, or if
         // the shop's own location isn't configured.
-        BigDecimal distanceMeters
+        BigDecimal distanceMeters,
+        // When staff last quoted the delivery fee; null until then.
+        LocalDateTime deliveryFeeSetAt,
+        // True while a delivery order waits for staff to quote its fee. It can't be paid or
+        // prepared until then.
+        boolean awaitingDeliveryFee,
+        // Items only. totalAmount = itemsTotal + deliveryFee.
+        BigDecimal itemsTotal
 ) {
 }

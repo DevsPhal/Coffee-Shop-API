@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.extra.service.impl;
 
 import org.group1.coffeeshopapi.extra.dto.request.CreateExtraRequest;
 import org.group1.coffeeshopapi.extra.dto.request.UpdateExtraRequest;
+import org.group1.coffeeshopapi.common.storage.FileStorageService;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.extra.mapper.ExtraMapper;
 import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
@@ -26,6 +27,7 @@ class ExtraServiceImplTest {
 
     @Mock private ExtraRepository extraRepository;
     @Mock private ExtraMapper extraMapper;
+    @Mock private FileStorageService fileStorageService;
     @InjectMocks private ExtraServiceImpl service;
 
     @Test
