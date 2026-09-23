@@ -44,6 +44,7 @@ class StompAuthChannelInterceptorTest {
     void staffCanWatchOrdersAndInventoryButNotFeedback() {
         assertAllowed("ROLE_BARISTA", RealtimeDestinations.STAFF_ORDERS);
         assertAllowed("ROLE_BARISTA", RealtimeDestinations.INVENTORY);
+        assertAllowed("ROLE_BARISTA", RealtimeDestinations.STAFF_CALLS);
         assertRefused("ROLE_BARISTA", RealtimeDestinations.FEEDBACK);
         assertAllowed("ROLE_ADMIN", RealtimeDestinations.FEEDBACK);
     }
@@ -54,6 +55,8 @@ class StompAuthChannelInterceptorTest {
         assertAllowed("ROLE_CUSTOMER", "/user" + RealtimeDestinations.USER_ORDERS);
         assertRefused("ROLE_CUSTOMER", RealtimeDestinations.STAFF_ORDERS);
         assertRefused("ROLE_CUSTOMER", RealtimeDestinations.INVENTORY);
+        assertRefused("ROLE_CUSTOMER", RealtimeDestinations.STAFF_CALLS);
+        assertAllowed("ROLE_CUSTOMER", "/user" + RealtimeDestinations.USER_STAFF_CALLS);
         // Exact match only — a lookalike topic isn't a way around the rules.
         assertRefused("ROLE_CUSTOMER", RealtimeDestinations.CATALOG + "/../orders");
     }

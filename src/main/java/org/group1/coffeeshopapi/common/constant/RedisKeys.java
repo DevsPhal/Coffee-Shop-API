@@ -16,6 +16,11 @@ public class RedisKeys {
     // share their contact so it can be matched against the phone number their admin entered.
     public static final String TELEGRAM_PENDING_CONTACT_PREFIX = "tg:pending-contact:";
 
+    // Per-customer cooldown between "call staff" presses.
+    public static final String STAFF_CALL_COOLDOWN_PREFIX = "staffcall:cooldown:";
+    // Hash of orderId -> calledAt for calls no staff member has answered yet.
+    public static final String STAFF_CALL_OPEN = "staffcall:open";
+
     public static String otpKey(String purpose, String email) {
         return OTP_PREFIX + purpose.toLowerCase() + ":" + email.toLowerCase();
     }

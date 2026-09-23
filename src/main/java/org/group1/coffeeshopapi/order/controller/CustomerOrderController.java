@@ -18,8 +18,10 @@ import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
+import org.group1.coffeeshopapi.order.dto.response.StaffCallResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.order.service.ReceiptService;
+import org.group1.coffeeshopapi.order.service.StaffCallService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -40,6 +42,7 @@ public class CustomerOrderController {
 
     private final OrderService orderService;
     private final ReceiptService receiptService;
+    private final StaffCallService staffCallService;
 
     @GetMapping
     public ApiResponse<PageResponse<OrderResponse>> list(
@@ -86,6 +89,15 @@ public class CustomerOrderController {
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, "Delivery location pinned. Waiting for the shop to set the delivery fee.",
                 orderService.pinDeliveryLocation(id, currentUser.getId(), request));
+    }
+
+    // Asks staff to come help with this order. Once per 30s — a 429 says how long to wait, and
+    // nextCallAllowedAt says when to re-enable the button.
+    @PostMapping("/{id}/call-staff")
+    public ApiResponse<StaffCallResponse> callStaff(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Staff has been notified and will be with you shortly.",
+                staffCallService.call(id, currentUser.getId()));
     }
 
     // Despite the name, this applies to delivery orders too.

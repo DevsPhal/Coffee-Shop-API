@@ -124,6 +124,9 @@ app:
     otp-expiry-minutes: ${APP_AUTH_OTP_EXPIRY_MINUTES:5}
     otp-max-attempts: ${APP_AUTH_OTP_MAX_ATTEMPTS:5}
     otp-resend-cooldown-seconds: ${APP_AUTH_OTP_RESEND_COOLDOWN_SECONDS:60}
+  staff-call:
+    # How long a customer must wait between "call staff" presses.
+    cooldown-seconds: ${APP_STAFF_CALL_COOLDOWN_SECONDS:30}
   super-admin:
     email: ${SUPER_ADMIN_EMAIL:}
     password: ${SUPER_ADMIN_PASSWORD:}

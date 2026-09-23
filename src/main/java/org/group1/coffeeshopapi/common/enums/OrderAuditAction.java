@@ -6,6 +6,8 @@ public enum OrderAuditAction {
     CASH_SELECTED, BAKONG_QR_GENERATED,
     // Customer pinned or moved their delivery location — staff has to quote the fee again.
     LOCATION_PINNED,
+    // Customer pressed "call staff", and a staff member answered it.
+    STAFF_CALLED, STAFF_CALL_ANSWERED,
     // The rest of the order lifecycle after payment, named to match the status it moved into.
     PREPARING, OUT_FOR_DELIVERY, DELIVERED, COMPLETED
 }

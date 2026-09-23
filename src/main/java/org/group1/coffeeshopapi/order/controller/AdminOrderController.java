@@ -20,8 +20,10 @@ import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
+import org.group1.coffeeshopapi.order.dto.response.StaffCallResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.order.service.ReceiptService;
+import org.group1.coffeeshopapi.order.service.StaffCallService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -44,6 +46,7 @@ public class AdminOrderController {
 
     private final OrderService orderService;
     private final ReceiptService receiptService;
+    private final StaffCallService staffCallService;
     // Also reachable by the Super Admin (hasRole("ADMIN") + role hierarchy).
     private final CurrentActor currentActor;
 
@@ -161,6 +164,19 @@ public class AdminOrderController {
     public ApiResponse<OrderResponse> cancel(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order cancelled successfully.",
                 orderService.cancelAny(id, currentActor.id()));
+    }
+
+    // Unanswered "call staff" presses, oldest first — load once, then follow /topic/staff-calls.
+    @GetMapping("/staff-calls")
+    public ApiResponse<List<StaffCallResponse>> listStaffCalls() {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, staffCallService.listOpen());
+    }
+
+    // Takes the call: clears the alert on every staff screen and tells the customer.
+    @PostMapping("/{id}/staff-call/answer")
+    public ApiResponse<Void> answerStaffCall(@PathVariable UUID id) {
+        staffCallService.answer(id, currentActor.id());
+        return ApiResponse.of(HttpStatus.OK, "Staff call answered.", null);
     }
 
     // Customer delivery orders waiting for a fee quote, oldest first. Each shows distanceMeters.

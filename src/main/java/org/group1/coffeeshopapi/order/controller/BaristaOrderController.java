@@ -19,14 +19,17 @@ import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
+import org.group1.coffeeshopapi.order.dto.response.StaffCallResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.order.service.ReceiptService;
+import org.group1.coffeeshopapi.order.service.StaffCallService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -41,6 +44,7 @@ public class BaristaOrderController {
 
     private final OrderService orderService;
     private final ReceiptService receiptService;
+    private final StaffCallService staffCallService;
 
     // A walk-in sale rung up at the counter. Always pickup, served on the spot.
     @PostMapping
@@ -179,6 +183,19 @@ public class BaristaOrderController {
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         OrderResponse response = orderService.acceptBakongPayment(id, currentUser.getId());
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, response);
+    }
+
+    // Unanswered "call staff" presses, oldest first — load once, then follow /topic/staff-calls.
+    @GetMapping("/staff-calls")
+    public ApiResponse<List<StaffCallResponse>> listStaffCalls() {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, staffCallService.listOpen());
+    }
+
+    // Takes the call: clears the alert on every staff screen and tells the customer.
+    @PostMapping("/{id}/staff-call/answer")
+    public ApiResponse<Void> answerStaffCall(@PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        staffCallService.answer(id, currentUser.getId());
+        return ApiResponse.of(HttpStatus.OK, "Staff call answered.", null);
     }
 
     // Customer delivery orders waiting for a fee quote, oldest first. Each shows distanceMeters.

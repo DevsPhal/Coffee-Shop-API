@@ -40,6 +40,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private static final Map<String, Set<String>> TOPIC_ROLES = Map.of(
             RealtimeDestinations.STAFF_ORDERS, STAFF_ROLES,
             RealtimeDestinations.INVENTORY, STAFF_ROLES,
+            RealtimeDestinations.STAFF_CALLS, STAFF_ROLES,
             RealtimeDestinations.FEEDBACK, ADMIN_ROLES,
             RealtimeDestinations.CATALOG, Set.of());
 

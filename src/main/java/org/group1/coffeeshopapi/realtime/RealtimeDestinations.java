@@ -12,6 +12,12 @@ public final class RealtimeDestinations {
     // Product, category and extra changes — any signed-in user.
     public static final String CATALOG = "/topic/catalog";
 
+    // "Call staff" presses and answers — staff only.
+    public static final String STAFF_CALLS = "/topic/staff-calls";
+
+    // Tells a customer their call was answered. Clients subscribe to /user/queue/staff-calls.
+    public static final String USER_STAFF_CALLS = "/queue/staff-calls";
+
     // Stock level changes — staff only.
     public static final String INVENTORY = "/topic/inventory";
 
