@@ -90,6 +90,9 @@ bakong:
   currency: ${BAKONG_CURRENCY:USD}
   expiration-minutes: ${BAKONG_EXPIRATION_MINUTES:15}
   khr-per-usd-rate: ${BAKONG_KHR_PER_USD_RATE:4100}
+  # Shop branding and return URL for the deeplink payment app.
+  app-icon-url: ${BAKONG_APP_ICON_URL:https://590stcafe.shop/images/Logo.svg}
+  deeplink-callback-url: ${BAKONG_DEEPLINK_CALLBACK_URL:https://590stcafe.shop/}
 
 # The shop's own pinned coordinates, so a delivery order's distance can be shown to whichever
 # admin/barista is evaluating its delivery fee (see OrderResponse.distanceMeters). Blank until

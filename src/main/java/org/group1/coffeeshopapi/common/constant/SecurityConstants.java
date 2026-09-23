@@ -15,6 +15,8 @@ public class SecurityConstants {
             "/api/banners/**",
             "/api/events/**",
             TELEGRAM_WEBHOOK_PATH,
+            // WebSocket handshake — the JWT is checked on the STOMP CONNECT frame instead.
+            "/ws/**",
             "/swagger-ui.html",
             "/swagger-ui/**",
             "/v3/api-docs",

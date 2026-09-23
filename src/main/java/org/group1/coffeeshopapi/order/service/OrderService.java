@@ -5,6 +5,7 @@ import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
+import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -88,6 +89,9 @@ public interface OrderService {
     OrderResponse selectCashOnPickup(UUID id, UUID customerId);
 
     BakongQrResponse generateBakongQrForCustomer(UUID id, UUID customerId, Currency currency);
+
+    // Order must already have a Bakong QR generated for it.
+    BakongDeeplinkResponse generateBakongDeeplinkForCustomer(UUID id, UUID customerId);
 
     OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId);
 

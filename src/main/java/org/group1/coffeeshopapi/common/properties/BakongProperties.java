@@ -35,6 +35,9 @@ public class BakongProperties {
     private Currency currency;
     private long expirationMinutes;
     private BigDecimal khrPerUsdRate;
+    // Shop branding and return URL shown inside the banking app after a deeplink payment.
+    private String appIconUrl;
+    private String deeplinkCallbackUrl;
 
     public boolean isConfigured() {
         return notBlank(token) && notBlank(accountId) && notBlank(merchantName);

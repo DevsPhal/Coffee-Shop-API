@@ -89,6 +89,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/expenses/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/finance/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/bakong/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/feedback/**").hasRole("ADMIN")
                         .requestMatchers("/api/barista/orders/**").hasRole("BARISTA")
                         .requestMatchers(HttpMethod.GET, "/api/barista/reports/**").hasRole("BARISTA")
                         .requestMatchers("/api/barista/attendance/**").hasRole("BARISTA")

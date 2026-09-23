@@ -34,6 +34,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -67,6 +68,7 @@ class OrderServiceImplWalkInSaleTest {
     @Mock private ActorLookupService actorLookupService;
     @Mock private ShopLocationProperties shopLocationProperties;
     @Mock private BakongProperties bakongProperties;
+    @Mock private ApplicationEventPublisher eventPublisher;
     @InjectMocks private OrderServiceImpl service;
 
     @Test

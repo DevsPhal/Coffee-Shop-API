@@ -5,6 +5,7 @@ import org.group1.coffeeshopapi.bakong.BakongExchangeRateService;
 import org.group1.coffeeshopapi.bakong.BakongQrService;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
+import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
@@ -24,14 +25,18 @@ import org.group1.coffeeshopapi.order.repository.OrderRepository;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
+import org.group1.coffeeshopapi.realtime.event.OrderChangedEvent;
 import org.group1.coffeeshopapi.telegram.service.TelegramInvoiceService;
+import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -68,13 +73,14 @@ class OrderServiceImplFulfillmentFlowTest {
     @Mock private ActorLookupService actorLookupService;
     @Mock private ShopLocationProperties shopLocationProperties;
     @Mock private BakongProperties bakongProperties;
+    @Mock private ApplicationEventPublisher eventPublisher;
     @InjectMocks private OrderServiceImpl service;
 
     @Test
     void startPreparingCutsStockAndClaimsAPendingCashOrderWithoutRequiringPaymentFirst() {
         UUID actorId = UUID.randomUUID();
         Order order = pendingCashOrder();
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.startPreparing(order.getId(), actorId);
@@ -91,7 +97,7 @@ class OrderServiceImplFulfillmentFlowTest {
         UUID differentActor = UUID.randomUUID();
         Order order = pendingCashOrder();
         order.setHandledBy(originalHandler);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.startPreparing(order.getId(), differentActor);
@@ -103,7 +109,7 @@ class OrderServiceImplFulfillmentFlowTest {
     void startPreparingRejectsAPendingBakongOrderThatHasNotClearedYet() {
         Order order = pendingCashOrder();
         order.setPaymentMethod(PaymentMethod.BAKONG);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.startPreparing(order.getId(), UUID.randomUUID()))
                 .isInstanceOf(InvalidOperationException.class)
@@ -116,7 +122,7 @@ class OrderServiceImplFulfillmentFlowTest {
         Order order = pendingCashOrder();
         order.setStatus(OrderStatus.PAID);
         order.setPaidAt(LocalDateTime.now());
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.startPreparing(order.getId(), UUID.randomUUID());
@@ -132,7 +138,7 @@ class OrderServiceImplFulfillmentFlowTest {
         Order order = pendingCashOrder();
         order.setStatus(OrderStatus.PREPARING);
         order.setHandledBy(barista);
-        when(orderRepository.findByIdAndHandledBy(order.getId(), barista)).thenReturn(Optional.of(order));
+        when(orderRepository.findByHandledByForUpdate(order.getId(), barista)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.payCash(order.getId(), barista, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
@@ -147,7 +153,7 @@ class OrderServiceImplFulfillmentFlowTest {
         Order order = pendingCashOrder();
         order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
         order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.collectCash(order.getId(), UUID.randomUUID(),
@@ -164,7 +170,7 @@ class OrderServiceImplFulfillmentFlowTest {
         order.setStatus(OrderStatus.PREPARING);
         order.setHandledBy(barista);
         order.setPaidAt(LocalDateTime.now());
-        when(orderRepository.findByIdAndHandledBy(order.getId(), barista)).thenReturn(Optional.of(order));
+        when(orderRepository.findByHandledByForUpdate(order.getId(), barista)).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.payCash(order.getId(), barista,
                 new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null)))
@@ -178,7 +184,7 @@ class OrderServiceImplFulfillmentFlowTest {
         Order order = pendingCashOrder();
         order.setStatus(OrderStatus.CANCELLED);
         order.setHandledBy(barista);
-        when(orderRepository.findByIdAndHandledBy(order.getId(), barista)).thenReturn(Optional.of(order));
+        when(orderRepository.findByHandledByForUpdate(order.getId(), barista)).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.payCash(order.getId(), barista,
                 new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null)))
@@ -191,7 +197,7 @@ class OrderServiceImplFulfillmentFlowTest {
         Order order = pendingCashOrder();
         order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
         order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.markDelivered(order.getId(), UUID.randomUUID()))
                 .isInstanceOf(InvalidOperationException.class)
@@ -204,7 +210,7 @@ class OrderServiceImplFulfillmentFlowTest {
         order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
         order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
         order.setPaidAt(LocalDateTime.now());
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.markDelivered(order.getId(), UUID.randomUUID());
@@ -216,7 +222,7 @@ class OrderServiceImplFulfillmentFlowTest {
     void completePickupRejectsAnUnpaidCashOrderEvenThoughItsReady() {
         Order order = pendingCashOrder();
         order.setStatus(OrderStatus.PREPARING);
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
 
         assertThatThrownBy(() -> service.completePickup(order.getId(), UUID.randomUUID()))
                 .isInstanceOf(InvalidOperationException.class)
@@ -228,7 +234,7 @@ class OrderServiceImplFulfillmentFlowTest {
         Order order = pendingCashOrder();
         order.setStatus(OrderStatus.PREPARING);
         order.setPaidAt(LocalDateTime.now());
-        when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.completePickup(order.getId(), UUID.randomUUID());
@@ -245,6 +251,45 @@ class OrderServiceImplFulfillmentFlowTest {
         service.listAwaitingPreparation(pageable);
 
         verify(orderRepository).findAwaitingPreparation(OrderStatus.PAID, OrderStatus.PENDING, PaymentMethod.CASH, pageable);
+    }
+
+    @Test
+    void aStatusChangeIsPublishedForLiveClients() {
+        Order order = pendingCashOrder();
+        order.setStatus(OrderStatus.PAID);
+        order.setPaidAt(LocalDateTime.now());
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.startPreparing(order.getId(), UUID.randomUUID());
+
+        ArgumentCaptor<OrderChangedEvent> event = ArgumentCaptor.forClass(OrderChangedEvent.class);
+        verify(eventPublisher).publishEvent(event.capture());
+        assertThat(event.getValue().action()).isEqualTo(OrderAuditAction.PREPARING);
+        assertThat(event.getValue().customerEmail()).isNull();
+    }
+
+    @Test
+    void switchingToCashDropsTheBakongQrSoItCanNoLongerBeConfirmed() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        customer.setEmail("customer@example.com");
+        Order order = pendingCashOrder();
+        order.setCustomer(customer);
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongQrString("qr");
+        order.setBakongMd5Hash("md5");
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.selectCashOnPickup(order.getId(), customerId);
+
+        assertThat(order.getPaymentMethod()).isEqualTo(PaymentMethod.CASH);
+        assertThat(order.getBakongMd5Hash()).isNull();
+        assertThatThrownBy(() -> service.confirmBakongPaymentForCustomer(order.getId(), customerId))
+                .isInstanceOf(InvalidOperationException.class);
+        verify(bakongApiClient, never()).checkTransactionByMd5(any());
     }
 
     private Order pendingCashOrder() {

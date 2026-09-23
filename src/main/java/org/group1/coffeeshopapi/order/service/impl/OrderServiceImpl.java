@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.bakong.BakongApiClient;
 import org.group1.coffeeshopapi.bakong.BakongExchangeRateService;
 import org.group1.coffeeshopapi.bakong.BakongQrService;
+import org.group1.coffeeshopapi.bakong.dto.BakongDeeplinkResult;
 import org.group1.coffeeshopapi.bakong.dto.BakongQrResult;
 import org.group1.coffeeshopapi.bakong.dto.BakongTransactionCheckResult;
 import org.group1.coffeeshopapi.common.enums.Currency;
@@ -31,6 +32,7 @@ import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
+import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -50,6 +52,7 @@ import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.product.service.ProductExtraResolver;
 import org.group1.coffeeshopapi.product.service.ProductPriceResolver;
 import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
+import org.group1.coffeeshopapi.realtime.event.OrderChangedEvent;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoice;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoiceLineItem;
 import org.group1.coffeeshopapi.telegram.service.TelegramInvoiceService;
@@ -57,6 +60,7 @@ import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.group1.coffeeshopapi.user.service.ActorLookupService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -93,6 +97,7 @@ public class OrderServiceImpl implements OrderService {
     private final ActorLookupService actorLookupService;
     private final ShopLocationProperties shopLocationProperties;
     private final BakongProperties bakongProperties;
+    private final ApplicationEventPublisher eventPublisher;
 
     // ---------- Walk-in (POS) sales — barista or admin, ringing up their own sale ----------
 
@@ -103,7 +108,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = buildOrder(new CreateOrderRequest(request.items(), request.note()));
         order.setHandledBy(baristaId);
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.CREATED, baristaId);
+        recordChange(order, OrderAuditAction.CREATED, baristaId);
         return toResponse(order);
     }
 
@@ -123,36 +128,36 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse payCash(UUID id, UUID baristaId, CashPaymentRequest request) {
-        Order order = requireUnpaid(findByHandledBy(id, baristaId));
+        Order order = requireUnpaid(findByHandledByForUpdate(id, baristaId));
         return toResponse(chargeCash(order, request, baristaId));
     }
 
     @Override
     @Transactional
     public BakongQrResponse generateBakongQr(UUID id, UUID baristaId, Currency currency) {
-        return attachBakongQr(requirePending(findByHandledBy(id, baristaId)), currency);
+        return attachBakongQr(requirePending(findByHandledByForUpdate(id, baristaId)), currency, baristaId);
     }
 
     @Override
     @Transactional
     public OrderResponse confirmBakongPayment(UUID id, UUID baristaId) {
-        return toResponse(confirmBakong(findByHandledBy(id, baristaId), baristaId));
+        return toResponse(confirmBakong(findByHandledByForUpdate(id, baristaId), baristaId));
     }
 
     @Override
     @Transactional
     public OrderResponse cancel(UUID id, UUID baristaId) {
-        Order order = requirePending(findByHandledBy(id, baristaId));
+        Order order = requirePending(findByHandledByForUpdate(id, baristaId));
         order.setStatus(OrderStatus.CANCELLED);
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.CANCELLED, baristaId);
+        recordChange(order, OrderAuditAction.CANCELLED, baristaId);
         return toResponse(order);
     }
 
     @Override
     @Transactional
     public OrderResponse collectCash(UUID id, UUID actorId, CashPaymentRequest request) {
-        Order order = requireUnpaid(findAny(id));
+        Order order = requireUnpaid(findAnyForUpdate(id));
         if (order.getPaymentMethod() != PaymentMethod.CASH) {
             throw new InvalidOperationException("Order is not awaiting cash collection");
         }
@@ -168,7 +173,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse acceptBakongPayment(UUID id, UUID actorId) {
-        Order order = findAny(id);
+        Order order = findAnyForUpdate(id);
         if (order.getPaymentMethod() != PaymentMethod.BAKONG) {
             throw new InvalidOperationException("Order is not awaiting Bakong payment");
         }
@@ -184,22 +189,16 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId) {
-        Order order = requirePending(findAny(id));
+        Order order = requirePending(findAnyForUpdate(id));
         if (!order.isDelivery()) {
             throw new InvalidOperationException("This order has no pinned delivery location — it's a pickup order");
         }
         order.setDeliveryFee(fee);
         recalculateTotal(order);
-        // Any existing QR now encodes the wrong total — clear it so a new one has to be generated.
-        if (order.getBakongMd5Hash() != null) {
-            order.setBakongQrString(null);
-            order.setBakongMd5Hash(null);
-            order.setBakongCurrency(null);
-            order.setBakongAmount(null);
-            order.setBakongExpiresAt(null);
-        }
+        // Any existing QR now encodes the wrong total — a new one has to be generated.
+        clearBakongQr(order);
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.DELIVERY_FEE_SET, actorId);
+        recordChange(order, OrderAuditAction.DELIVERY_FEE_SET, actorId);
         return toResponse(order);
     }
 
@@ -208,7 +207,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse startPreparing(UUID id, UUID actorId) {
-        Order order = findAny(id);
+        Order order = findAnyForUpdate(id);
         if (order.getStatus() == OrderStatus.PENDING) {
             // Cash orders can be made before they're paid; Bakong orders must clear first.
             if (order.getPaymentMethod() != PaymentMethod.CASH) {
@@ -223,47 +222,47 @@ public class OrderServiceImpl implements OrderService {
         }
         order.setStatus(OrderStatus.PREPARING);
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.PREPARING, actorId);
+        recordChange(order, OrderAuditAction.PREPARING, actorId);
         return toResponse(order);
     }
 
     @Override
     @Transactional
     public OrderResponse dispatchForDelivery(UUID id, UUID actorId) {
-        Order order = requireStatus(findAny(id), OrderStatus.PREPARING);
+        Order order = requireStatus(findAnyForUpdate(id), OrderStatus.PREPARING);
         if (!order.isDelivery()) {
             throw new InvalidOperationException("This is a pickup order — use complete instead");
         }
         order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
         order.setDispatchedAt(LocalDateTime.now());
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.OUT_FOR_DELIVERY, actorId);
+        recordChange(order, OrderAuditAction.OUT_FOR_DELIVERY, actorId);
         return toResponse(order);
     }
 
     @Override
     @Transactional
     public OrderResponse markDelivered(UUID id, UUID actorId) {
-        Order order = requireStatus(findAny(id), OrderStatus.OUT_FOR_DELIVERY);
+        Order order = requireStatus(findAnyForUpdate(id), OrderStatus.OUT_FOR_DELIVERY);
         requirePaymentSettled(order);
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(LocalDateTime.now());
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.DELIVERED, actorId);
+        recordChange(order, OrderAuditAction.DELIVERED, actorId);
         return toResponse(order);
     }
 
     @Override
     @Transactional
     public OrderResponse completePickup(UUID id, UUID actorId) {
-        Order order = requireStatus(findAny(id), OrderStatus.PREPARING);
+        Order order = requireStatus(findAnyForUpdate(id), OrderStatus.PREPARING);
         if (order.isDelivery()) {
             throw new InvalidOperationException("This is a delivery order — dispatch/deliver it instead");
         }
         requirePaymentSettled(order);
         order.setStatus(OrderStatus.COMPLETED);
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.COMPLETED, actorId);
+        recordChange(order, OrderAuditAction.COMPLETED, actorId);
         return toResponse(order);
     }
 
@@ -292,7 +291,7 @@ public class OrderServiceImpl implements OrderService {
         order.setDeliveryLatitude(deliveryLatitude);
         order.setDeliveryLongitude(deliveryLongitude);
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.CREATED, customerId);
+        recordChange(order, OrderAuditAction.CREATED, customerId);
         return toResponse(order);
     }
 
@@ -312,30 +311,48 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse selectCashOnPickup(UUID id, UUID customerId) {
-        Order order = requirePending(findByCustomer(id, customerId));
+        Order order = requirePending(findByCustomerForUpdate(id, customerId));
         order.setPaymentMethod(PaymentMethod.CASH);
-        return toResponse(orderRepository.save(order));
+        // Drop any QR so an old Bakong payment can't also be confirmed on a cash order.
+        clearBakongQr(order);
+        order = orderRepository.save(order);
+        recordChange(order, OrderAuditAction.CASH_SELECTED, customerId);
+        return toResponse(order);
     }
 
     @Override
     @Transactional
     public BakongQrResponse generateBakongQrForCustomer(UUID id, UUID customerId, Currency currency) {
-        return attachBakongQr(requirePending(findByCustomer(id, customerId)), currency);
+        return attachBakongQr(requirePending(findByCustomerForUpdate(id, customerId)), currency, customerId);
+    }
+
+    @Override
+    public BakongDeeplinkResponse generateBakongDeeplinkForCustomer(UUID id, UUID customerId) {
+        Order order = requirePending(findByCustomer(id, customerId));
+        if (order.getBakongQrString() == null) {
+            throw new InvalidOperationException("No Bakong QR has been generated for this order yet");
+        }
+        BakongDeeplinkResult result = bakongApiClient.generateDeeplink(order.getBakongQrString());
+        if (!result.success()) {
+            throw new InvalidOperationException(
+                    result.message() != null ? result.message() : "Could not generate a payment app link.");
+        }
+        return new BakongDeeplinkResponse(order.getId(), result.shortLink());
     }
 
     @Override
     @Transactional
     public OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId) {
-        return toResponse(confirmBakong(findByCustomer(id, customerId), null));
+        return toResponse(confirmBakong(findByCustomerForUpdate(id, customerId), null));
     }
 
     @Override
     @Transactional
     public OrderResponse cancelForCustomer(UUID id, UUID customerId) {
-        Order order = requirePending(findByCustomer(id, customerId));
+        Order order = requirePending(findByCustomerForUpdate(id, customerId));
         order.setStatus(OrderStatus.CANCELLED);
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.CANCELLED, customerId);
+        recordChange(order, OrderAuditAction.CANCELLED, customerId);
         return toResponse(order);
     }
 
@@ -368,10 +385,10 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse cancelAny(UUID id, UUID actorId) {
-        Order order = requirePending(findAny(id));
+        Order order = requirePending(findAnyForUpdate(id));
         order.setStatus(OrderStatus.CANCELLED);
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.CANCELLED, actorId);
+        recordChange(order, OrderAuditAction.CANCELLED, actorId);
         return toResponse(order);
     }
 
@@ -533,7 +550,7 @@ public class OrderServiceImpl implements OrderService {
         order.setChangeCurrency(changeCurrency);
         markPaid(order, fulfillingActorId);
         order = orderRepository.save(order);
-        logAudit(order, OrderAuditAction.CASH_COLLECTED, fulfillingActorId);
+        recordChange(order, OrderAuditAction.CASH_COLLECTED, fulfillingActorId);
         return order;
     }
 
@@ -555,7 +572,7 @@ public class OrderServiceImpl implements OrderService {
         return usdAmount.multiply(rate).setScale(0, RoundingMode.HALF_UP);
     }
 
-    private BakongQrResponse attachBakongQr(Order order, Currency currency) {
+    private BakongQrResponse attachBakongQr(Order order, Currency currency, UUID actorId) {
         String billNumber = "ORD-" + order.getId().toString().substring(0, 8).toUpperCase();
         BakongQrResult qr = bakongQrService.generateQr(order.getTotalAmount(), billNumber, currency);
 
@@ -568,7 +585,8 @@ public class OrderServiceImpl implements OrderService {
         order.setBakongCurrency(qr.currency());
         order.setBakongAmount(qr.amount());
         order.setBakongExpiresAt(expiresAt);
-        orderRepository.save(order);
+        order = orderRepository.save(order);
+        recordChange(order, OrderAuditAction.BAKONG_QR_GENERATED, actorId);
 
         return new BakongQrResponse(order.getId(), qr.qrString(), qr.md5Hash(), qr.amount(), qr.currency(),
                 expiresAt, expiresInSeconds);
@@ -584,7 +602,7 @@ public class OrderServiceImpl implements OrderService {
             // Already paid — treat a repeat confirm as a no-op.
             return order;
         }
-        if (order.getBakongMd5Hash() == null) {
+        if (order.getPaymentMethod() != PaymentMethod.BAKONG || order.getBakongMd5Hash() == null) {
             throw new InvalidOperationException("Generate a Bakong QR for this order first");
         }
 
@@ -599,7 +617,7 @@ public class OrderServiceImpl implements OrderService {
             UUID auditActorId = performedBy != null ? performedBy : customerId;
             markPaid(order, stockActorId);
             order = orderRepository.save(order);
-            logAudit(order, OrderAuditAction.BAKONG_CONFIRMED, auditActorId);
+            recordChange(order, OrderAuditAction.BAKONG_CONFIRMED, auditActorId);
         }
         return order;
     }
@@ -690,6 +708,31 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
     }
 
+    // Row-locked lookups for anything that changes an order, so two people acting on the same
+    // order at once (e.g. two baristas, or a customer and staff) run one after the other.
+    private Order findAnyForUpdate(UUID id) {
+        return orderRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
+    }
+
+    private Order findByHandledByForUpdate(UUID id, UUID handledBy) {
+        return orderRepository.findByHandledByForUpdate(id, handledBy)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
+    }
+
+    private Order findByCustomerForUpdate(UUID id, UUID customerId) {
+        return orderRepository.findByCustomerForUpdate(id, customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
+    }
+
+    private void clearBakongQr(Order order) {
+        order.setBakongQrString(null);
+        order.setBakongMd5Hash(null);
+        order.setBakongCurrency(null);
+        order.setBakongAmount(null);
+        order.setBakongExpiresAt(null);
+    }
+
     private Order findByCustomer(UUID id, UUID customerId) {
         return orderRepository.findByIdAndCustomerId(id, customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
@@ -704,12 +747,16 @@ public class OrderServiceImpl implements OrderService {
         return id != null ? customerRepository.getReferenceById(id) : null;
     }
 
-    private void logAudit(Order order, OrderAuditAction action, UUID actorId) {
+    // Audits the change and queues a live update, sent once the transaction commits.
+    private void recordChange(Order order, OrderAuditAction action, UUID actorId) {
         OrderAuditLog log = new OrderAuditLog();
         log.setOrder(order);
         log.setAction(action);
         log.setActorId(actorId);
         orderAuditLogRepository.save(log);
+
+        String customerEmail = order.getCustomer() != null ? order.getCustomer().getEmail() : null;
+        eventPublisher.publishEvent(new OrderChangedEvent(action, toResponse(order), customerEmail));
     }
 
     private OrderResponse toResponse(Order order) {

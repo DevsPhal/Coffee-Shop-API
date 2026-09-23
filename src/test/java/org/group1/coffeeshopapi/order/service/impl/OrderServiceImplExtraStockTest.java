@@ -31,6 +31,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -64,6 +65,7 @@ class OrderServiceImplExtraStockTest {
     @Mock private ActorLookupService actorLookupService;
     @Mock private ShopLocationProperties shopLocationProperties;
     @Mock private BakongProperties bakongProperties;
+    @Mock private ApplicationEventPublisher eventPublisher;
     @InjectMocks private OrderServiceImpl service;
 
     @Test
@@ -92,7 +94,7 @@ class OrderServiceImplExtraStockTest {
         order.addItem(item);
 
         UUID baristaId = UUID.randomUUID();
-        when(orderRepository.findByIdAndHandledBy(order.getId(), baristaId)).thenReturn(Optional.of(order));
+        when(orderRepository.findByHandledByForUpdate(order.getId(), baristaId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
@@ -127,7 +129,7 @@ class OrderServiceImplExtraStockTest {
         order.addItem(item);
 
         UUID baristaId = UUID.randomUUID();
-        when(orderRepository.findByIdAndHandledBy(order.getId(), baristaId)).thenReturn(Optional.of(order));
+        when(orderRepository.findByHandledByForUpdate(order.getId(), baristaId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
@@ -162,7 +164,7 @@ class OrderServiceImplExtraStockTest {
         order.addItem(item);
 
         UUID baristaId = UUID.randomUUID();
-        when(orderRepository.findByIdAndHandledBy(order.getId(), baristaId)).thenReturn(Optional.of(order));
+        when(orderRepository.findByHandledByForUpdate(order.getId(), baristaId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));

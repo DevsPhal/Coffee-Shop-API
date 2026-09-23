@@ -28,6 +28,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.math.BigDecimal;
 import java.util.Optional;
@@ -62,6 +63,7 @@ class OrderServiceImplCashChangeTest {
     @Mock private ActorLookupService actorLookupService;
     @Mock private ShopLocationProperties shopLocationProperties;
     @Mock private BakongProperties bakongProperties;
+    @Mock private ApplicationEventPublisher eventPublisher;
     @InjectMocks private OrderServiceImpl service;
 
     @Test
@@ -132,7 +134,7 @@ class OrderServiceImplCashChangeTest {
         order.setId(UUID.randomUUID());
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(new BigDecimal(totalAmount));
-        when(orderRepository.findByIdAndHandledBy(order.getId(), baristaId)).thenReturn(Optional.of(order));
+        when(orderRepository.findByHandledByForUpdate(order.getId(), baristaId)).thenReturn(Optional.of(order));
         // Not every test in this class reaches save() (the exchange-rate-missing case throws
         // first), so this stub is lenient rather than required.
         Mockito.lenient().when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));

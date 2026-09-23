@@ -13,6 +13,7 @@ import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
+import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
@@ -89,6 +90,14 @@ public class CustomerOrderController {
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, "Bakong KHQR generated successfully.",
                 orderService.generateBakongQrForCustomer(id, currentUser.getId(), currency));
+    }
+
+    // Link that opens the customer's banking app to pay, instead of scanning the QR.
+    @PostMapping("/{id}/pay/bakong/deeplink")
+    public ApiResponse<BakongDeeplinkResponse> generateBakongDeeplink(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Bakong payment link generated successfully.",
+                orderService.generateBakongDeeplinkForCustomer(id, currentUser.getId()));
     }
 
     @PostMapping("/{id}/pay/bakong/confirm")
