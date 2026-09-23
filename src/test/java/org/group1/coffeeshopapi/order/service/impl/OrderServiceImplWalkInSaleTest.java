@@ -25,6 +25,7 @@ import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
+import org.group1.coffeeshopapi.realtime.ResourceChangePublisher;
 import org.group1.coffeeshopapi.telegram.service.TelegramInvoiceService;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.group1.coffeeshopapi.user.service.ActorLookupService;
@@ -69,6 +70,7 @@ class OrderServiceImplWalkInSaleTest {
     @Mock private ShopLocationProperties shopLocationProperties;
     @Mock private BakongProperties bakongProperties;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private ResourceChangePublisher resourceChangePublisher;
     @InjectMocks private OrderServiceImpl service;
 
     @Test

@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.product.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -17,6 +18,7 @@ import org.group1.coffeeshopapi.common.enums.DiscountType;
 import org.group1.coffeeshopapi.common.enums.SellUnit;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.StockUnit;
+import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -24,6 +26,7 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Entity
+@EntityListeners(ResourceChangeEntityListener.class)
 @Table(name = "products")
 public class Product extends BaseEntity {
 

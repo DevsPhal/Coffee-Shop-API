@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.feedback.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -14,11 +15,13 @@ import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.FeedbackStatus;
 import org.group1.coffeeshopapi.common.enums.FeedbackTopic;
 import org.group1.coffeeshopapi.user.entity.Customer;
+import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
 // A message submitted through the Contact Us screen.
 @Getter
 @Setter
 @Entity
+@EntityListeners(ResourceChangeEntityListener.class)
 @Table(name = "feedbacks")
 public class Feedback extends BaseEntity {
 

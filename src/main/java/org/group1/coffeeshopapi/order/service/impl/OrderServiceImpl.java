@@ -52,6 +52,9 @@ import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.product.service.ProductExtraResolver;
 import org.group1.coffeeshopapi.product.service.ProductPriceResolver;
 import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
+import org.group1.coffeeshopapi.realtime.ChangeType;
+import org.group1.coffeeshopapi.realtime.ResourceChangePublisher;
+import org.group1.coffeeshopapi.realtime.ResourceType;
 import org.group1.coffeeshopapi.realtime.event.OrderChangedEvent;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoice;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoiceLineItem;
@@ -98,6 +101,7 @@ public class OrderServiceImpl implements OrderService {
     private final ShopLocationProperties shopLocationProperties;
     private final BakongProperties bakongProperties;
     private final ApplicationEventPublisher eventPublisher;
+    private final ResourceChangePublisher resourceChangePublisher;
 
     // ---------- Walk-in (POS) sales — barista or admin, ringing up their own sale ----------
 
@@ -650,13 +654,13 @@ public class OrderServiceImpl implements OrderService {
     }
 
     // Untracked (null quantityOnHand) extras are left alone; a tracked one is floored at zero.
+    // A bulk update skips entity listeners, so the live update is recorded here.
     private void deductExtraStock(Extra extra, int quantitySold) {
         if (extra.getQuantityOnHand() == null) {
             return;
         }
-        BigDecimal remaining = extra.getQuantityOnHand().subtract(BigDecimal.valueOf(quantitySold));
-        extra.setQuantityOnHand(remaining.max(BigDecimal.ZERO));
-        extraRepository.save(extra);
+        extraRepository.deductStock(extra.getId(), BigDecimal.valueOf(quantitySold));
+        resourceChangePublisher.record(ResourceType.EXTRA, extra.getId(), ChangeType.UPDATED);
     }
 
     private OrderInvoice toInvoice(Order order) {
@@ -755,6 +759,8 @@ public class OrderServiceImpl implements OrderService {
         log.setActorId(actorId);
         orderAuditLogRepository.save(log);
 
+        // Flush so updatedAt in the pushed order reflects this change.
+        orderRepository.flush();
         String customerEmail = order.getCustomer() != null ? order.getCustomer().getEmail() : null;
         eventPublisher.publishEvent(new OrderChangedEvent(action, toResponse(order), customerEmail));
     }

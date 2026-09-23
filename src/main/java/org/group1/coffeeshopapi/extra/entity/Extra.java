@@ -4,11 +4,13 @@ import jakarta.persistence.Column;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.Setter;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
 import java.math.BigDecimal;
 
@@ -16,6 +18,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @Entity
+@EntityListeners(ResourceChangeEntityListener.class)
 @Table(name = "extras")
 public class Extra extends BaseEntity {
 

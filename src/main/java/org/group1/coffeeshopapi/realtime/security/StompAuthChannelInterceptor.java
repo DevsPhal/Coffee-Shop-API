@@ -24,6 +24,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Component;
 
 import java.security.Principal;
+import java.util.Map;
 import java.util.Set;
 
 // Authenticates the STOMP CONNECT frame with the same JWT rules as JwtAuthFilter, and checks
@@ -33,6 +34,18 @@ import java.util.Set;
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
 
     private static final Set<String> STAFF_ROLES = Set.of("ROLE_ADMIN", "ROLE_BARISTA", "ROLE_SUPER_ADMIN");
+    private static final Set<String> ADMIN_ROLES = Set.of("ROLE_ADMIN", "ROLE_SUPER_ADMIN");
+
+    // Who may subscribe to each topic. Anything not listed here (or under /user/) is refused.
+    private static final Map<String, Set<String>> TOPIC_ROLES = Map.of(
+            RealtimeDestinations.STAFF_ORDERS, STAFF_ROLES,
+            RealtimeDestinations.INVENTORY, STAFF_ROLES,
+            RealtimeDestinations.FEEDBACK, ADMIN_ROLES,
+            RealtimeDestinations.CATALOG, Set.of());
+
+    public static final String SESSION_TOKEN_ID = "tokenId";
+    public static final String SESSION_TOKEN_EXPIRES_AT = "tokenExpiresAt";
+    public static final String SESSION_EMAIL = "email";
 
     private final JwtUtil jwtUtil;
     private final CustomUserDetailsService userDetailsService;
@@ -46,7 +59,7 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         }
         StompCommand command = accessor.getCommand();
         if (command == StompCommand.CONNECT) {
-            accessor.setUser(authenticate(accessor.getFirstNativeHeader(SecurityConstants.JWT_HEADER)));
+            accessor.setUser(authenticate(accessor));
         } else if (command == StompCommand.SUBSCRIBE) {
             authorizeSubscribe(accessor.getUser(), accessor.getDestination());
         } else if (command == StompCommand.SEND) {
@@ -56,7 +69,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         return message;
     }
 
-    private Authentication authenticate(String header) {
+    private Authentication authenticate(StompHeaderAccessor accessor) {
+        String header = accessor.getFirstNativeHeader(SecurityConstants.JWT_HEADER);
         if (header == null || !header.startsWith(SecurityConstants.JWT_PREFIX)) {
             throw new MessageDeliveryException("Missing bearer token");
         }
@@ -69,6 +83,14 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             UserDetails userDetails = userDetailsService.loadUserByUsername(claims.getSubject());
             if (!userDetails.isEnabled()) {
                 throw new MessageDeliveryException("Account is not active");
+            }
+            // Kept on the session so WebSocketSessionSweeper can close it once the token is no
+            // longer valid.
+            Map<String, Object> attributes = accessor.getSessionAttributes();
+            if (attributes != null) {
+                attributes.put(SESSION_TOKEN_ID, claims.getId());
+                attributes.put(SESSION_TOKEN_EXPIRES_AT, claims.getExpiration().toInstant());
+                attributes.put(SESSION_EMAIL, claims.getSubject());
             }
             return new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
         } catch (JwtException | IllegalArgumentException | UsernameNotFoundException ex) {
@@ -87,15 +109,16 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         if (destination.startsWith("/user/")) {
             return;
         }
-        if (destination.startsWith(RealtimeDestinations.STAFF_ORDERS) && isStaff(auth)) {
+        Set<String> allowedRoles = TOPIC_ROLES.get(destination);
+        if (allowedRoles != null && (allowedRoles.isEmpty() || hasAnyRole(auth, allowedRoles))) {
             return;
         }
         throw new MessageDeliveryException("Not allowed to subscribe to " + destination);
     }
 
-    private boolean isStaff(Authentication auth) {
+    private boolean hasAnyRole(Authentication auth, Set<String> roles) {
         for (GrantedAuthority authority : auth.getAuthorities()) {
-            if (STAFF_ROLES.contains(authority.getAuthority())) {
+            if (roles.contains(authority.getAuthority())) {
                 return true;
             }
         }

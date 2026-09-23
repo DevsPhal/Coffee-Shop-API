@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.inventory.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToOne;
@@ -10,6 +11,7 @@ import lombok.Getter;
 import lombok.Setter;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.product.entity.Product;
+import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
 import java.math.BigDecimal;
 
@@ -18,6 +20,7 @@ import java.math.BigDecimal;
 @Getter
 @Setter
 @Entity
+@EntityListeners(ResourceChangeEntityListener.class)
 @Table(name = "inventories")
 public class Inventory extends BaseEntity {
 

@@ -4,6 +4,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -14,11 +15,13 @@ import lombok.Setter;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.product.entity.Product;
+import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
 // Marks one Extra (e.g. "Pearl") as offered on one Product (e.g. "Green Tea").
 @Getter
 @Setter
 @Entity
+@EntityListeners(ResourceChangeEntityListener.class)
 @Table(name = "product_extras", uniqueConstraints = {
         @UniqueConstraint(name = "uk_product_extras_product_extra", columnNames = {"product_id", "extra_id"})
 })

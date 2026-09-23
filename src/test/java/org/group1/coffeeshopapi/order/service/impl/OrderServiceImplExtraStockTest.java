@@ -22,12 +22,14 @@ import org.group1.coffeeshopapi.order.repository.OrderRepository;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
+import org.group1.coffeeshopapi.realtime.ChangeType;
+import org.group1.coffeeshopapi.realtime.ResourceChangePublisher;
+import org.group1.coffeeshopapi.realtime.ResourceType;
 import org.group1.coffeeshopapi.telegram.service.TelegramInvoiceService;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.group1.coffeeshopapi.user.service.ActorLookupService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -66,6 +68,7 @@ class OrderServiceImplExtraStockTest {
     @Mock private ShopLocationProperties shopLocationProperties;
     @Mock private BakongProperties bakongProperties;
     @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private ResourceChangePublisher resourceChangePublisher;
     @InjectMocks private OrderServiceImpl service;
 
     @Test
@@ -99,13 +102,12 @@ class OrderServiceImplExtraStockTest {
 
         service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
 
-        ArgumentCaptor<Extra> saved = ArgumentCaptor.forClass(Extra.class);
-        verify(extraRepository).save(saved.capture());
-        assertThat(saved.getValue().getQuantityOnHand()).isEqualByComparingTo("3");
+        verify(extraRepository).deductStock(pearl.getId(), new BigDecimal("2"));
+        verify(resourceChangePublisher).record(ResourceType.EXTRA, pearl.getId(), ChangeType.UPDATED);
     }
 
     @Test
-    void payingCashNeverGoesBelowZeroEvenIfMoreWasSoldThanTracked() {
+    void payingCashDeductsTheFullSoldQuantityAndLeavesTheZeroFloorToTheDatabase() {
         Extra pearl = new Extra();
         pearl.setId(UUID.randomUUID());
         pearl.setQuantityOnHand(new BigDecimal("1"));
@@ -134,9 +136,7 @@ class OrderServiceImplExtraStockTest {
 
         service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
 
-        ArgumentCaptor<Extra> saved = ArgumentCaptor.forClass(Extra.class);
-        verify(extraRepository).save(saved.capture());
-        assertThat(saved.getValue().getQuantityOnHand()).isEqualByComparingTo("0");
+        verify(extraRepository).deductStock(pearl.getId(), new BigDecimal("3"));
     }
 
     @Test
@@ -169,7 +169,7 @@ class OrderServiceImplExtraStockTest {
 
         service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
 
-        verify(extraRepository, never()).save(any());
+        verify(extraRepository, never()).deductStock(any(), any());
         assertThat(untracked.getQuantityOnHand()).isNull();
     }
 }

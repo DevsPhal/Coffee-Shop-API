@@ -44,6 +44,9 @@ public record OrderResponse(
         String note,
         LocalDateTime paidAt,
         LocalDateTime createdAt,
+        // Bumped on every change. Live-update clients should ignore a message older than the
+        // copy they already have, since pushes can arrive out of order.
+        LocalDateTime updatedAt,
         // Null for a pickup order. Both set together or not at all.
         BigDecimal deliveryLatitude,
         BigDecimal deliveryLongitude,
