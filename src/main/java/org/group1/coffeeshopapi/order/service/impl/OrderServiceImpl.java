@@ -74,6 +74,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -227,7 +228,7 @@ public class OrderServiceImpl implements OrderService {
                 throw new InvalidOperationException("Order is not paid (currently pending)");
             }
             requireDeliveryFeeQuoted(order);
-            cutStockForOrder(order, actorId);
+            cutStockForOrder(order, actorId, false);
             if (order.getHandledBy() == null) {
                 order.setHandledBy(actorId);
             }
@@ -327,6 +328,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponse selectCashOnPickup(UUID id, UUID customerId) {
         Order order = requireDeliveryFeeQuoted(requirePending(findByCustomerForUpdate(id, customerId)));
+        requireStockAvailable(order);
         order.setPaymentMethod(PaymentMethod.CASH);
         // Drop any QR so an old Bakong payment can't also be confirmed on a cash order.
         clearBakongQr(order);
@@ -456,7 +458,7 @@ public class OrderServiceImpl implements OrderService {
         for (OrderItemRequest itemRequest : request.items()) {
             Product product = productRepository.findById(itemRequest.productId())
                     .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + itemRequest.productId()));
-            if (product.getStatus() != Status.ACTIVE) {
+            if (!product.isAvailableForSale()) {
                 throw new InvalidOperationException("Product '" + product.getName() + "' is not available");
             }
 
@@ -500,7 +502,19 @@ public class OrderServiceImpl implements OrderService {
             order.addItem(item);
         }
         recalculateTotal(order);
+        requireStockAvailable(order);
         return order;
+    }
+
+    // Checked when the order is placed and again right before payment starts, so a customer is
+    // never charged for something already sold out. Lines of the same product are summed.
+    private void requireStockAvailable(Order order) {
+        Map<UUID, BigDecimal> neededByProduct = new LinkedHashMap<>();
+        for (OrderItem item : order.getItems()) {
+            neededByProduct.merge(item.getProduct().getId(),
+                    item.getProduct().toStockQuantity(item.getQuantity()), BigDecimal::add);
+        }
+        neededByProduct.forEach(inventoryService::requireAvailable);
     }
 
     // Null delivery means "not given" — the order stays pickup, the default.
@@ -580,7 +594,7 @@ public class OrderServiceImpl implements OrderService {
         order.setAmountTenderedCurrency(request.currency());
         order.setChangeDue(changeCurrency == Currency.KHR ? usdToKhr(changeDueUsd) : changeDueUsd);
         order.setChangeCurrency(changeCurrency);
-        markPaid(order, fulfillingActorId);
+        markPaid(order, fulfillingActorId, false);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.CASH_COLLECTED, fulfillingActorId);
         return order;
@@ -606,6 +620,7 @@ public class OrderServiceImpl implements OrderService {
 
     private BakongQrResponse attachBakongQr(Order order, Currency currency, UUID actorId) {
         requireDeliveryFeeQuoted(order);
+        requireStockAvailable(order);
         String billNumber = "ORD-" + order.getId().toString().substring(0, 8).toUpperCase();
         BakongQrResult qr = bakongQrService.generateQr(order.getTotalAmount(), billNumber, currency);
 
@@ -648,7 +663,8 @@ public class OrderServiceImpl implements OrderService {
             UUID customerId = order.getCustomer() != null ? order.getCustomer().getId() : null;
             UUID stockActorId = performedBy != null ? performedBy : SuperAdminUserDetails.ID;
             UUID auditActorId = performedBy != null ? performedBy : customerId;
-            markPaid(order, stockActorId);
+            // The money has already arrived, so a stock shortfall must not block recording it.
+            markPaid(order, stockActorId, true);
             order = orderRepository.save(order);
             recordChange(order, OrderAuditAction.BAKONG_CONFIRMED, auditActorId);
         }
@@ -657,9 +673,9 @@ public class OrderServiceImpl implements OrderService {
 
     // Always stamps paidAt and sends the invoice. Only cuts stock and moves to PAID if that
     // hasn't already happened — a cash order already PREPARING had its stock cut back then.
-    private void markPaid(Order order, UUID stockActorId) {
+    private void markPaid(Order order, UUID stockActorId, boolean moneyAlreadyReceived) {
         if (order.getStatus() == OrderStatus.PENDING) {
-            cutStockForOrder(order, stockActorId);
+            cutStockForOrder(order, stockActorId, moneyAlreadyReceived);
             order.setStatus(OrderStatus.PAID);
         }
         order.setPaidAt(LocalDateTime.now());
@@ -669,13 +685,19 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    private void cutStockForOrder(Order order, UUID stockActorId) {
+    // capToAvailable cuts whatever is on hand instead of failing on a shortfall.
+    private void cutStockForOrder(Order order, UUID stockActorId, boolean capToAvailable) {
         for (OrderItem item : order.getItems()) {
-            inventoryService.stockCut(new StockCutRequest(
+            StockCutRequest cut = new StockCutRequest(
                     item.getProduct().getId(),
-                    BigDecimal.valueOf(item.getQuantity()),
+                    item.getProduct().toStockQuantity(item.getQuantity()),
                     StockStrategy.FIFO,
-                    "Sold in order " + order.getId()), stockActorId);
+                    "Sold in order " + order.getId());
+            if (capToAvailable) {
+                inventoryService.stockCutAvailable(cut, stockActorId);
+            } else {
+                inventoryService.stockCut(cut, stockActorId);
+            }
             for (OrderItemExtra orderItemExtra : item.getExtras()) {
                 deductExtraStock(orderItemExtra.getExtra(), item.getQuantity());
             }

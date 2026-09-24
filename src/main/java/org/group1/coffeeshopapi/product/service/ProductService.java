@@ -16,6 +16,10 @@ import java.util.UUID;
 public interface ProductService {
     ProductResponse create(CreateProductRequest request, Admin actorAdmin);
     ProductResponse getById(UUID id);
+
+    // Customer view of one product: only if it can actually be ordered, with only its active
+    // sizes and extras. 404 otherwise.
+    ProductResponse getOrderableById(UUID id);
     Page<ProductResponse> list(UUID categoryId, Pageable pageable);
 
     // Customer-facing menu: only products currently on sale.

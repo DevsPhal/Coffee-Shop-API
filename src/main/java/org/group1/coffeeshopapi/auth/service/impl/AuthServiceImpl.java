@@ -194,11 +194,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthTokenResponse verifyLoginOtp(VerifyLoginOtpRequest request) {
-        UUID userId = tokenService.consumeLoginTicket(request.loginTicket());
+        // Peek, not consume: a mistyped code must not throw away the login — OtpService already
+        // limits wrong attempts. The ticket is only used up once the code is right.
+        UUID userId = tokenService.peekLoginTicket(request.loginTicket());
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Account no longer exists"));
 
         otpService.verify(user.getEmail(), OtpPurpose.LOGIN, request.otp());
+        tokenService.consumeLoginTicket(request.loginTicket());
+        requireActive(user);
         return issueTokens(user.getId(), user.getEmail(), user.getRole());
     }
 
@@ -261,6 +265,7 @@ public class AuthServiceImpl implements AuthService {
         } else {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new InvalidCredentialsException("Invalid or expired refresh token"));
+            requireActive(user);
             userId = user.getId();
             role = user.getRole();
         }
@@ -355,6 +360,13 @@ public class AuthServiceImpl implements AuthService {
             return null;
         }
         return telegramLinkService.generateLinkCode(user.getId()).deepLink();
+    }
+
+    // A deactivated or deleted account gets no new tokens, even with a valid OTP or refresh token.
+    private void requireActive(User user) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new InvalidCredentialsException("This account can't log in right now");
+        }
     }
 
     private String requireEmail(ResendOtpRequest request) {

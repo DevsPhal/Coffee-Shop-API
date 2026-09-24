@@ -5,12 +5,12 @@ import jakarta.mail.Part;
 import jakarta.mail.Session;
 import jakarta.mail.internet.MimeMessage;
 import org.group1.coffeeshopapi.common.enums.OtpPurpose;
+import org.group1.coffeeshopapi.common.properties.MailSenderProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.thymeleaf.spring6.SpringTemplateEngine;
 import org.thymeleaf.templatemode.TemplateMode;
 import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
@@ -45,8 +45,9 @@ class MailServiceImplTest {
         mailSender = mock(JavaMailSender.class);
         message = new MimeMessage(Session.getInstance(new Properties()));
         when(mailSender.createMimeMessage()).thenReturn(message);
-        mailService = new MailServiceImpl(mailSender, templateEngine);
-        ReflectionTestUtils.setField(mailService, "shopEmail", "support@example.com");
+        MailSenderProperties sender = new MailSenderProperties();
+        sender.setSupportEmail("support@example.com");
+        mailService = new MailServiceImpl(mailSender, templateEngine, sender);
     }
 
     @ParameterizedTest
@@ -59,6 +60,8 @@ class MailServiceImplTest {
         MimeMessage delivered = serializeAndReadMessage();
         assertThat(delivered.getAllRecipients()[0].toString()).isEqualTo("customer@example.com");
         assertThat(delivered.getSubject()).isEqualTo(purpose.label() + " Verification Code");
+        assertThat(delivered.getFrom()[0].toString()).isEqualTo("590st Cafe <otp@590stcafe.shop>");
+        assertThat(delivered.getReplyTo()[0].toString()).isEqualTo("support@example.com");
 
         List<Part> parts = leafParts(delivered);
         String plainText = body(parts, "text/plain");

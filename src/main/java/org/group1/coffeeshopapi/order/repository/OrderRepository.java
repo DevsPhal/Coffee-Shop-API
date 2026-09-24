@@ -88,14 +88,16 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             @Param("paid") OrderStatus paid, @Param("pending") OrderStatus pending,
             @Param("cash") PaymentMethod cash, Pageable pageable);
 
-    // Backs the daily report: paid sales for one barista within a day window. Filters on paidAt,
-    // not status, since paidAt alone reliably means "this sale happened".
+    // Backs the daily report: paid sales for one barista in [start, end). Filters on paidAt, not
+    // status, since paidAt alone reliably means "this sale happened". The end is exclusive so a
+    // sale at exactly midnight counts on one day, not two.
     @Query("select o from Order o where o.handledBy = :handledBy "
-            + "and o.paidAt between :start and :end")
-    List<Order> findByHandledByAndPaidAtBetween(
+            + "and o.paidAt >= :start and o.paidAt < :end")
+    List<Order> findPaidByHandledByInRange(
             @Param("handledBy") UUID handledBy,
             @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    // Backs the admin-wide daily report: paid sales across every barista within a day window.
-    List<Order> findByPaidAtBetween(LocalDateTime start, LocalDateTime end);
+    // Backs the admin-wide daily report and finance totals: paid sales in [start, end).
+    @Query("select o from Order o where o.paidAt >= :start and o.paidAt < :end")
+    List<Order> findPaidInRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

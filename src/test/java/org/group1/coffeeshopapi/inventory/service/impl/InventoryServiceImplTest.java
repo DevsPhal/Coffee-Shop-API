@@ -26,12 +26,19 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import org.group1.coffeeshopapi.inventory.dto.response.StockInImportResponse;
+import org.springframework.mock.web.MockMultipartFile;
+
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -149,6 +156,87 @@ class InventoryServiceImplTest {
         ArgumentCaptor<StockMovement> movementCaptor = ArgumentCaptor.forClass(StockMovement.class);
         verify(stockMovementRepository).save(movementCaptor.capture());
         assertThat(movementCaptor.getValue().getType()).isEqualTo(StockMovementType.STOCK_IN);
+    }
+
+    @Test
+    void cuttingAvailableStockCutsOnlyWhatIsOnHandInsteadOfFailing() {
+        Product product = product();
+        Inventory inventory = inventoryWithQuantity(product, new BigDecimal("2"));
+        StockBatch only = batch(new BigDecimal("2"), new BigDecimal("1.00"));
+        when(inventoryRepository.findByProductIdForUpdate(product.getId())).thenReturn(Optional.of(inventory));
+        when(stockBatchRepository.findByProductIdAndRemainingQuantityGreaterThanOrderByCreatedAtAsc(
+                product.getId(), BigDecimal.ZERO)).thenReturn(List.of(only));
+
+        StockCutResponse response = service.stockCutAvailable(
+                new StockCutRequest(product.getId(), new BigDecimal("5"), StockStrategy.FIFO, "Paid by Bakong"),
+                UUID.randomUUID());
+
+        assertThat(response.quantityCut()).isEqualByComparingTo("2");
+        assertThat(inventory.getQuantityOnHand()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    void cuttingAvailableStockWhenNothingIsLeftRecordsNothing() {
+        Product product = product();
+        Inventory inventory = inventoryWithQuantity(product, BigDecimal.ZERO);
+        when(inventoryRepository.findByProductIdForUpdate(product.getId())).thenReturn(Optional.of(inventory));
+
+        StockCutResponse response = service.stockCutAvailable(
+                new StockCutRequest(product.getId(), BigDecimal.ONE, StockStrategy.FIFO, null), UUID.randomUUID());
+
+        assertThat(response).isNull();
+        verifyNoInteractions(stockMovementRepository);
+    }
+
+    @Test
+    void requireAvailableRejectsMoreThanIsOnHand() {
+        Product product = product();
+        Inventory inventory = inventoryWithQuantity(product, new BigDecimal("0.5"));
+        when(inventoryRepository.findByProductId(product.getId())).thenReturn(Optional.of(inventory));
+
+        assertThatThrownBy(() -> service.requireAvailable(product.getId(), new BigDecimal("0.542")))
+                .isInstanceOf(InvalidOperationException.class)
+                .hasMessageContaining("enough stock");
+        assertThatCode(() -> service.requireAvailable(product.getId(), new BigDecimal("0.5")))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void aBadImportRowIsReportedWithoutSinkingTheValidOnes() throws Exception {
+        Product good = product();
+        Product orphan = product();
+        when(productRepository.findBySkuIgnoreCase("GOOD")).thenReturn(Optional.of(good));
+        when(productRepository.findBySkuIgnoreCase("ORPHAN")).thenReturn(Optional.of(orphan));
+        when(inventoryRepository.findByProductIdForUpdate(good.getId()))
+                .thenReturn(Optional.of(inventoryWithQuantity(good, BigDecimal.ZERO)));
+        // A product with no inventory record — stockIn throws for this one row.
+        when(inventoryRepository.findByProductIdForUpdate(orphan.getId())).thenReturn(Optional.empty());
+
+        StockInImportResponse response = service.stockInFromExcel(workbook(
+                new String[] {"ORPHAN", "5", "1.00"}, new String[] {"GOOD", "10", "2.00"}), UUID.randomUUID());
+
+        assertThat(response.created()).isEqualTo(1);
+        assertThat(response.errors()).singleElement()
+                .satisfies(error -> assertThat(error.message()).contains("Inventory not found"));
+    }
+
+    private MockMultipartFile workbook(String[]... rows) throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            var sheet = workbook.createSheet();
+            var header = sheet.createRow(0);
+            header.createCell(0).setCellValue("sku");
+            header.createCell(1).setCellValue("quantity");
+            header.createCell(2).setCellValue("unitCost");
+            for (int i = 0; i < rows.length; i++) {
+                var row = sheet.createRow(i + 1);
+                for (int c = 0; c < rows[i].length; c++) {
+                    row.createCell(c).setCellValue(rows[i][c]);
+                }
+            }
+            workbook.write(out);
+            return new MockMultipartFile("file", "stock.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+        }
     }
 
     private Product product() {

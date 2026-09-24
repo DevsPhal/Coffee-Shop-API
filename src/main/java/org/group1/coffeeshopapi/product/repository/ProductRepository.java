@@ -30,20 +30,20 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     // Only shows products with stock on hand — used for customer-facing catalog reads.
     @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
-            "WHERE p.status = :status AND i.quantityOnHand > 0")
+            "WHERE p.status = :status AND p.category.status = :status AND i.quantityOnHand > 0")
     Page<Product> findByStatusAndInStock(@Param("status") Status status, Pageable pageable);
 
     @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
-            "WHERE p.category.id = :categoryId AND p.status = :status AND i.quantityOnHand > 0")
+            "WHERE p.category.id = :categoryId AND p.status = :status AND p.category.status = :status AND i.quantityOnHand > 0")
     Page<Product> findByCategoryIdAndStatusAndInStock(
             @Param("categoryId") UUID categoryId, @Param("status") Status status, Pageable pageable);
 
     @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
-            "WHERE p.status = :status AND i.quantityOnHand > 0 ORDER BY p.name ASC")
+            "WHERE p.status = :status AND p.category.status = :status AND i.quantityOnHand > 0 ORDER BY p.name ASC")
     List<Product> findByStatusAndInStockOrderByNameAsc(@Param("status") Status status);
 
     @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
-            "WHERE p.category.id = :categoryId AND p.status = :status AND i.quantityOnHand > 0 ORDER BY p.name ASC")
+            "WHERE p.category.id = :categoryId AND p.status = :status AND p.category.status = :status AND i.quantityOnHand > 0 ORDER BY p.name ASC")
     List<Product> findByCategoryIdAndStatusAndInStockOrderByNameAsc(
             @Param("categoryId") UUID categoryId, @Param("status") Status status);
 }

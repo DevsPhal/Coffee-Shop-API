@@ -15,6 +15,8 @@ public interface ProductExtraRepository extends JpaRepository<ProductExtra, UUID
     // Batches the customer-facing menu list's extras across a whole page of products.
     List<ProductExtra> findByProductIdInAndStatusOrderBySortOrderAscId(List<UUID> productIds, Status status);
 
+    List<ProductExtra> findByProductIdInOrderBySortOrderAscId(List<UUID> productIds);
+
     Optional<ProductExtra> findByIdAndProductId(UUID id, UUID productId);
     Optional<ProductExtra> findByProductIdAndExtraId(UUID productId, UUID extraId);
     boolean existsByProductIdAndExtraId(UUID productId, UUID extraId);

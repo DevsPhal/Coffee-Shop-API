@@ -37,7 +37,7 @@ class FinanceServiceImplTest {
     @Test
     void dailySummaryAddsCashAndBakongSalesAndSubtractsBothExpenseStreams() {
         LocalDate date = LocalDate.of(2026, 3, 10);
-        when(orderRepository.findByPaidAtBetween(any(), any())).thenReturn(List.of(
+        when(orderRepository.findPaidInRange(any(), any())).thenReturn(List.of(
                 order(PaymentMethod.CASH, "20.00"),
                 order(PaymentMethod.CASH, "5.50"),
                 order(PaymentMethod.BAKONG, "14.00")));
@@ -67,7 +67,7 @@ class FinanceServiceImplTest {
 
     @Test
     void monthlySummarySpansTheWholeCalendarMonth() {
-        when(orderRepository.findByPaidAtBetween(any(), any())).thenReturn(List.of());
+        when(orderRepository.findPaidInRange(any(), any())).thenReturn(List.of());
         when(expenseRepository.findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(any(), any())).thenReturn(List.of());
         when(stockExpenseRepository.findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(any(), any())).thenReturn(List.of());
 
@@ -79,7 +79,7 @@ class FinanceServiceImplTest {
 
     @Test
     void yearlySummarySpansTheWholeCalendarYear() {
-        when(orderRepository.findByPaidAtBetween(any(), any())).thenReturn(List.of());
+        when(orderRepository.findPaidInRange(any(), any())).thenReturn(List.of());
         when(expenseRepository.findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(any(), any())).thenReturn(List.of());
         when(stockExpenseRepository.findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(any(), any())).thenReturn(List.of());
 

@@ -73,7 +73,7 @@ public class CartServiceImpl implements CartService {
         Cart cart = getOrCreateCart(customerId);
         Product product = productRepository.findById(request.productId())
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found: " + request.productId()));
-        if (product.getStatus() != Status.ACTIVE) {
+        if (!product.isAvailableForSale()) {
             throw new InvalidOperationException("Product '" + product.getName() + "' is not available");
         }
         // A customer with a stale product page open shouldn't be able to add something sold out.

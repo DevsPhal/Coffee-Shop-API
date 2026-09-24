@@ -1,11 +1,13 @@
 package org.group1.coffeeshopapi.inventory.service.impl;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.group1.coffeeshopapi.common.exception.ApiException;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
@@ -49,6 +51,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -172,8 +175,13 @@ public class InventoryServiceImpl implements InventoryService {
                     continue;
                 }
 
-                stockIn(new StockInRequest(product.getId(), quantity, unitCost, note.isBlank() ? null : note), performedBy);
-                created++;
+                try {
+                    stockIn(new StockInRequest(product.getId(), quantity, unitCost, note.isBlank() ? null : note), performedBy);
+                    created++;
+                } catch (ApiException e) {
+                    // One bad row (e.g. a product with no inventory record) shouldn't sink the rest.
+                    errors.add(new StockInImportRowError(excelRowNumber, sku, e.getMessage()));
+                }
             }
         } catch (IOException e) {
             throw new InvalidOperationException("Unable to read Excel file: " + e.getMessage());
@@ -206,13 +214,40 @@ public class InventoryServiceImpl implements InventoryService {
     @Transactional
     public StockCutResponse stockCut(StockCutRequest request, UUID performedBy) {
         Inventory inventory = findInventoryForUpdate(request.productId());
-        Product product = inventory.getProduct();
-        BigDecimal requestedQuantity = request.quantity();
-
-        if (inventory.getQuantityOnHand().compareTo(requestedQuantity) < 0) {
+        if (inventory.getQuantityOnHand().compareTo(request.quantity()) < 0) {
             throw new InvalidOperationException(
-                    "Insufficient stock: available " + inventory.getQuantityOnHand() + ", requested " + requestedQuantity);
+                    "Insufficient stock: available " + inventory.getQuantityOnHand() + ", requested " + request.quantity());
         }
+        return cut(inventory, request, request.quantity(), performedBy);
+    }
+
+    @Override
+    @Transactional
+    public StockCutResponse stockCutAvailable(StockCutRequest request, UUID performedBy) {
+        Inventory inventory = findInventoryForUpdate(request.productId());
+        BigDecimal quantity = request.quantity().min(inventory.getQuantityOnHand());
+        if (quantity.compareTo(request.quantity()) < 0) {
+            log.warn("Stock short for product {}: sold {}, only {} on hand — cutting what's there",
+                    request.productId(), request.quantity(), inventory.getQuantityOnHand());
+        }
+        if (quantity.signum() <= 0) {
+            return null;
+        }
+        return cut(inventory, request, quantity, performedBy);
+    }
+
+    @Override
+    public void requireAvailable(UUID productId, BigDecimal quantity) {
+        Inventory inventory = findInventory(productId);
+        if (inventory.getQuantityOnHand().compareTo(quantity) < 0) {
+            throw new InvalidOperationException("'" + inventory.getProduct().getName()
+                    + "' doesn't have enough stock left for this order");
+        }
+    }
+
+    private StockCutResponse cut(Inventory inventory, StockCutRequest request, BigDecimal requestedQuantity,
+            UUID performedBy) {
+        Product product = inventory.getProduct();
 
         List<StockBatch> batches = request.strategy() == StockStrategy.FIFO
                 ? stockBatchRepository.findByProductIdAndRemainingQuantityGreaterThanOrderByCreatedAtAsc(

@@ -145,6 +145,18 @@ class EventServiceImplTest {
         assertThat(existing.getLongitude()).isEqualTo(longitude);
     }
 
+    @Test
+    void deletingAnEventAlsoRemovesItsImage() {
+        Event existing = existingEvent();
+        existing.setImageUrl("https://cdn.example/events/latte.png");
+        when(eventRepository.findById(existing.getId())).thenReturn(Optional.of(existing));
+
+        service.delete(existing.getId());
+
+        verify(eventRepository).delete(existing);
+        verify(fileStorageService).delete("https://cdn.example/events/latte.png");
+    }
+
     private Event existingEvent() {
         Event event = new Event();
         event.setId(UUID.randomUUID());

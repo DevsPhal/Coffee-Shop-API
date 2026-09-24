@@ -4,8 +4,6 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
-import org.group1.coffeeshopapi.common.enums.Status;
-import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
 import org.group1.coffeeshopapi.common.util.PageUtil;
@@ -43,12 +41,7 @@ public class CustomerProductController {
 
     @GetMapping("/{id}")
     public ApiResponse<CustomerProductResponse> getById(@PathVariable UUID id) {
-        var product = productService.getById(id);
-        // Treat an inactive or out-of-stock product as not found for a customer.
-        if (product.status() != Status.ACTIVE
-                || product.quantityOnHand() == null || product.quantityOnHand().signum() <= 0) {
-            throw new ResourceNotFoundException("Product not found: " + id);
-        }
+        var product = productService.getOrderableById(id);
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, productMapper.toCustomerResponse(product));
     }
 }

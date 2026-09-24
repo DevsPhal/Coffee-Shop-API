@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.product.service;
 
+import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.extra.entity.ProductExtra;
@@ -38,6 +39,10 @@ public final class ProductExtraResolver {
             if (extra == null) {
                 throw new InvalidOperationException(
                         "One or more extras aren't available on '" + product.getName() + "'");
+            }
+            // The extra can be switched off globally, not just on this product.
+            if (extra.getStatus() != Status.ACTIVE) {
+                throw new InvalidOperationException("'" + extra.getName() + "' is not available right now");
             }
             // Null means not stock-tracked — always available.
             if (extra.getQuantityOnHand() != null && extra.getQuantityOnHand().signum() <= 0) {

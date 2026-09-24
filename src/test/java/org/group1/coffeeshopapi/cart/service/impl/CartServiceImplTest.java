@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.cart.service.impl;
 
+import org.group1.coffeeshopapi.category.entity.Category;
 import org.group1.coffeeshopapi.cart.dto.request.AddCartItemRequest;
 import org.group1.coffeeshopapi.cart.entity.Cart;
 import org.group1.coffeeshopapi.cart.repository.CartRepository;
@@ -76,11 +77,30 @@ class CartServiceImplTest {
                 .hasMessageContaining("out of stock");
     }
 
+    @Test
+    void addItemRejectsAProductWhoseCategoryIsHidden() {
+        UUID customerId = UUID.randomUUID();
+        when(cartRepository.findByCustomer_Id(customerId)).thenReturn(Optional.of(new Cart()));
+
+        Product product = activeProduct();
+        product.getCategory().setStatus(Status.INACTIVE);
+
+        var request = new AddCartItemRequest(product.getId(), 1, null, null, null, null, List.of());
+
+        assertThatThrownBy(() -> service.addItem(customerId, request))
+                .isInstanceOf(InvalidOperationException.class)
+                .hasMessageContaining("not available");
+        verifyNoInteractions(inventoryRepository);
+    }
+
     private Product activeProduct() {
         Product product = new Product();
         product.setId(UUID.randomUUID());
         product.setName("Green Tea");
         product.setStatus(Status.ACTIVE);
+        Category category = new Category();
+        category.setStatus(Status.ACTIVE);
+        product.setCategory(category);
         when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
         return product;
     }

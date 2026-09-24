@@ -37,11 +37,13 @@ spring:
       mail:
         smtp:
           auth: true
+          # Port 587 uses STARTTLS (the default); for port 465 set MAIL_SMTP_SSL=true and
+          # MAIL_SMTP_STARTTLS=false.
           starttls:
-            enable: true
-            required: true
+            enable: ${MAIL_SMTP_STARTTLS:true}
+            required: ${MAIL_SMTP_STARTTLS:true}
           ssl:
-            enable: false
+            enable: ${MAIL_SMTP_SSL:false}
           # Sending an OTP email is now synchronous (see MailServiceImpl) — a genuinely
           # unreachable SMTP host must fail fast with a clear error rather than hang the
           # register/login/resend-otp request until some much longer platform-level timeout.
@@ -115,8 +117,12 @@ jwt:
   refresh-expiration: ${JWT_REFRESH_EXPIRATION}
 
 mail:
-  shop:
-    email: ${MAIL_USERNAME}
+  sender:
+    # The From address customers see. Your SMTP provider must allow sending as it (a verified
+    # domain or alias), otherwise it rewrites or rejects the message.
+    address: ${MAIL_FROM:otp@590stcafe.shop}
+    name: ${MAIL_FROM_NAME:590st Cafe}
+    support-email: ${MAIL_SUPPORT_EMAIL:${MAIL_FROM:otp@590stcafe.shop}}
 
 app:
   auth:

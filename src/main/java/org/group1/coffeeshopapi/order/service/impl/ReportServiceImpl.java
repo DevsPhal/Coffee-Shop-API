@@ -30,7 +30,7 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public DailyReportResponse getOwnDailyReport(UUID baristaId, LocalDate date) {
-        List<Order> orders = orderRepository.findByHandledByAndPaidAtBetween(
+        List<Order> orders = orderRepository.findPaidByHandledByInRange(
                 baristaId, startOfDay(date), endOfDay(date));
         ActorSummary actor = actorLookupService.resolve(baristaId);
         return summarize(baristaId, actor != null ? actor.name() : null, date, orders);
@@ -38,7 +38,7 @@ public class ReportServiceImpl implements ReportService {
 
     @Override
     public AdminDailyReportResponse getDailyReport(LocalDate date) {
-        List<Order> orders = orderRepository.findByPaidAtBetween(startOfDay(date), endOfDay(date));
+        List<Order> orders = orderRepository.findPaidInRange(startOfDay(date), endOfDay(date));
 
         // Self-service customer orders paid via Bakong have no staff attached — they still
         // count toward shop-wide totals below, but there's no one to attribute a report row to.

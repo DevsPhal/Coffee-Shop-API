@@ -39,6 +39,7 @@ import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.product.service.ProductService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -108,11 +109,21 @@ public class ProductServiceImpl implements ProductService {
     }
 
     @Override
+    public ProductResponse getOrderableById(UUID id) {
+        Product product = findById(id);
+        Inventory inventory = findInventory(product.getId());
+        if (!product.isAvailableForSale() || inventory.getQuantityOnHand().signum() <= 0) {
+            throw new ResourceNotFoundException("Product not found: " + id);
+        }
+        return toResponsePage(new PageImpl<>(List.of(product)), true).getContent().get(0);
+    }
+
+    @Override
     public Page<ProductResponse> list(UUID categoryId, Pageable pageable) {
         Page<Product> products = categoryId != null
                 ? productRepository.findByCategoryId(categoryId, pageable)
                 : productRepository.findAll(pageable);
-        return toResponsePage(products);
+        return toResponsePage(products, false);
     }
 
     // Customer-facing: only shows products that are actually in stock.
@@ -121,7 +132,7 @@ public class ProductServiceImpl implements ProductService {
         Page<Product> products = categoryId != null
                 ? productRepository.findByCategoryIdAndStatusAndInStock(categoryId, Status.ACTIVE, pageable)
                 : productRepository.findByStatusAndInStock(Status.ACTIVE, pageable);
-        return toResponsePage(products);
+        return toResponsePage(products, true);
     }
 
     @Override
@@ -179,8 +190,14 @@ public class ProductServiceImpl implements ProductService {
         if (inventory.getQuantityOnHand().compareTo(BigDecimal.ZERO) > 0) {
             throw new InvalidOperationException("Cannot delete a product that still has stock on hand");
         }
+        String imageUrl = product.getImageUrl();
         inventoryRepository.delete(inventory);
         productRepository.delete(product);
+        // Flush first so a blocked delete (still referenced by orders) keeps its image.
+        productRepository.flush();
+        if (imageUrl != null) {
+            fileStorageService.delete(imageUrl);
+        }
     }
 
     @Override
@@ -496,20 +513,28 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(product, inventory, variants, extras);
     }
 
-    // Loads variants/extras for a whole page in one query each, instead of per row.
-    private Page<ProductResponse> toResponsePage(Page<Product> products) {
+    // Loads variants/extras for a whole page in one query each, instead of per row. The admin list
+    // shows inactive ones too (matching getById); the customer list shows only what can be ordered.
+    private Page<ProductResponse> toResponsePage(Page<Product> products, boolean orderableOnly) {
         List<UUID> productIds = products.stream().map(Product::getId).toList();
 
         Map<UUID, List<ProductVariantResponse>> variantsByProduct = new HashMap<>();
-        for (ProductVariant variant : variantRepository
-                .findByProductIdInAndStatusOrderBySortOrderAscNameAsc(productIds, Status.ACTIVE)) {
+        List<ProductVariant> variants = orderableOnly
+                ? variantRepository.findByProductIdInAndStatusOrderBySortOrderAscNameAsc(productIds, Status.ACTIVE)
+                : variantRepository.findByProductIdInOrderBySortOrderAscNameAsc(productIds);
+        for (ProductVariant variant : variants) {
             variantsByProduct.computeIfAbsent(variant.getProduct().getId(), id -> new ArrayList<>())
                     .add(variantMapper.toResponse(variant));
         }
 
         Map<UUID, List<ProductExtraResponse>> extrasByProduct = new HashMap<>();
-        for (ProductExtra productExtra : productExtraRepository
-                .findByProductIdInAndStatusOrderBySortOrderAscId(productIds, Status.ACTIVE)) {
+        List<ProductExtra> productExtras = orderableOnly
+                ? productExtraRepository.findByProductIdInAndStatusOrderBySortOrderAscId(productIds, Status.ACTIVE)
+                : productExtraRepository.findByProductIdInOrderBySortOrderAscId(productIds);
+        for (ProductExtra productExtra : productExtras) {
+            if (orderableOnly && productExtra.getExtra().getStatus() != Status.ACTIVE) {
+                continue;
+            }
             extrasByProduct.computeIfAbsent(productExtra.getProduct().getId(), id -> new ArrayList<>())
                     .add(productExtraMapper.toResponse(productExtra));
         }

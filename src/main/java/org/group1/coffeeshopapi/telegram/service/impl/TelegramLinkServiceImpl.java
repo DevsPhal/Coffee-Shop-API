@@ -121,7 +121,8 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         authUserSyncService.sync(user);
 
         return "✅ <b>Verified!</b> Your phone number matches — your account is now active.\n\n"
-                + "Open the app and log in with the Telegram button to get started.";
+                + "Sign in to the 590st Cafe admin dashboard with <b>Log in with Telegram</b> — "
+                + "no email or password needed.";
     }
 
     // Hands this chat id to `user`, first freeing it from whoever currently holds it.

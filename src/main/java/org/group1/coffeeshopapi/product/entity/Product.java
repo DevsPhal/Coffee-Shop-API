@@ -21,6 +21,7 @@ import org.group1.coffeeshopapi.common.enums.StockUnit;
 import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
 @Getter
@@ -103,15 +104,30 @@ public class Product extends BaseEntity {
         return discountEndAt == null || !at.isAfter(discountEndAt);
     }
 
+    // Rounded to cents, so line totals, the order total and the Bakong QR amount all match what
+    // the database stores (scale 2).
     public BigDecimal getFinalPrice(BigDecimal basePrice, LocalDateTime at) {
         if (!isDiscountActive(at)) {
-            return basePrice;
+            return basePrice.setScale(2, RoundingMode.HALF_UP);
         }
         BigDecimal discounted = switch (discountType) {
             case PERCENTAGE -> basePrice.subtract(basePrice.multiply(discountValue)
                     .divide(BigDecimal.valueOf(100)));
             case FIXED -> basePrice.subtract(discountValue);
         };
-        return discounted.max(BigDecimal.ZERO);
+        return discounted.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
+    }
+
+    // Stock is counted in stock units (e.g. CARTONs), sales in sell units (e.g. CANs), so selling
+    // 1 CAN of a 24-CAN carton uses 1/24 of a carton. Stock is stored to 3 decimals.
+    public BigDecimal toStockQuantity(int sellQuantity) {
+        BigDecimal perStock = unitsPerStock != null && unitsPerStock.signum() > 0 ? unitsPerStock : BigDecimal.ONE;
+        return BigDecimal.valueOf(sellQuantity).divide(perStock, 3, RoundingMode.HALF_UP)
+                .max(new BigDecimal("0.001"));
+    }
+
+    // Sellable only while both the product and its category are active.
+    public boolean isAvailableForSale() {
+        return status == Status.ACTIVE && category != null && category.getStatus() == Status.ACTIVE;
     }
 }

@@ -4,8 +4,8 @@ import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.common.exception.MailDeliveryException;
+import org.group1.coffeeshopapi.common.properties.MailSenderProperties;
 import org.group1.coffeeshopapi.mail.MailService;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -25,9 +25,7 @@ public class MailServiceImpl implements MailService {
 
     private final JavaMailSender mailSender;
     private final TemplateEngine templateEngine;
-
-    @Value("${mail.shop.email}")
-    private String shopEmail;
+    private final MailSenderProperties senderProperties;
 
     // Synchronous on purpose, so a failed send surfaces as a real error instead of a false
     // "check your email".
@@ -40,7 +38,7 @@ public class MailServiceImpl implements MailService {
             context.setVariable("otp", otp);
             context.setVariable("expiryMinutes", expiryMinutes);
             context.setVariable("purposeLabel", purposeLabel);
-            context.setVariable("shopEmail", shopEmail);
+            context.setVariable("supportEmail", senderProperties.getSupportEmail());
             context.setVariable("telegramDeepLink", telegramDeepLink);
 
             Resource logo = new ClassPathResource(LOGO_CLASSPATH_LOCATION);
@@ -61,7 +59,7 @@ public class MailServiceImpl implements MailService {
                     Didn't request this code? You can safely ignore this email.
 
                     Need help? Contact us at %s
-                    """.formatted(fullName, purposeLabel, otp, expiryMinutes, shopEmail);
+                    """.formatted(fullName, purposeLabel, otp, expiryMinutes, senderProperties.getSupportEmail());
             if (telegramDeepLink != null && !telegramDeepLink.isBlank()) {
                 plainText += "\nConnect Telegram: " + telegramDeepLink + "\n";
             }
@@ -69,7 +67,9 @@ public class MailServiceImpl implements MailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
-            helper.setFrom(shopEmail);
+            // Shows as "590st Cafe <otp@590stcafe.shop>"; replies go to the support address.
+            helper.setFrom(senderProperties.getAddress(), senderProperties.getName());
+            helper.setReplyTo(senderProperties.getSupportEmail());
             helper.setSubject(purposeLabel + " Verification Code");
             // Let the email client choose HTML or plain text; both contain the same code.
             helper.setText(plainText, html);

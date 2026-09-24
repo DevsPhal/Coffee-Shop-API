@@ -53,7 +53,7 @@ public class FinanceServiceImpl implements FinanceService {
         LocalDateTime start = startInclusive.atStartOfDay();
         LocalDateTime end = endExclusive.atStartOfDay();
 
-        List<Order> orders = orderRepository.findByPaidAtBetween(start, end);
+        List<Order> orders = orderRepository.findPaidInRange(start, end);
         BigDecimal cashIn = sumByMethod(orders, PaymentMethod.CASH);
         BigDecimal bakongIn = sumByMethod(orders, PaymentMethod.BAKONG);
         BigDecimal totalIn = cashIn.add(bakongIn);

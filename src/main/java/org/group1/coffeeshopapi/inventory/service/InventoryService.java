@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.math.BigDecimal;
 import java.util.UUID;
 
 public interface InventoryService {
@@ -21,6 +22,14 @@ public interface InventoryService {
 
     StockMovementResponse stockIn(StockInRequest request, UUID performedBy);
     StockCutResponse stockCut(StockCutRequest request, UUID performedBy);
+
+    // Like stockCut, but cuts only what's on hand instead of failing — for a sale whose money has
+    // already arrived (a confirmed Bakong payment), where refusing would leave it unrecorded.
+    // Returns null when there was nothing to cut.
+    StockCutResponse stockCutAvailable(StockCutRequest request, UUID performedBy);
+
+    // Rejects an order line before any money changes hands if stock can't cover it.
+    void requireAvailable(UUID productId, BigDecimal quantity);
 
     // Bulk stock-in from one delivery invoice's worth of products in a single file.
     StockInImportResponse stockInFromExcel(MultipartFile file, UUID performedBy);

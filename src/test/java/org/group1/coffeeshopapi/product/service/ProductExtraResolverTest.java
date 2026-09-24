@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.product.service;
 
+import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.extra.entity.ProductExtra;
@@ -50,6 +51,17 @@ class ProductExtraResolverTest {
         List<Extra> resolved = ProductExtraResolver.resolve(product, List.of(pearl.getId()), List.of(attached));
 
         assertThat(resolved).containsExactly(pearl);
+    }
+
+    @Test
+    void rejectsAnExtraSwitchedOffGloballyEvenIfStillAttached() {
+        Extra pearl = extra("Pearl", null);
+        pearl.setStatus(Status.INACTIVE);
+        ProductExtra attached = attach(pearl);
+
+        assertThatThrownBy(() -> ProductExtraResolver.resolve(product, List.of(pearl.getId()), List.of(attached)))
+                .isInstanceOf(InvalidOperationException.class)
+                .hasMessageContaining("not available");
     }
 
     @Test

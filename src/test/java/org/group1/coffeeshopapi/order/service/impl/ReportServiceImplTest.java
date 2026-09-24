@@ -37,7 +37,7 @@ class ReportServiceImplTest {
     void ownDailyReportSumsCashAndBakongSeparatelyForOneBarista() {
         UUID baristaId = UUID.randomUUID();
         LocalDate date = LocalDate.of(2026, 3, 10);
-        when(orderRepository.findByHandledByAndPaidAtBetween(any(), any(), any())).thenReturn(List.of(
+        when(orderRepository.findPaidByHandledByInRange(any(), any(), any())).thenReturn(List.of(
                 order(baristaId, PaymentMethod.CASH, "10.00"),
                 order(baristaId, PaymentMethod.BAKONG, "7.50")));
         when(actorLookupService.resolve(baristaId)).thenReturn(new ActorSummary(baristaId, "Sophal", Role.BARISTA));
@@ -57,7 +57,7 @@ class ReportServiceImplTest {
         UUID barista = UUID.randomUUID();
         Order selfServiceBakongSale = order(null, PaymentMethod.BAKONG, "9.00");
 
-        when(orderRepository.findByPaidAtBetween(any(), any())).thenReturn(List.of(
+        when(orderRepository.findPaidInRange(any(), any())).thenReturn(List.of(
                 order(barista, PaymentMethod.CASH, "20.00"),
                 selfServiceBakongSale));
         when(actorLookupService.resolveAll(any())).thenReturn(Map.of(barista, new ActorSummary(barista, "Dara", Role.BARISTA)));
@@ -79,7 +79,7 @@ class ReportServiceImplTest {
         UUID topEarner = UUID.randomUUID();
         UUID lowerEarner = UUID.randomUUID();
 
-        when(orderRepository.findByPaidAtBetween(any(), any())).thenReturn(List.of(
+        when(orderRepository.findPaidInRange(any(), any())).thenReturn(List.of(
                 order(lowerEarner, PaymentMethod.CASH, "5.00"),
                 order(topEarner, PaymentMethod.CASH, "50.00")));
         when(actorLookupService.resolveAll(any())).thenReturn(Map.of(

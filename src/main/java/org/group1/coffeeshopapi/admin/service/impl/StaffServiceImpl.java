@@ -192,10 +192,13 @@ public class StaffServiceImpl implements StaffService {
     @Override
     @Transactional
     public void delete(UUID id, Role role) {
+        // Soft delete, same as UserAdminService: attendance, orders and audit logs keep pointing
+        // at a real row, while login and existing sessions stop working.
         User staff = findByIdAndRole(id, role);
+        staff.setStatus(UserStatus.DELETED);
+        userRepository.save(staff);
+        authUserSyncService.sync(staff);
         tokenService.revokeRefreshToken(staff.getId());
-        userRepository.delete(staff);
-        authUserSyncService.remove(staff.getId());
     }
 
     private User findByIdAndRole(UUID id, Role role) {
