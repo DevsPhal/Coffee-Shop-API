@@ -28,10 +28,14 @@ public class TelegramProperties {
         return webhookBaseUrl + webhookPath;
     }
 
-    public String deepLink(String code) {
-        String username = botUsername != null && botUsername.startsWith("@")
+    // Bot username without the leading "@", as t.me links and the Login Widget expect it.
+    public String plainBotUsername() {
+        return botUsername != null && botUsername.startsWith("@")
                 ? botUsername.substring(1)
                 : botUsername;
-        return "https://t.me/" + username + "?start=" + code;
+    }
+
+    public String deepLink(String code) {
+        return "https://t.me/" + plainBotUsername() + "?start=" + code;
     }
 }

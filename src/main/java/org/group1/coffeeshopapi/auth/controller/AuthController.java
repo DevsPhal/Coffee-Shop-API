@@ -6,10 +6,12 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.auth.dto.request.*;
 import org.group1.coffeeshopapi.auth.dto.response.AuthTokenResponse;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
+import org.group1.coffeeshopapi.auth.dto.response.TelegramWidgetConfigResponse;
 import org.group1.coffeeshopapi.auth.service.AuthService;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.constant.SecurityConstants;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
+import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final TelegramProperties telegramProperties;
 
     @PostMapping("/register")
     public ResponseEntity<ApiResponse<Void>> register(@Valid @RequestBody RegisterRequest request) {
@@ -47,6 +50,13 @@ public class AuthController {
 
     // Logs in via the Telegram Login Widget — no email/password needed. A first-time Telegram id
     // registers a new customer on the spot instead of erroring.
+    // Bot username for the Login Widget, so the frontend doesn't hardcode it.
+    @GetMapping("/telegram/widget-config")
+    public ResponseEntity<ApiResponse<TelegramWidgetConfigResponse>> telegramWidgetConfig() {
+        TelegramWidgetConfigResponse config = new TelegramWidgetConfigResponse(telegramProperties.plainBotUsername());
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, config));
+    }
+
     @PostMapping("/login/telegram")
     public ResponseEntity<ApiResponse<AuthTokenResponse>> loginViaTelegramWidget(
             @Valid @RequestBody TelegramWidgetAuthRequest request) {
