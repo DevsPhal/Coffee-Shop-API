@@ -72,20 +72,19 @@ public class BaristaOrderController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, orderService.getOwn(id, currentUser.getId()));
     }
 
-    // The printable receipt for a finished order this barista handled. getOwn throws otherwise.
+    // The printable receipt for any finished order — a barista serves customers' online orders
+    // too, not only walk-ins they rang up, and already sees every order through /all/{id}.
     @GetMapping(value = "/{id}/receipt", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> getReceipt(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
-        orderService.getOwn(id, currentUser.getId());
+    public ResponseEntity<byte[]> getReceipt(@PathVariable UUID id) {
+        orderService.getAny(id);
         byte[] pdf = receiptService.generateReceiptPdf(id);
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
     // Same document, but available as soon as the order is paid.
     @GetMapping(value = "/{id}/invoice", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> getInvoice(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
-        orderService.getOwn(id, currentUser.getId());
+    public ResponseEntity<byte[]> getInvoice(@PathVariable UUID id) {
+        orderService.getAny(id);
         byte[] pdf = receiptService.generateInvoicePdf(id);
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "invoice-" + id + ".pdf", true);
     }
