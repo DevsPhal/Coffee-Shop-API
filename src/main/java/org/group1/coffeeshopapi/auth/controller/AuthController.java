@@ -64,6 +64,15 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "Login successful.", tokens));
     }
 
+    // Staff invited over Telegram: phone number in, a code sent to their linked Telegram chat out.
+    // Finished with /verify-login-otp, the same second step as the email login.
+    @PostMapping("/login/phone")
+    public ResponseEntity<ApiResponse<LoginResponse>> loginViaPhone(@Valid @RequestBody PhoneLoginRequest request) {
+        LoginResponse result = authService.loginViaPhone(request);
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK,
+                "A verification code has been sent to your Telegram.", result));
+    }
+
     @PostMapping("/verify-login-otp")
     public ResponseEntity<ApiResponse<AuthTokenResponse>> verifyLoginOtp(@Valid @RequestBody VerifyLoginOtpRequest request) {
         AuthTokenResponse tokens = authService.verifyLoginOtp(request);

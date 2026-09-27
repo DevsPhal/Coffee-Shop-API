@@ -16,24 +16,36 @@ import java.util.UUID;
 public class TokenServiceImpl implements TokenService {
 
     private static final Duration LOGIN_TICKET_TTL = Duration.ofMinutes(5);
+    // Appended to the stored user id for a ticket whose code was sent over Telegram.
+    private static final String TELEGRAM_CHANNEL_SUFFIX = "|TELEGRAM";
 
     private final StringRedisTemplate redisTemplate;
     private final JwtUtil jwtUtil;
 
     @Override
-    public String createLoginTicket(UUID userId) {
+    public String createLoginTicket(UUID userId, boolean viaTelegram) {
         String ticket = UUID.randomUUID().toString();
-        redisTemplate.opsForValue().set(RedisKeys.LOGIN_TICKET_PREFIX + ticket, userId.toString(), LOGIN_TICKET_TTL);
+        String value = viaTelegram ? userId + TELEGRAM_CHANNEL_SUFFIX : userId.toString();
+        redisTemplate.opsForValue().set(RedisKeys.LOGIN_TICKET_PREFIX + ticket, value, LOGIN_TICKET_TTL);
         return ticket;
     }
 
     @Override
     public UUID peekLoginTicket(String ticket) {
-        String userId = redisTemplate.opsForValue().get(RedisKeys.LOGIN_TICKET_PREFIX + ticket);
-        if (userId == null) {
+        return UUID.fromString(readLoginTicket(ticket).replace(TELEGRAM_CHANNEL_SUFFIX, ""));
+    }
+
+    @Override
+    public boolean isTelegramLoginTicket(String ticket) {
+        return readLoginTicket(ticket).endsWith(TELEGRAM_CHANNEL_SUFFIX);
+    }
+
+    private String readLoginTicket(String ticket) {
+        String value = redisTemplate.opsForValue().get(RedisKeys.LOGIN_TICKET_PREFIX + ticket);
+        if (value == null) {
             throw new InvalidCredentialsException("Login session has expired, please log in again");
         }
-        return UUID.fromString(userId);
+        return value;
     }
 
     @Override

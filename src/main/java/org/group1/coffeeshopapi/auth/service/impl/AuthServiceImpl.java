@@ -20,6 +20,9 @@ import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.SuperAdminProperties;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.common.util.JwtUtil;
+import org.group1.coffeeshopapi.common.util.PhoneNumberUtil;
+import org.group1.coffeeshopapi.admin.repository.AdminRepository;
+import org.group1.coffeeshopapi.barista.repository.BaristaRepository;
 import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
 import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
@@ -41,6 +44,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -48,6 +52,8 @@ public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final CustomerRepository customerRepository;
+    private final AdminRepository adminRepository;
+    private final BaristaRepository baristaRepository;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final OtpService otpService;
@@ -193,6 +199,28 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
+    public LoginResponse loginViaPhone(PhoneLoginRequest request) {
+        // Staff only, and few of them — compared in memory so "072 345 5674", "0723455674" and
+        // "+855 72 345 5674" all find the same account however it was typed on the invite.
+        User user = Stream.concat(adminRepository.findAll().stream(), baristaRepository.findAll().stream())
+                .filter(staff -> PhoneNumberUtil.matches(staff.getPhoneNumber(), request.phoneNumber()))
+                .findFirst()
+                .orElseThrow(() -> new InvalidCredentialsException(
+                        "No staff account uses this phone number. Check the number or ask your admin."));
+
+        if (user.getTelegramChatId() == null) {
+            throw new InvalidOperationException(
+                    "This number hasn't accepted its Telegram invite yet. Open the invite link first, "
+                            + "or ask your admin to resend it.");
+        }
+        requireActive(user);
+
+        otpService.generateAndSendViaTelegram(user.getEmail(), user.getFullName(), OtpPurpose.LOGIN,
+                Long.parseLong(user.getTelegramChatId()));
+        return LoginResponse.otpChallenge(tokenService.createLoginTicket(user.getId(), true));
+    }
+
+    @Override
     public AuthTokenResponse verifyLoginOtp(VerifyLoginOtpRequest request) {
         // Peek, not consume: a mistyped code must not throw away the login — OtpService already
         // limits wrong attempts. The ticket is only used up once the code is right.
@@ -233,7 +261,14 @@ public class AuthServiceImpl implements AuthService {
                 UUID userId = tokenService.peekLoginTicket(request.loginTicket());
                 User user = userRepository.findById(userId)
                         .orElseThrow(() -> new ResourceNotFoundException("Account no longer exists"));
-                otpService.resend(user.getEmail(), user.getFullName(), OtpPurpose.LOGIN, telegramDeepLinkFor(user));
+                // Resend over the channel the first code went to — a phone login never has a
+                // usable email, only the Telegram chat.
+                if (tokenService.isTelegramLoginTicket(request.loginTicket()) && user.getTelegramChatId() != null) {
+                    otpService.resendViaTelegram(user.getEmail(), user.getFullName(), OtpPurpose.LOGIN,
+                            Long.parseLong(user.getTelegramChatId()));
+                } else {
+                    otpService.resend(user.getEmail(), user.getFullName(), OtpPurpose.LOGIN, telegramDeepLinkFor(user));
+                }
             }
             case RESET_PASSWORD -> {
                 String email = requireEmail(request);

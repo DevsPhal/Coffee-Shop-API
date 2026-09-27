@@ -21,6 +21,9 @@ public interface OtpService {
     // Same as resend, with an optional Telegram deep link.
     void resend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink);
 
+    // Same as generateAndSend (reuses an active code silently), but delivered via Telegram.
+    void generateAndSendViaTelegram(String email, String fullName, OtpPurpose purpose, Long chatId);
+
     // Same as resend, but delivered via Telegram instead of email.
     void resendViaTelegram(String email, String fullName, OtpPurpose purpose, Long chatId);
 

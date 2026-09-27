@@ -53,6 +53,16 @@ public class OtpServiceImpl implements OtpService {
     }
 
     @Override
+    public void generateAndSendViaTelegram(String email, String fullName, OtpPurpose purpose, Long chatId) {
+        if (isOnCooldown(email, purpose)) {
+            // A still-valid code already exists — reuse it silently instead of failing.
+            return;
+        }
+        String otp = generateAndStore(email, purpose);
+        sendTelegramOtp(chatId, fullName, otp, purpose);
+    }
+
+    @Override
     public void resendViaTelegram(String email, String fullName, OtpPurpose purpose, Long chatId) {
         if (isOnCooldown(email, purpose)) {
             throw new TooManyRequestsException("Please wait before requesting another code");

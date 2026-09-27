@@ -3,7 +3,13 @@ package org.group1.coffeeshopapi.auth.service;
 import java.util.UUID;
 
 public interface TokenService {
-    String createLoginTicket(UUID userId);
+    default String createLoginTicket(UUID userId) {
+        return createLoginTicket(userId, false);
+    }
+
+    // viaTelegram marks a ticket whose code went to Telegram, so a resend uses the same channel.
+    String createLoginTicket(UUID userId, boolean viaTelegram);
+    boolean isTelegramLoginTicket(String ticket);
     UUID peekLoginTicket(String ticket);
     UUID consumeLoginTicket(String ticket);
     void storeRefreshToken(UUID userId, String refreshToken);
