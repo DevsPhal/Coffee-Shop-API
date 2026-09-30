@@ -1,6 +1,5 @@
 package org.group1.coffeeshopapi.product.controller;
 
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
@@ -19,12 +18,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
+// No auth required — guests can browse the menu; adding to cart and ordering still need a customer login.
 @RestController
-@RequestMapping("/api/customer/products")
+@RequestMapping("/api/products")
 @RequiredArgsConstructor
-@Tag(name = "Customer Products", description = "Customer only: browse the menu")
-@SecurityRequirement(name = "bearerAuth")
-public class CustomerProductController {
+@Tag(name = "Products", description = "Public: browse the menu")
+public class PublicProductController {
 
     private final ProductService productService;
     private final ProductMapper productMapper;

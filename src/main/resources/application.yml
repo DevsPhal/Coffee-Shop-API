@@ -96,6 +96,14 @@ bakong:
   app-icon-url: ${BAKONG_APP_ICON_URL:https://590stcafe.shop/images/Logo.svg}
   deeplink-callback-url: ${BAKONG_DEEPLINK_CALLBACK_URL:https://590stcafe.shop/}
 
+# ABA PayWay, for the "Pay with ABA" button that opens ABA Mobile. Blank = the button reports
+# it isn't set up. Use https://checkout.payway.com.kh for production.
+payway:
+  base-url: ${PAYWAY_BASE_URL:https://checkout-sandbox.payway.com.kh}
+  merchant-id: ${PAYWAY_MERCHANT_ID:}
+  api-key: ${PAYWAY_API_KEY:}
+  lifetime-minutes: ${PAYWAY_LIFETIME_MINUTES:15}
+
 # The shop's own pinned coordinates, so a delivery order's distance can be shown to whichever
 # admin/barista is evaluating its delivery fee (see OrderResponse.distanceMeters). Blank until
 # set — distance is simply omitted (not estimated) until an admin configures it.
@@ -145,6 +153,8 @@ app:
 telegram:
   bot-token: ${TELEGRAM_BOT_TOKEN:}
   bot-username: ${TELEGRAM_BOT_USERNAME:}
+  # Must match @BotFather's /setdomain for this bot. Blank = frontend skips the host check.
+  login-domain: ${TELEGRAM_LOGIN_DOMAIN:590stcafe.shop}
   webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
   webhook-base-url: ${TELEGRAM_WEBHOOK_BASE_URL:}
   auto-register-webhook: ${TELEGRAM_AUTO_REGISTER_WEBHOOK:true}

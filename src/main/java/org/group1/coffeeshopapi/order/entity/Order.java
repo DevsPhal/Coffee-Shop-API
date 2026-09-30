@@ -122,6 +122,14 @@ public class Order extends BaseEntity {
     @Column
     private LocalDateTime bakongExpiresAt;
 
+    // The ABA PayWay transaction opened when the customer tapped "Pay with ABA". The order stays
+    // BAKONG until that transaction is approved.
+    @Column(length = 20)
+    private String paywayTranId;
+
+    @Column(length = 64)
+    private String paywayApprovalCode;
+
     // Free-text note from the customer/barista. TEXT rather than varchar(255) since a delivery
     // address plus a note can easily run long.
     @Column(columnDefinition = "TEXT")

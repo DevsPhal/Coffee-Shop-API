@@ -93,6 +93,9 @@ public class TelegramInvoiceServiceImpl implements TelegramInvoiceService {
     }
 
     private String paymentSummary(OrderInvoice invoice) {
+        if (invoice.paymentMethod() == PaymentMethod.ABA_PAYWAY) {
+            return "ABA Mobile";
+        }
         if (invoice.paymentMethod() != PaymentMethod.BAKONG) {
             return "Cash";
         }

@@ -1,6 +1,5 @@
 package org.group1.coffeeshopapi.category.controller;
 
-import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.category.dto.response.CustomerCategoryResponse;
@@ -14,13 +13,12 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// Used to build the category filter on the customer menu.
+// No auth required — builds the category filter on the public menu.
 @RestController
-@RequestMapping("/api/customer/categories")
+@RequestMapping("/api/categories")
 @RequiredArgsConstructor
-@Tag(name = "Customer Categories", description = "Customer only: active categories, for filtering the menu")
-@SecurityRequirement(name = "bearerAuth")
-public class CustomerCategoryController {
+@Tag(name = "Categories", description = "Public: active categories, for filtering the menu")
+public class PublicCategoryController {
 
     private final CategoryService categoryService;
 

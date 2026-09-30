@@ -11,6 +11,7 @@ public record DailyReportResponse(
         long totalOrders,
         BigDecimal cashTotal,
         BigDecimal bakongTotal,
+        BigDecimal abaTotal,
         BigDecimal grandTotal
 ) {
 }

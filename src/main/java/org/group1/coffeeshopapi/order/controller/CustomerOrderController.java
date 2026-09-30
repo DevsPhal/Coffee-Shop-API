@@ -15,6 +15,7 @@ import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
+import org.group1.coffeeshopapi.order.dto.response.AbaDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -125,6 +126,15 @@ public class CustomerOrderController {
                 orderService.generateBakongDeeplinkForCustomer(id, currentUser.getId()));
     }
 
+    // Opens ABA Mobile with the amount filled in (ABA PayWay).
+    @PostMapping("/{id}/pay/aba/deeplink")
+    public ApiResponse<AbaDeeplinkResponse> generateAbaDeeplink(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "ABA payment link generated successfully.",
+                orderService.generateAbaDeeplinkForCustomer(id, currentUser.getId()));
+    }
+
+    // Also picks up a payment made through ABA Mobile.
     @PostMapping("/{id}/pay/bakong/confirm")
     public ApiResponse<OrderResponse> confirmBakongPayment(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {

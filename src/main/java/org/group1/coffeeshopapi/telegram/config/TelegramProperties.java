@@ -13,6 +13,8 @@ import org.springframework.context.annotation.Configuration;
 public class TelegramProperties {
     private String botToken;
     private String botUsername;
+    // The domain set with @BotFather's /setdomain — the only host the Login Widget works on.
+    private String loginDomain;
     private String webhookSecret;
     private String webhookBaseUrl;
     private String webhookPath = SecurityConstants.TELEGRAM_WEBHOOK_PATH;

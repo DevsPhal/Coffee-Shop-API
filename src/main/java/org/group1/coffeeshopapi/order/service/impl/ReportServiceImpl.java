@@ -58,16 +58,18 @@ public class ReportServiceImpl implements ReportService {
 
         BigDecimal cashTotal = sumByMethod(orders, PaymentMethod.CASH);
         BigDecimal bakongTotal = sumByMethod(orders, PaymentMethod.BAKONG);
+        BigDecimal abaTotal = sumByMethod(orders, PaymentMethod.ABA_PAYWAY);
 
-        return new AdminDailyReportResponse(
-                date, orders.size(), cashTotal, bakongTotal, cashTotal.add(bakongTotal), staffReports);
+        return new AdminDailyReportResponse(date, orders.size(), cashTotal, bakongTotal, abaTotal,
+                cashTotal.add(bakongTotal).add(abaTotal), staffReports);
     }
 
     private DailyReportResponse summarize(UUID baristaId, String baristaName, LocalDate date, List<Order> orders) {
         BigDecimal cashTotal = sumByMethod(orders, PaymentMethod.CASH);
         BigDecimal bakongTotal = sumByMethod(orders, PaymentMethod.BAKONG);
-        return new DailyReportResponse(
-                baristaId, baristaName, date, orders.size(), cashTotal, bakongTotal, cashTotal.add(bakongTotal));
+        BigDecimal abaTotal = sumByMethod(orders, PaymentMethod.ABA_PAYWAY);
+        return new DailyReportResponse(baristaId, baristaName, date, orders.size(), cashTotal, bakongTotal, abaTotal,
+                cashTotal.add(bakongTotal).add(abaTotal));
     }
 
     private BigDecimal sumByMethod(List<Order> orders, PaymentMethod method) {

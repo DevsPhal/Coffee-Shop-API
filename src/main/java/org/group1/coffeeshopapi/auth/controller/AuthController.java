@@ -50,10 +50,13 @@ public class AuthController {
 
     // Logs in via the Telegram Login Widget — no email/password needed. A first-time Telegram id
     // registers a new customer on the spot instead of erroring.
-    // Bot username for the Login Widget, so the frontend doesn't hardcode it.
+    // Bot username and allowed domain for the Login Widget, so the frontend doesn't hardcode them.
     @GetMapping("/telegram/widget-config")
     public ResponseEntity<ApiResponse<TelegramWidgetConfigResponse>> telegramWidgetConfig() {
-        TelegramWidgetConfigResponse config = new TelegramWidgetConfigResponse(telegramProperties.plainBotUsername());
+        String loginDomain = telegramProperties.getLoginDomain();
+        TelegramWidgetConfigResponse config = new TelegramWidgetConfigResponse(
+                telegramProperties.plainBotUsername(),
+                loginDomain == null || loginDomain.isBlank() ? null : loginDomain.trim().toLowerCase());
         return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, config));
     }
 

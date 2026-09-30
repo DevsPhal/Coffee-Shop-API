@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.order.service.impl;
 import org.group1.coffeeshopapi.bakong.BakongApiClient;
 import org.group1.coffeeshopapi.bakong.BakongExchangeRateService;
 import org.group1.coffeeshopapi.bakong.BakongQrService;
+import org.group1.coffeeshopapi.bakong.dto.BakongTransactionCheckResult;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
@@ -19,6 +20,8 @@ import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.entity.Order;
 import org.group1.coffeeshopapi.order.entity.OrderItem;
 import org.group1.coffeeshopapi.order.mapper.OrderAuditLogMapper;
+import org.group1.coffeeshopapi.payway.PaywayApiClient;
+import org.group1.coffeeshopapi.payway.dto.PaywayTransactionCheckResult;
 import org.group1.coffeeshopapi.order.mapper.OrderMapper;
 import org.group1.coffeeshopapi.order.repository.OrderAuditLogRepository;
 import org.group1.coffeeshopapi.order.repository.OrderRepository;
@@ -68,6 +71,7 @@ class OrderServiceImplFulfillmentFlowTest {
     @Mock private OrderAuditLogMapper orderAuditLogMapper;
     @Mock private BakongQrService bakongQrService;
     @Mock private BakongApiClient bakongApiClient;
+    @Mock private PaywayApiClient paywayApiClient;
     @Mock private BakongExchangeRateService bakongExchangeRateService;
     @Mock private TelegramInvoiceService telegramInvoiceService;
     @Mock private CustomerRepository customerRepository;
@@ -292,6 +296,48 @@ class OrderServiceImplFulfillmentFlowTest {
         assertThatThrownBy(() -> service.confirmBakongPaymentForCustomer(order.getId(), customerId))
                 .isInstanceOf(InvalidOperationException.class);
         verify(bakongApiClient, never()).checkTransactionByMd5(any());
+    }
+
+    @Test
+    void confirmPicksUpAPaymentMadeThroughAbaMobile() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        Order order = pendingCashOrder();
+        order.setCustomer(customer);
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongMd5Hash("md5");
+        order.setPaywayTranId("ABC123");
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bakongApiClient.checkTransactionByMd5("md5")).thenReturn(BakongTransactionCheckResult.notPaid("not found"));
+        when(paywayApiClient.checkTransaction("ABC123"))
+                .thenReturn(PaywayTransactionCheckResult.paid("APV1", new BigDecimal("5.00")));
+
+        service.confirmBakongPaymentForCustomer(order.getId(), customerId);
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getPaymentMethod()).isEqualTo(PaymentMethod.ABA_PAYWAY);
+        assertThat(order.getPaywayApprovalCode()).isEqualTo("APV1");
+        assertThat(order.getPaidAt()).isNotNull();
+    }
+
+    @Test
+    void confirmLeavesTheOrderPendingWhenNeitherBakongNorAbaIsPaid() {
+        UUID customerId = UUID.randomUUID();
+        Order order = pendingCashOrder();
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongMd5Hash("md5");
+        order.setPaywayTranId("ABC123");
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(bakongApiClient.checkTransactionByMd5("md5")).thenReturn(BakongTransactionCheckResult.notPaid("not found"));
+        when(paywayApiClient.checkTransaction("ABC123")).thenReturn(PaywayTransactionCheckResult.notPaid("PENDING"));
+
+        service.confirmBakongPaymentForCustomer(order.getId(), customerId);
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+        assertThat(order.getPaymentMethod()).isEqualTo(PaymentMethod.BAKONG);
+        verify(orderRepository, never()).save(any(Order.class));
     }
 
     private Order pendingCashOrder() {

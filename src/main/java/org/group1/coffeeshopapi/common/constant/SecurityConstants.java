@@ -10,10 +10,16 @@ public class SecurityConstants {
 
     public static final String TELEGRAM_WEBHOOK_PATH = "/api/telegram/webhook";
 
-    public static final String[] PUBLIC_ENDPOINTS = {
-            "/api/auth/**",
+    // Storefront reads a guest can see before logging in. GET only; cart and orders stay under /api/customer/**.
+    public static final String[] PUBLIC_READ_ENDPOINTS = {
             "/api/banners/**",
             "/api/events/**",
+            "/api/products/**",
+            "/api/categories/**"
+    };
+
+    public static final String[] PUBLIC_ENDPOINTS = {
+            "/api/auth/**",
             TELEGRAM_WEBHOOK_PATH,
             // WebSocket handshake — the JWT is checked on the STOMP CONNECT frame instead.
             "/ws/**",

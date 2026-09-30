@@ -86,8 +86,8 @@ class SecurityPermissionsTest {
         cases.add(new Access("GET", "/api/customer/cart", CUSTOMER));
         cases.add(new Access("GET", "/api/customer/orders", CUSTOMER));
         cases.add(new Access("POST", "/api/customer/cart/checkout", CUSTOMER));
-        cases.add(new Access("GET", "/api/customer/products", CUSTOMER));
-        cases.add(new Access("GET", "/api/customer/products/record", CUSTOMER));
+        cases.add(new Access("POST", "/api/customer/cart/items", CUSTOMER));
+        cases.add(new Access("POST", "/api/customer/orders/record/cancel", CUSTOMER));
         for (String path : List.of("/api/admin/unlisted", "/api/barista/unlisted", "/api/barista/reports/daily")) {
             cases.add(new Access("POST", path, Set.of()));
         }
@@ -105,13 +105,19 @@ class SecurityPermissionsTest {
     }
 
     static Stream<String> publicReads() {
-        return Stream.of("/api/banners", "/api/events");
+        return Stream.of("/api/banners", "/api/events", "/api/products", "/api/products/record", "/api/categories");
     }
 
     @ParameterizedTest
     @MethodSource("publicReads")
     void preservesPublicStorefrontReads(String path) throws Exception {
         mvc.perform(request(HttpMethod.GET, path)).andExpect(status().isOk());
+    }
+
+    @ParameterizedTest
+    @MethodSource("publicReads")
+    void rejectsAnonymousWritesToPublicReads(String path) throws Exception {
+        mvc.perform(request(HttpMethod.POST, path)).andExpect(status().isUnauthorized());
     }
 
     @RestController

@@ -7,6 +7,9 @@ import org.group1.coffeeshopapi.bakong.BakongQrService;
 import org.group1.coffeeshopapi.bakong.dto.BakongDeeplinkResult;
 import org.group1.coffeeshopapi.bakong.dto.BakongQrResult;
 import org.group1.coffeeshopapi.bakong.dto.BakongTransactionCheckResult;
+import org.group1.coffeeshopapi.payway.PaywayApiClient;
+import org.group1.coffeeshopapi.payway.dto.PaywayPurchaseResult;
+import org.group1.coffeeshopapi.payway.dto.PaywayTransactionCheckResult;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
@@ -33,6 +36,7 @@ import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
+import org.group1.coffeeshopapi.order.dto.response.AbaDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
@@ -96,6 +100,7 @@ public class OrderServiceImpl implements OrderService {
     private final OrderAuditLogMapper orderAuditLogMapper;
     private final BakongQrService bakongQrService;
     private final BakongApiClient bakongApiClient;
+    private final PaywayApiClient paywayApiClient;
     private final BakongExchangeRateService bakongExchangeRateService;
     private final TelegramInvoiceService telegramInvoiceService;
     private final CustomerRepository customerRepository;
@@ -380,6 +385,25 @@ public class OrderServiceImpl implements OrderService {
         return new BakongDeeplinkResponse(order.getId(), result.shortLink());
     }
 
+    // Opens ABA Mobile on this order. The Bakong QR stays valid too; whichever is paid first wins.
+    @Override
+    @Transactional
+    public AbaDeeplinkResponse generateAbaDeeplinkForCustomer(UUID id, UUID customerId) {
+        Order order = requirePending(findByCustomerForUpdate(id, customerId));
+        if (order.getPaymentMethod() != PaymentMethod.BAKONG || order.getBakongQrString() == null) {
+            throw new InvalidOperationException("Choose online payment for this order first");
+        }
+        String tranId = paywayTranId(order);
+        PaywayPurchaseResult result = paywayApiClient.createAbaDeeplink(tranId, order.getTotalAmount());
+        if (!result.success()) {
+            throw new InvalidOperationException(result.message());
+        }
+        order.setPaywayTranId(tranId);
+        order = orderRepository.save(order);
+        recordChange(order, OrderAuditAction.ABA_LINK_GENERATED, customerId);
+        return new AbaDeeplinkResponse(order.getId(), result.deeplink());
+    }
+
     @Override
     @Transactional
     public OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId) {
@@ -657,18 +681,38 @@ public class OrderServiceImpl implements OrderService {
         BakongTransactionCheckResult result = bakongApiClient.checkTransactionByMd5(order.getBakongMd5Hash());
         if (result.paid()) {
             order.setBakongTransactionHash(result.transactionHash());
-            if (performedBy != null) {
-                order.setHandledBy(performedBy);
+            return recordOnlinePayment(order, performedBy, OrderAuditAction.BAKONG_CONFIRMED);
+        }
+        // Not paid by KHQR — the customer may have paid through ABA Mobile instead.
+        if (order.getPaywayTranId() != null) {
+            PaywayTransactionCheckResult aba = paywayApiClient.checkTransaction(order.getPaywayTranId());
+            if (aba.paid()) {
+                order.setPaymentMethod(PaymentMethod.ABA_PAYWAY);
+                order.setPaywayApprovalCode(aba.approvalCode());
+                return recordOnlinePayment(order, performedBy, OrderAuditAction.ABA_CONFIRMED);
             }
-            UUID customerId = order.getCustomer() != null ? order.getCustomer().getId() : null;
-            UUID stockActorId = performedBy != null ? performedBy : SuperAdminUserDetails.ID;
-            UUID auditActorId = performedBy != null ? performedBy : customerId;
-            // The money has already arrived, so a stock shortfall must not block recording it.
-            markPaid(order, stockActorId, true);
-            order = orderRepository.save(order);
-            recordChange(order, OrderAuditAction.BAKONG_CONFIRMED, auditActorId);
         }
         return order;
+    }
+
+    private Order recordOnlinePayment(Order order, UUID performedBy, OrderAuditAction action) {
+        if (performedBy != null) {
+            order.setHandledBy(performedBy);
+        }
+        UUID customerId = order.getCustomer() != null ? order.getCustomer().getId() : null;
+        UUID stockActorId = performedBy != null ? performedBy : SuperAdminUserDetails.ID;
+        UUID auditActorId = performedBy != null ? performedBy : customerId;
+        // The money has already arrived, so a stock shortfall must not block recording it.
+        markPaid(order, stockActorId, true);
+        order = orderRepository.save(order);
+        recordChange(order, action, auditActorId);
+        return order;
+    }
+
+    // PayWay allows 20 chars: order code + time in base36, unique per attempt.
+    private String paywayTranId(Order order) {
+        String orderCode = order.getId().toString().substring(0, 8);
+        return (orderCode + Long.toString(System.currentTimeMillis(), 36)).toUpperCase();
     }
 
     // Always stamps paidAt and sends the invoice. Only cuts stock and moves to PAID if that
@@ -816,6 +860,7 @@ public class OrderServiceImpl implements OrderService {
         order.setBakongCurrency(null);
         order.setBakongAmount(null);
         order.setBakongExpiresAt(null);
+        order.setPaywayTranId(null);
     }
 
     private Order findByCustomer(UUID id, UUID customerId) {

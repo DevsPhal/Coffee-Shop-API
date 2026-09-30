@@ -4,6 +4,8 @@ public enum OrderAuditAction {
     CREATED, CASH_COLLECTED, BAKONG_CONFIRMED, CANCELLED, DELIVERY_FEE_SET,
     // Customer switched to cash, or a Bakong QR was (re)generated.
     CASH_SELECTED, BAKONG_QR_GENERATED,
+    // Customer opened ABA Mobile to pay, and ABA PayWay confirmed it.
+    ABA_LINK_GENERATED, ABA_CONFIRMED,
     // Customer pinned or moved their delivery location — staff has to quote the fee again.
     LOCATION_PINNED,
     // Customer pressed "call staff", and a staff member answered it.
