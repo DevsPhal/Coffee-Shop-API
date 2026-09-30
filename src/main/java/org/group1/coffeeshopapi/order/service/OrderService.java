@@ -6,7 +6,6 @@ import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
-import org.group1.coffeeshopapi.order.dto.response.AbaDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
@@ -102,10 +101,6 @@ public interface OrderService {
     // Order must already have a Bakong QR generated for it.
     BakongDeeplinkResponse generateBakongDeeplinkForCustomer(UUID id, UUID customerId);
 
-    // Order must already be set to online payment (a Bakong QR generated).
-    AbaDeeplinkResponse generateAbaDeeplinkForCustomer(UUID id, UUID customerId);
-
-    // Checks the Bakong QR and, if one was opened, the ABA PayWay transaction.
     OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId);
 
     OrderResponse cancelForCustomer(UUID id, UUID customerId);

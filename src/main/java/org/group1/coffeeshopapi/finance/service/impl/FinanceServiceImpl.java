@@ -56,8 +56,7 @@ public class FinanceServiceImpl implements FinanceService {
         List<Order> orders = orderRepository.findPaidInRange(start, end);
         BigDecimal cashIn = sumByMethod(orders, PaymentMethod.CASH);
         BigDecimal bakongIn = sumByMethod(orders, PaymentMethod.BAKONG);
-        BigDecimal abaIn = sumByMethod(orders, PaymentMethod.ABA_PAYWAY);
-        BigDecimal totalIn = cashIn.add(bakongIn).add(abaIn);
+        BigDecimal totalIn = cashIn.add(bakongIn);
 
         // Money out is two streams: manual entries (rent, wages) and auto-recorded stock costs.
         List<Expense> expenses = expenseRepository.findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(
@@ -71,7 +70,7 @@ public class FinanceServiceImpl implements FinanceService {
         BigDecimal totalOut = manualOut.add(stockPurchaseOut);
 
         return new FinanceSummaryResponse(
-                startInclusive, endExclusive.minusDays(1), cashIn, bakongIn, abaIn, totalIn,
+                startInclusive, endExclusive.minusDays(1), cashIn, bakongIn, totalIn,
                 manualOut, stockPurchaseOut, totalOut, totalIn.subtract(totalOut));
     }
 

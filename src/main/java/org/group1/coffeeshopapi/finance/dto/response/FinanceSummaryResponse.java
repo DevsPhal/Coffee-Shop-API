@@ -8,7 +8,6 @@ public record FinanceSummaryResponse(
         LocalDate periodEnd,
         BigDecimal cashIn,
         BigDecimal bakongIn,
-        BigDecimal abaIn,
         BigDecimal totalIn,
 
         // The two streams that add up to totalOut — manual entries vs. auto-recorded stock costs.

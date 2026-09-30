@@ -98,13 +98,13 @@ public class BakongApiClientImpl implements BakongApiClient {
 
     // Lets a customer tap to pay instead of scanning the QR on their own screen.
     @Override
-    public BakongDeeplinkResult generateDeeplink(String qrString) {
+    public BakongDeeplinkResult generateDeeplink(String qrString, String callbackUrl) {
         if (!bakongProperties.isConfigured()) {
             throw new InvalidOperationException("Bakong payment is not configured");
         }
 
         try {
-            return interpretDeeplink(callDeeplink(qrString, tokenService.currentToken()));
+            return interpretDeeplink(callDeeplink(qrString, callbackUrl, tokenService.currentToken()));
         } catch (HttpClientErrorException.Unauthorized e) {
             log.info("Bakong rejected the access token; attempting to renew it");
             String renewed = tokenService.renew();
@@ -114,7 +114,7 @@ public class BakongApiClientImpl implements BakongApiClient {
                                 + "Check BAKONG_EMAIL and BAKONG_TOKEN.");
             }
             try {
-                return interpretDeeplink(callDeeplink(qrString, renewed));
+                return interpretDeeplink(callDeeplink(qrString, callbackUrl, renewed));
             } catch (HttpClientErrorException.Unauthorized retryFailure) {
                 log.error("Bakong still rejected the access token after renewal", retryFailure);
                 return BakongDeeplinkResult.failed("Bakong rejected the access token even after renewing it.");
@@ -126,11 +126,11 @@ public class BakongApiClientImpl implements BakongApiClient {
         }
     }
 
-    private BakongGenerateDeeplinkResponse callDeeplink(String qrString, String token) {
+    private BakongGenerateDeeplinkResponse callDeeplink(String qrString, String callbackUrl, String token) {
         Map<String, Object> sourceInfo = new LinkedHashMap<>();
         sourceInfo.put("appIconUrl", bakongProperties.getAppIconUrl());
         sourceInfo.put("appName", bakongProperties.getMerchantName());
-        sourceInfo.put("appDeepLinkCallback", bakongProperties.getDeeplinkCallbackUrl());
+        sourceInfo.put("appDeepLinkCallback", callbackUrl);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("qr", qrString);

@@ -9,7 +9,6 @@ public record AdminDailyReportResponse(
         long totalOrders,
         BigDecimal cashTotal,
         BigDecimal bakongTotal,
-        BigDecimal abaTotal,
         BigDecimal grandTotal,
         List<DailyReportResponse> baristas
 ) {

@@ -174,7 +174,6 @@ public class ReceiptServiceImpl implements ReceiptService {
         return switch (method) {
             case CASH -> "Cash";
             case BAKONG -> "Bakong KHQR";
-            case ABA_PAYWAY -> "ABA Mobile";
         };
     }
 
