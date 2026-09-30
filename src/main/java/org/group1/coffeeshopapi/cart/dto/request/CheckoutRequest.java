@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.cart.dto.request;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Size;
 import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
 
 import java.math.BigDecimal;
@@ -11,6 +12,7 @@ import java.math.BigDecimal;
 // A delivery order needs the pin plus delivery details with an address and contact phone; staff
 // then quote the fee from the pin's distance before the order can be paid.
 public record CheckoutRequest(
+        @Size(max = 500, message = "Note must not exceed 500 characters")
         String note,
 
         @DecimalMin(value = "-90", message = "Latitude must be between -90 and 90")

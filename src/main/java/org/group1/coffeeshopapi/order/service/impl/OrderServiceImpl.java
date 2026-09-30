@@ -212,6 +212,7 @@ public class OrderServiceImpl implements OrderService {
         if (!order.isDelivery()) {
             throw new InvalidOperationException("This order has no pinned delivery location — it's a pickup order");
         }
+        requireNoBakongPaymentReceived(order);
         order.setDeliveryFee(fee);
         order.setDeliveryFeeSetAt(LocalDateTime.now());
         recalculateTotal(order);
@@ -341,6 +342,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse selectCashOnPickup(UUID id, UUID customerId) {
         Order order = requireDeliveryFeeQuoted(requirePending(findByCustomerForUpdate(id, customerId)));
         requireStockAvailable(order);
+        requireNoBakongPaymentReceived(order);
         order.setPaymentMethod(PaymentMethod.CASH);
         // Drop any QR so an old Bakong payment can't also be confirmed on a cash order.
         clearBakongQr(order);
@@ -353,6 +355,7 @@ public class OrderServiceImpl implements OrderService {
     @Transactional
     public OrderResponse pinDeliveryLocation(UUID id, UUID customerId, DeliveryLocationRequest request) {
         Order order = requirePending(findByCustomerForUpdate(id, customerId));
+        requireNoBakongPaymentReceived(order);
         order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
         order.setDeliveryLatitude(request.latitude());
         order.setDeliveryLongitude(request.longitude());
@@ -926,6 +929,27 @@ public class OrderServiceImpl implements OrderService {
         String site = bakongProperties.getDeeplinkCallbackUrl();
         String base = site.endsWith("/") ? site.substring(0, site.length() - 1) : site;
         return base + "/payment?orderId=" + order.getId();
+    }
+
+    // Clearing a QR drops the record needed to confirm it, so first make sure none of this
+    // order's QRs was already paid. If one was, the normal confirm step records it.
+    private void requireNoBakongPaymentReceived(Order order) {
+        List<String> hashes = new ArrayList<>();
+        if (order.getBakongMd5Hash() != null) {
+            hashes.add(order.getBakongMd5Hash());
+        }
+        hashes.addAll(payablePreviousMd5Hashes(order));
+        for (String md5 : hashes) {
+            BakongTransactionCheckResult result = bakongApiClient.checkTransactionByMd5(md5);
+            if (result.failed()) {
+                throw new PaymentVerificationUnavailableException(
+                        "Could not check with Bakong whether this order was already paid. Please try again.");
+            }
+            if (result.paid()) {
+                throw new InvalidOperationException(
+                        "A Bakong payment for this order has already been received — confirm it instead of changing the order.");
+            }
+        }
     }
 
     private void clearBakongQr(Order order) {

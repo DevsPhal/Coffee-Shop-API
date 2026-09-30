@@ -33,7 +33,7 @@ public class OtpServiceImpl implements OtpService {
 
     @Override
     public void generateAndSend(String email, String fullName, OtpPurpose purpose, String telegramDeepLink) {
-        if (isOnCooldown(email, purpose)) {
+        if (hasLiveCode(email, purpose)) {
             // A still-valid code already exists — reuse it silently instead of failing.
             return;
         }
@@ -54,7 +54,7 @@ public class OtpServiceImpl implements OtpService {
 
     @Override
     public void generateAndSendViaTelegram(String email, String fullName, OtpPurpose purpose, Long chatId) {
-        if (isOnCooldown(email, purpose)) {
+        if (hasLiveCode(email, purpose)) {
             // A still-valid code already exists — reuse it silently instead of failing.
             return;
         }
@@ -69,6 +69,14 @@ public class OtpServiceImpl implements OtpService {
         }
         String otp = generateAndStore(email, purpose);
         sendTelegramOtp(chatId, fullName, otp, purpose);
+    }
+
+    // Only a code that is still stored can be reused. The cooldown outlives the code once it's
+    // used (or burnt by too many wrong attempts), and skipping generation then would leave the
+    // customer on the code screen with nothing sent and no way to sign in until it lapses.
+    private boolean hasLiveCode(String email, OtpPurpose purpose) {
+        return isOnCooldown(email, purpose)
+                && Boolean.TRUE.equals(redisTemplate.hasKey(RedisKeys.otpKey(purpose.name(), email)));
     }
 
     private boolean isOnCooldown(String email, OtpPurpose purpose) {
@@ -131,5 +139,7 @@ public class OtpServiceImpl implements OtpService {
 
         redisTemplate.delete(otpKey);
         redisTemplate.delete(attemptsKey);
+        // The code is spent, so the next sign-in must get a fresh one straight away.
+        redisTemplate.delete(RedisKeys.otpCooldownKey(purpose.name(), email));
     }
 }

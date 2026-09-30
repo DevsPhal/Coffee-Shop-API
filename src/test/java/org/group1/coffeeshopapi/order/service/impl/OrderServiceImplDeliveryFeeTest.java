@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.order.service.impl;
 import org.group1.coffeeshopapi.bakong.BakongApiClient;
 import org.group1.coffeeshopapi.bakong.BakongExchangeRateService;
 import org.group1.coffeeshopapi.bakong.BakongQrService;
+import org.group1.coffeeshopapi.bakong.dto.BakongTransactionCheckResult;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
@@ -95,6 +96,7 @@ class OrderServiceImplDeliveryFeeTest {
         order.setPaymentMethod(PaymentMethod.CASH);
         order.setBakongMd5Hash("old");
         stubCustomerLookup(order);
+        when(bakongApiClient.checkTransactionByMd5("old")).thenReturn(BakongTransactionCheckResult.notPaid("not found"));
 
         service.pinDeliveryLocation(order.getId(), customerId, location());
 
@@ -104,6 +106,21 @@ class OrderServiceImplDeliveryFeeTest {
         assertThat(order.getTotalAmount()).isEqualByComparingTo("10.00");
         assertThat(order.getPaymentMethod()).isNull();
         assertThat(order.getBakongMd5Hash()).isNull();
+    }
+
+    @Test
+    void movingThePinIsRefusedOnceTheOldQrWasPaid() {
+        Order order = customerOrder();
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongMd5Hash("paid");
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(bakongApiClient.checkTransactionByMd5("paid"))
+                .thenReturn(BakongTransactionCheckResult.paid("hash", new BigDecimal("10.00"), "USD", "ok"));
+
+        assertThatThrownBy(() -> service.pinDeliveryLocation(order.getId(), customerId, location()))
+                .isInstanceOf(InvalidOperationException.class);
+        assertThat(order.getBakongMd5Hash()).isEqualTo("paid");
+        verify(orderRepository, never()).save(any(Order.class));
     }
 
     @Test

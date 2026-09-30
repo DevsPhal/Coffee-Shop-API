@@ -73,6 +73,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/admins/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/users/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/baristas/**").hasRole("ADMIN")
+                        // Stock purchase costs are finance data, so Admin-only like /expenses.
+                        .requestMatchers("/api/admin/inventory/expenses/**").hasRole("ADMIN")
                         // Baristas get read-only access to the catalog and stock levels, but can't
                         // change stock themselves — that stays Admin-only, matched below.
                         .requestMatchers(HttpMethod.GET, "/api/admin/categories/**", "/api/admin/products/**",

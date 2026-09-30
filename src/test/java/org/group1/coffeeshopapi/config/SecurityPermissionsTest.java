@@ -73,6 +73,7 @@ class SecurityPermissionsTest {
         for (String path : List.of("attendance", "attendance/record/history", "orders", "orders/record", "reports/daily", "finance/daily", "finance/monthly", "finance/yearly", "bakong/exchange-rate")) {
             cases.add(new Access("GET", "/api/admin/" + path, MANAGERS));
         }
+        cases.add(new Access("GET", "/api/admin/inventory/expenses/report/monthly", MANAGERS));
         cases.add(new Access("PATCH", "/api/admin/attendance/record", MANAGERS));
         cases.add(new Access("PUT", "/api/admin/products/record/discount", MANAGERS));
         cases.add(new Access("DELETE", "/api/admin/products/record/discount", MANAGERS));

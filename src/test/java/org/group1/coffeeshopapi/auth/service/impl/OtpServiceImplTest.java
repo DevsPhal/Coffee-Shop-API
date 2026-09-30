@@ -55,6 +55,7 @@ class OtpServiceImplTest {
 
         verify(redisTemplate).delete(OTP_KEY);
         verify(redisTemplate).delete(ATTEMPTS_KEY);
+        verify(redisTemplate).delete(COOLDOWN_KEY);
     }
 
     @Test
@@ -103,10 +104,27 @@ class OtpServiceImplTest {
     @Test
     void generateAndSendSilentlyReusesAStillValidCodeInsteadOfSendingAnother() {
         when(redisTemplate.hasKey(COOLDOWN_KEY)).thenReturn(true);
+        when(redisTemplate.hasKey(OTP_KEY)).thenReturn(true);
 
         service.generateAndSend(EMAIL, "Sophal", PURPOSE, null);
 
         verify(mailService, never()).sendOtpEmail(any(), any(), any(), anyInt(), any(), any());
+    }
+
+    @Test
+    void generateAndSendIssuesAFreshCodeWhenTheLastOneWasAlreadyUsed() {
+        // Signing in again within the cooldown: the previous code was spent, only the cooldown is left.
+        when(redisTemplate.hasKey(COOLDOWN_KEY)).thenReturn(true);
+        when(redisTemplate.hasKey(OTP_KEY)).thenReturn(false);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(passwordEncoder.encode(any())).thenReturn("hashed-otp");
+        when(otpProperties.getOtpExpiryMinutes()).thenReturn(5);
+        when(otpProperties.getOtpResendCooldownSeconds()).thenReturn(60);
+
+        service.generateAndSend(EMAIL, "Sophal", PURPOSE, null);
+
+        verify(valueOperations).set(org.mockito.ArgumentMatchers.eq(OTP_KEY), org.mockito.ArgumentMatchers.eq("hashed-otp"), any(java.time.Duration.class));
+        verify(mailService).sendOtpEmail(org.mockito.ArgumentMatchers.eq(EMAIL), any(), any(), anyInt(), any(), any());
     }
 
     @Test

@@ -3,6 +3,8 @@ package org.group1.coffeeshopapi.order.service.impl;
 import org.group1.coffeeshopapi.bakong.BakongApiClient;
 import org.group1.coffeeshopapi.bakong.BakongExchangeRateService;
 import org.group1.coffeeshopapi.bakong.BakongQrService;
+import org.group1.coffeeshopapi.bakong.dto.BakongTransactionCheckResult;
+import org.group1.coffeeshopapi.common.exception.PaymentVerificationUnavailableException;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
@@ -284,6 +286,7 @@ class OrderServiceImplFulfillmentFlowTest {
         order.setBakongMd5Hash("md5");
         when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bakongApiClient.checkTransactionByMd5("md5")).thenReturn(BakongTransactionCheckResult.notPaid("not found"));
 
         service.selectCashOnPickup(order.getId(), customerId);
 
@@ -291,7 +294,38 @@ class OrderServiceImplFulfillmentFlowTest {
         assertThat(order.getBakongMd5Hash()).isNull();
         assertThatThrownBy(() -> service.confirmBakongPaymentForCustomer(order.getId(), customerId))
                 .isInstanceOf(InvalidOperationException.class);
-        verify(bakongApiClient, never()).checkTransactionByMd5(any());
+    }
+
+    @Test
+    void switchingToCashIsRefusedWhenTheQrWasAlreadyPaid() {
+        UUID customerId = UUID.randomUUID();
+        Order order = pendingCashOrder();
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongQrString("qr");
+        order.setBakongMd5Hash("md5");
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(bakongApiClient.checkTransactionByMd5("md5"))
+                .thenReturn(BakongTransactionCheckResult.paid("hash", new BigDecimal("5.00"), "USD", "ok"));
+
+        assertThatThrownBy(() -> service.selectCashOnPickup(order.getId(), customerId))
+                .isInstanceOf(InvalidOperationException.class);
+        assertThat(order.getPaymentMethod()).isEqualTo(PaymentMethod.BAKONG);
+        assertThat(order.getBakongMd5Hash()).isEqualTo("md5");
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void switchingToCashWaitsWhenBakongCannotBeReached() {
+        UUID customerId = UUID.randomUUID();
+        Order order = pendingCashOrder();
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongMd5Hash("md5");
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(bakongApiClient.checkTransactionByMd5("md5")).thenReturn(BakongTransactionCheckResult.failed("down"));
+
+        assertThatThrownBy(() -> service.selectCashOnPickup(order.getId(), customerId))
+                .isInstanceOf(PaymentVerificationUnavailableException.class);
+        assertThat(order.getBakongMd5Hash()).isEqualTo("md5");
     }
 
     private Order pendingCashOrder() {

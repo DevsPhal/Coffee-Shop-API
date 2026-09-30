@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.event.dto.request;
 
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Size;
 import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.math.BigDecimal;
@@ -9,7 +10,9 @@ import java.time.LocalDateTime;
 
 // latitude/longitude must be given together, or omitted to leave the venue pin unchanged.
 public record UpdateEventRequest(
+        @Size(max = 255, message = "Title must not exceed 255 characters")
         String title,
+        @Size(max = 255, message = "Description must not exceed 255 characters")
         String description,
 
         @DecimalMin(value = "-90", message = "Latitude must be between -90 and 90")

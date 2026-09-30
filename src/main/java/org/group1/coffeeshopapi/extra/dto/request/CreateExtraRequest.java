@@ -3,12 +3,14 @@ package org.group1.coffeeshopapi.extra.dto.request;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
 // quantityOnHand is optional — leave it out for an untracked extra (always available).
 public record CreateExtraRequest(
         @NotBlank(message = "Name is required")
+        @Size(max = 255, message = "Name must not exceed 255 characters")
         String name,
 
         @NotNull(message = "Price is required")
