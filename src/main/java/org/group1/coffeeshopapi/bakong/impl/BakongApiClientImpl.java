@@ -84,6 +84,13 @@ public class BakongApiClientImpl implements BakongApiClient {
     }
 
     private BakongTransactionCheckResult unreachable(String md5Hash, RestClientException e) {
+        if (e instanceof HttpClientErrorException.Forbidden) {
+            // Bakong only answers payment checks from servers in Cambodia.
+            log.error("Bakong refused check_transaction_by_md5 with 403 for md5={} — this server's IP is "
+                    + "likely outside Cambodia; route BAKONG_BASE_URL through a relay in Cambodia", md5Hash);
+            return BakongTransactionCheckResult.failed(
+                    "Bakong refused the payment check (403). Its API only accepts calls from servers in Cambodia.");
+        }
         log.warn("Bakong check_transaction_by_md5 call failed for md5={}", md5Hash, e);
         return BakongTransactionCheckResult.failed("Could not reach the Bakong API. Please try again.");
     }

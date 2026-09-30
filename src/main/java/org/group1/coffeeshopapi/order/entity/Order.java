@@ -122,6 +122,12 @@ public class Order extends BaseEntity {
     @Column
     private LocalDateTime bakongExpiresAt;
 
+    // QRs this order issued before the current one, as "md5@expiryEpochSecond" separated by
+    // spaces, newest first. A replaced QR can still be paid until it expires (a customer pays
+    // the saved image after a currency switch or a reload), so confirm checks these too.
+    @Column(length = 1000)
+    private String bakongPreviousMd5Hashes;
+
     // Free-text note from the customer/barista. TEXT rather than varchar(255) since a delivery
     // address plus a note can easily run long.
     @Column(columnDefinition = "TEXT")

@@ -16,6 +16,7 @@ import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.StockStrategy;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
+import org.group1.coffeeshopapi.common.exception.PaymentVerificationUnavailableException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
 import org.group1.coffeeshopapi.common.properties.ShopLocationProperties;
@@ -72,7 +73,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -84,6 +90,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class OrderServiceImpl implements OrderService {
+
+    // A QR with less time left than this is replaced rather than handed back on a reload.
+    private static final long QR_REUSE_MIN_REMAINING_SECONDS = 60;
+    // How many replaced QRs to keep checking, and for how long past their own expiry.
+    private static final int MAX_PREVIOUS_QRS = 5;
+    private static final long PREVIOUS_QR_GRACE_SECONDS = 30 * 60;
 
     private final OrderRepository orderRepository;
     private final OrderAuditLogRepository orderAuditLogRepository;
@@ -621,12 +633,28 @@ public class OrderServiceImpl implements OrderService {
     private BakongQrResponse attachBakongQr(Order order, Currency currency, UUID actorId) {
         requireDeliveryFeeQuoted(order);
         requireStockAvailable(order);
+
+        // A reload, or coming back from a banking app, asks for the QR again. Hand back the one
+        // the customer may already be paying rather than replacing it.
+        Currency wanted = currency != null ? currency : bakongProperties.getCurrency();
+        LocalDateTime now = LocalDateTime.now();
+        if (order.getPaymentMethod() == PaymentMethod.BAKONG
+                && order.getBakongMd5Hash() != null
+                && order.getBakongCurrency() == wanted
+                && order.getBakongExpiresAt() != null
+                && order.getBakongExpiresAt().isAfter(now.plusSeconds(QR_REUSE_MIN_REMAINING_SECONDS))) {
+            return new BakongQrResponse(order.getId(), order.getBakongQrString(), order.getBakongMd5Hash(),
+                    order.getBakongAmount(), order.getBakongCurrency(), order.getBakongExpiresAt(),
+                    Duration.between(now, order.getBakongExpiresAt()).getSeconds());
+        }
+
         String billNumber = "ORD-" + order.getId().toString().substring(0, 8).toUpperCase();
         BakongQrResult qr = bakongQrService.generateQr(order.getTotalAmount(), billNumber, currency);
 
         long expiresInSeconds = bakongProperties.getExpirationMinutes() * 60;
-        LocalDateTime expiresAt = LocalDateTime.now().plusSeconds(expiresInSeconds);
+        LocalDateTime expiresAt = now.plusSeconds(expiresInSeconds);
 
+        rememberReplacedQr(order);
         order.setPaymentMethod(PaymentMethod.BAKONG);
         order.setBakongQrString(qr.qrString());
         order.setBakongMd5Hash(qr.md5Hash());
@@ -654,8 +682,40 @@ public class OrderServiceImpl implements OrderService {
             throw new InvalidOperationException("Generate a Bakong QR for this order first");
         }
 
-        BakongTransactionCheckResult result = bakongApiClient.checkTransactionByMd5(order.getBakongMd5Hash());
+        String paidMd5 = order.getBakongMd5Hash();
+        BakongTransactionCheckResult result = bakongApiClient.checkTransactionByMd5(paidMd5);
+        // Couldn't ask Bakong at all — say so rather than report "not paid" for a payment that
+        // may well have arrived. The previous hashes would fail the same way, so skip them.
+        if (result.failed()) {
+            throw new PaymentVerificationUnavailableException(
+                    result.message() != null ? result.message() : "Could not verify the payment with Bakong.");
+        }
+        // Not the current QR — the customer may have paid one this order replaced.
+        if (!result.paid()) {
+            for (String md5 : payablePreviousMd5Hashes(order)) {
+                BakongTransactionCheckResult previous = bakongApiClient.checkTransactionByMd5(md5);
+                if (previous.paid()) {
+                    paidMd5 = md5;
+                    result = previous;
+                    break;
+                }
+            }
+        }
         if (result.paid()) {
+            if (!paidMd5.equals(order.getBakongMd5Hash())) {
+                // Record what was actually paid, not the QR that replaced it.
+                order.setBakongMd5Hash(paidMd5);
+                if (result.amount() != null) {
+                    order.setBakongAmount(result.amount());
+                }
+                if (result.currency() != null) {
+                    try {
+                        order.setBakongCurrency(Currency.valueOf(result.currency().trim().toUpperCase()));
+                    } catch (IllegalArgumentException ignored) {
+                        // Leave the stored currency; the amount and transaction hash still stand.
+                    }
+                }
+            }
             order.setBakongTransactionHash(result.transactionHash());
             if (performedBy != null) {
                 order.setHandledBy(performedBy);
@@ -669,6 +729,57 @@ public class OrderServiceImpl implements OrderService {
             recordChange(order, OrderAuditAction.BAKONG_CONFIRMED, auditActorId);
         }
         return order;
+    }
+
+    // Keeps the hash of the QR about to be replaced while it can still be paid. Capped, since
+    // every one of these costs a Bakong call on each confirm.
+    private void rememberReplacedQr(Order order) {
+        if (order.getBakongMd5Hash() == null || order.getBakongExpiresAt() == null) {
+            return;
+        }
+        List<String> entries = new ArrayList<>();
+        entries.add(order.getBakongMd5Hash() + "@"
+                + order.getBakongExpiresAt().atZone(ZoneId.systemDefault()).toEpochSecond());
+        for (String entry : previousQrEntries(order)) {
+            if (entries.size() >= MAX_PREVIOUS_QRS) {
+                break;
+            }
+            if (isStillPayable(entry)) {
+                entries.add(entry);
+            }
+        }
+        order.setBakongPreviousMd5Hashes(String.join(" ", entries));
+    }
+
+    // Replaced QRs whose own expiry (plus a grace period for a transfer sent at the last second
+    // to settle) hasn't passed — older ones can no longer be paid, so there's nothing to ask.
+    private List<String> payablePreviousMd5Hashes(Order order) {
+        List<String> hashes = new ArrayList<>();
+        for (String entry : previousQrEntries(order)) {
+            if (isStillPayable(entry)) {
+                hashes.add(entry.substring(0, entry.indexOf('@')));
+            }
+        }
+        return hashes;
+    }
+
+    private List<String> previousQrEntries(Order order) {
+        String stored = order.getBakongPreviousMd5Hashes();
+        if (stored == null || stored.isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(stored.trim().split("\\s+"))
+                .filter(entry -> entry.indexOf('@') > 0)
+                .toList();
+    }
+
+    private boolean isStillPayable(String entry) {
+        try {
+            long expiresAt = Long.parseLong(entry.substring(entry.indexOf('@') + 1));
+            return Instant.now().getEpochSecond() <= expiresAt + PREVIOUS_QR_GRACE_SECONDS;
+        } catch (NumberFormatException e) {
+            return false;
+        }
     }
 
     // Always stamps paidAt and sends the invoice. Only cuts stock and moves to PAID if that

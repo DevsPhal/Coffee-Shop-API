@@ -164,6 +164,115 @@ class OrderServiceImplStockTest {
         verify(inventoryService, never()).stockCut(any(), any());
     }
 
+    @Test
+    void aPaymentToAReplacedQrIsStillConfirmed() {
+        UUID customerId = UUID.randomUUID();
+        Order order = pendingOrder(cartonOf24Cans(), 1);
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        order.setCustomer(customer);
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        // The customer saved the USD QR, then the page swapped in a KHR one before they paid.
+        order.setBakongMd5Hash("khr-md5");
+        order.setBakongCurrency(Currency.KHR);
+        long stillPayable = java.time.Instant.now().plusSeconds(600).getEpochSecond();
+        order.setBakongPreviousMd5Hashes("usd-md5@" + stillPayable);
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bakongApiClient.checkTransactionByMd5("khr-md5")).thenReturn(BakongTransactionCheckResult.notPaid("not found"));
+        when(bakongApiClient.checkTransactionByMd5("usd-md5")).thenReturn(BakongTransactionCheckResult.paid("tx", new BigDecimal("1.50"), "USD", null));
+
+        service.confirmBakongPaymentForCustomer(order.getId(), customerId);
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getBakongMd5Hash()).isEqualTo("usd-md5");
+        assertThat(order.getBakongCurrency()).isEqualTo(Currency.USD);
+        assertThat(order.getBakongTransactionHash()).isEqualTo("tx");
+    }
+
+    @Test
+    void anExpiredReplacedQrIsNotCheckedAgain() {
+        UUID customerId = UUID.randomUUID();
+        Order order = pendingOrder(cartonOf24Cans(), 1);
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        order.setCustomer(customer);
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongMd5Hash("current");
+        long longGone = java.time.Instant.now().minusSeconds(24 * 3600).getEpochSecond();
+        order.setBakongPreviousMd5Hashes("stale@" + longGone);
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(bakongApiClient.checkTransactionByMd5("current")).thenReturn(BakongTransactionCheckResult.notPaid("not found"));
+
+        service.confirmBakongPaymentForCustomer(order.getId(), customerId);
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+        verify(bakongApiClient, never()).checkTransactionByMd5("stale");
+    }
+
+    @Test
+    void aStillValidQrIsHandedBackInsteadOfReplaced() {
+        UUID customerId = UUID.randomUUID();
+        Order order = pendingOrder(cartonOf24Cans(), 1);
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        order.setCustomer(customer);
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongQrString("qr");
+        order.setBakongMd5Hash("live");
+        order.setBakongCurrency(Currency.USD);
+        order.setBakongAmount(new BigDecimal("1.50"));
+        order.setBakongExpiresAt(LocalDateTime.now().plusMinutes(10));
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+
+        var response = service.generateBakongQrForCustomer(order.getId(), customerId, Currency.USD);
+
+        assertThat(response.md5Hash()).isEqualTo("live");
+        assertThat(response.expiresInSeconds()).isBetween(500L, 600L);
+        verify(bakongQrService, never()).generateQr(any(), any(), any());
+    }
+
+    @Test
+    void replacingAQrKeepsTheOldHashCheckable() {
+        UUID customerId = UUID.randomUUID();
+        Order order = pendingOrder(cartonOf24Cans(), 1);
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        order.setCustomer(customer);
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongQrString("usd-qr");
+        order.setBakongMd5Hash("usd-md5");
+        order.setBakongCurrency(Currency.USD);
+        order.setBakongExpiresAt(LocalDateTime.now().plusMinutes(10));
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bakongQrService.generateQr(any(), any(), eq(Currency.KHR))).thenReturn(new org.group1.coffeeshopapi.bakong.dto.BakongQrResult(
+                "khr-qr", "khr-md5", Currency.KHR, new BigDecimal("6150"), LocalDateTime.now().plusMinutes(15)));
+
+        service.generateBakongQrForCustomer(order.getId(), customerId, Currency.KHR);
+
+        assertThat(order.getBakongMd5Hash()).isEqualTo("khr-md5");
+        assertThat(order.getBakongPreviousMd5Hashes()).startsWith("usd-md5@");
+    }
+
+    @Test
+    void aBlockedBakongCheckIsReportedInsteadOfNotPaid() {
+        UUID customerId = UUID.randomUUID();
+        Order order = pendingOrder(cartonOf24Cans(), 1);
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        order.setCustomer(customer);
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongMd5Hash("md5");
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(bakongApiClient.checkTransactionByMd5("md5")).thenReturn(BakongTransactionCheckResult.failed("Bakong refused the payment check (403)."));
+
+        assertThatThrownBy(() -> service.confirmBakongPaymentForCustomer(order.getId(), customerId))
+                .isInstanceOf(org.group1.coffeeshopapi.common.exception.PaymentVerificationUnavailableException.class)
+                .hasMessageContaining("403");
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+    }
+
     private Product cartonOf24Cans() {
         Category drinks = new Category();
         drinks.setStatus(Status.ACTIVE);
