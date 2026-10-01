@@ -57,6 +57,8 @@ public class Order extends BaseEntity {
 
     private LocalDateTime deliveryFeeSetAt;
 
+    private LocalDateTime estimatedReadyAt;
+
     @Column(length = 500)
     private String deliveryAddress;
 

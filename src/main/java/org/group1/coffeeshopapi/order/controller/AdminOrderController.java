@@ -16,6 +16,7 @@ import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
+import org.group1.coffeeshopapi.order.dto.request.EstimatedTimeRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
@@ -177,6 +178,13 @@ public class AdminOrderController {
             @PathVariable UUID id, @Valid @RequestBody DeliveryFeeRequest request) {
         OrderResponse response = orderService.setDeliveryFee(id, request.fee(), currentActor.id());
         return ApiResponse.of(HttpStatus.OK, "Delivery fee set successfully.", response);
+    }
+
+    @PostMapping("/{id}/estimated-time")
+    public ApiResponse<OrderResponse> setEstimatedTime(
+            @PathVariable UUID id, @Valid @RequestBody EstimatedTimeRequest request) {
+        return ApiResponse.of(HttpStatus.OK, "Estimated time set successfully.",
+                orderService.setEstimatedTime(id, request.minutes(), currentActor.id()));
     }
 
     @GetMapping("/awaiting-preparation")

@@ -202,6 +202,20 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
+    public OrderResponse setEstimatedTime(UUID id, int minutes, UUID actorId) {
+        Order order = findAnyForUpdate(id);
+        if (order.getStatus().isFinished()) {
+            throw new InvalidOperationException(
+                    "Order is " + order.getStatus().name().toLowerCase() + " and no longer needs an estimated time");
+        }
+        order.setEstimatedReadyAt(LocalDateTime.now().plusMinutes(minutes));
+        order = orderRepository.save(order);
+        recordChange(order, OrderAuditAction.ESTIMATE_SET, actorId);
+        return toResponse(order);
+    }
+
+    @Override
+    @Transactional
     public OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId) {
         Order order = requirePending(findAnyForUpdate(id));
         if (!order.isDelivery()) {

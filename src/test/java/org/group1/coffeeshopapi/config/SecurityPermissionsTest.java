@@ -80,7 +80,8 @@ class SecurityPermissionsTest {
         for (String path : List.of("orders", "orders/all", "reports/daily", "attendance", "attendance/current")) {
             cases.add(new Access("GET", "/api/barista/" + path, BARISTA));
         }
-        for (String path : List.of("orders", "orders/record/pay/cash", "orders/record/complete", "attendance/check-in", "attendance/check-out")) {
+        cases.add(new Access("POST", "/api/admin/orders/record/estimated-time", MANAGERS));
+        for (String path : List.of("orders", "orders/record/pay/cash", "orders/record/complete", "orders/record/estimated-time", "attendance/check-in", "attendance/check-out")) {
             cases.add(new Access("POST", "/api/barista/" + path, BARISTA));
         }
         cases.add(new Access("GET", "/api/customer/cart", CUSTOMER));

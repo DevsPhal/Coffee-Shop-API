@@ -46,6 +46,7 @@ public record OrderResponse(
         BigDecimal distanceMeters,
         LocalDateTime deliveryFeeSetAt,
         boolean awaitingDeliveryFee,
-        BigDecimal itemsTotal
+        BigDecimal itemsTotal,
+        LocalDateTime estimatedReadyAt
 ) {
 }

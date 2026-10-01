@@ -43,6 +43,8 @@ public interface OrderService {
 
     OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId);
 
+    OrderResponse setEstimatedTime(UUID id, int minutes, UUID actorId);
+
     Page<OrderResponse> listAwaitingDeliveryFee(Pageable pageable);
 
     OrderResponse startPreparing(UUID id, UUID actorId);

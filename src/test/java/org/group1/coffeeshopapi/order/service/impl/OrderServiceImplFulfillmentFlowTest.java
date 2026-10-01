@@ -400,6 +400,36 @@ class OrderServiceImplFulfillmentFlowTest {
         verify(bakongApiClient, never()).checkTransactionByMd5(any());
     }
 
+    @Test
+    void staffSetTheEstimatedTimeTheCustomerSees() {
+        UUID baristaId = UUID.randomUUID();
+        Order order = pendingCashOrder();
+        order.setStatus(OrderStatus.PREPARING);
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        LocalDateTime before = LocalDateTime.now();
+
+        service.setEstimatedTime(order.getId(), 12, baristaId);
+
+        assertThat(order.getEstimatedReadyAt()).isBetween(before.plusMinutes(12), LocalDateTime.now().plusMinutes(12));
+        ArgumentCaptor<OrderAuditLog> audit = ArgumentCaptor.forClass(OrderAuditLog.class);
+        verify(orderAuditLogRepository).save(audit.capture());
+        assertThat(audit.getValue().getAction()).isEqualTo(OrderAuditAction.ESTIMATE_SET);
+        assertThat(audit.getValue().getActorId()).isEqualTo(baristaId);
+    }
+
+    @Test
+    void aFinishedOrderCannotGetAnEstimatedTime() {
+        Order order = pendingCashOrder();
+        order.setStatus(OrderStatus.COMPLETED);
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> service.setEstimatedTime(order.getId(), 10, UUID.randomUUID()))
+                .isInstanceOf(InvalidOperationException.class);
+        assertThat(order.getEstimatedReadyAt()).isNull();
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
     private Order pendingBakongOrder(LocalDateTime expiresAt) {
         Order order = pendingCashOrder();
         order.setPaymentMethod(PaymentMethod.BAKONG);
