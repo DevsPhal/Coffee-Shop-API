@@ -18,7 +18,6 @@ import org.group1.coffeeshopapi.product.entity.Product;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-// Audit trail entry for a single stock-in or stock-cut action.
 @Getter
 @Setter
 @Entity
@@ -33,7 +32,6 @@ public class StockMovement extends BaseEntity {
     @Column(nullable = false, length = 20)
     private StockMovementType type;
 
-    // Only set for STOCK_OUT — which cost-flow assumption chose the batches consumed.
     @Enumerated(EnumType.STRING)
     @Column(length = 10)
     private StockStrategy strategy;

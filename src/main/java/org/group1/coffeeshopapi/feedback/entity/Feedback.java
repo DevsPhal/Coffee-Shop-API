@@ -17,7 +17,6 @@ import org.group1.coffeeshopapi.common.enums.FeedbackTopic;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
-// A message submitted through the Contact Us screen.
 @Getter
 @Setter
 @Entity

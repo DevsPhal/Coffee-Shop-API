@@ -20,8 +20,6 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID>, J
     boolean hasOverlap(@Param("baristaId") UUID baristaId, @Param("excludedId") UUID excludedId,
                        @Param("fromTime") LocalDateTime fromTime, @Param("until") LocalDateTime until);
 
-    // The one open (not yet checked out) shift for a barista, if any — used to enforce "one open
-    // shift at a time" on check-in and to find what to close on check-out.
     Optional<Attendance> findByBaristaIdAndCheckOutAtIsNull(UUID baristaId);
 
     Page<Attendance> findByBaristaId(UUID baristaId, Pageable pageable);

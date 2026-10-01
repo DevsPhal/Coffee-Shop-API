@@ -44,7 +44,6 @@ public class ExtraController {
         return ApiResponse.of(HttpStatus.OK, "Extra updated successfully.", extraService.update(id, request));
     }
 
-    // Photo shown to customers next to the add-on choice.
     @PostMapping(value = "/{id}/image", consumes = "multipart/form-data")
     public ApiResponse<ExtraResponse> uploadImage(@PathVariable UUID id, @RequestParam("file") MultipartFile file) {
         return ApiResponse.of(HttpStatus.OK, "Extra image uploaded successfully.", extraService.uploadImage(id, file));

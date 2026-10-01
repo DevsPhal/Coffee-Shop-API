@@ -18,9 +18,6 @@ import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Reproduces /api/users/me for real: the JWT filter loads the user in its own short session,
-// so by the time it's mapped the barista's creator is an uninitialized, detached proxy.
-// No @Transactional here on purpose — an open session would hide the bug.
 @SpringBootTest
 @ActiveProfiles("test")
 class UserMapperDetachedIntegrationTest {
@@ -62,7 +59,6 @@ class UserMapperDetachedIntegrationTest {
         barista.setCreatedByAdmin(admin);
         barista = baristaRepository.saveAndFlush(barista);
 
-        // Loaded and returned outside a transaction, exactly like JwtAuthFilter does.
         User loaded = userRepository.findByEmail("detached-barista@example.test").orElseThrow();
 
         UserResponse response = userMapper.toResponse(loaded);

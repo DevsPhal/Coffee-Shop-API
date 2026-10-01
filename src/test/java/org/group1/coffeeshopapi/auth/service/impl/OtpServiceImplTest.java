@@ -25,7 +25,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Covers the OTP verification lockout/cooldown logic — security-critical and previously untested.
 @ExtendWith(MockitoExtension.class)
 class OtpServiceImplTest {
 
@@ -113,7 +112,6 @@ class OtpServiceImplTest {
 
     @Test
     void generateAndSendIssuesAFreshCodeWhenTheLastOneWasAlreadyUsed() {
-        // Signing in again within the cooldown: the previous code was spent, only the cooldown is left.
         when(redisTemplate.hasKey(COOLDOWN_KEY)).thenReturn(true);
         when(redisTemplate.hasKey(OTP_KEY)).thenReturn(false);
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
@@ -125,6 +123,23 @@ class OtpServiceImplTest {
 
         verify(valueOperations).set(org.mockito.ArgumentMatchers.eq(OTP_KEY), org.mockito.ArgumentMatchers.eq("hashed-otp"), any(java.time.Duration.class));
         verify(mailService).sendOtpEmail(org.mockito.ArgumentMatchers.eq(EMAIL), any(), any(), anyInt(), any(), any());
+    }
+
+    @Test
+    void aCodeThatFailedToSendIsForgottenSoTheNextAttemptSendsAgain() {
+        when(redisTemplate.hasKey(COOLDOWN_KEY)).thenReturn(false);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(passwordEncoder.encode(any())).thenReturn("hashed-otp");
+        when(otpProperties.getOtpExpiryMinutes()).thenReturn(5);
+        when(otpProperties.getOtpResendCooldownSeconds()).thenReturn(60);
+        org.mockito.Mockito.doThrow(new RuntimeException("smtp down"))
+                .when(mailService).sendOtpEmail(any(), any(), any(), anyInt(), any(), any());
+
+        assertThatThrownBy(() -> service.generateAndSend(EMAIL, "Sophal", PURPOSE, null))
+                .hasMessageContaining("smtp down");
+
+        verify(redisTemplate).delete(OTP_KEY);
+        verify(redisTemplate).delete(COOLDOWN_KEY);
     }
 
     @Test

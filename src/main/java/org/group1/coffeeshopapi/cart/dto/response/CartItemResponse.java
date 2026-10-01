@@ -23,7 +23,6 @@ public record CartItemResponse(
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,
-        // Extras (e.g. Pearl) added to this item — unitPrice/subtotal already include their price.
         List<CartItemExtraResponse> extras
 ) {
 }

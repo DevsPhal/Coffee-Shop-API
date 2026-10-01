@@ -38,7 +38,6 @@ public class Category extends BaseEntity {
     @Column
     private CategoryGroup categoryGroup;
 
-    // Which admin created or last modified this category — null if it was the Super Admin.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private Admin createdByAdmin;

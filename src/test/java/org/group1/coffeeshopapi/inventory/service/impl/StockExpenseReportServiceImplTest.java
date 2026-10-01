@@ -24,8 +24,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-// Covers the generated Excel report's shape: header row, one row per expense, and a correctly
-// summed total row.
 @ExtendWith(MockitoExtension.class)
 class StockExpenseReportServiceImplTest {
 
@@ -53,7 +51,6 @@ class StockExpenseReportServiceImplTest {
 
             Row totalRow = sheet.getRow(4);
             assertThat(totalRow.getCell(3).getStringCellValue()).isEqualTo("Total");
-            // 10 * 1.50 + 5 * 2.00 = 15.00 + 10.00 = 25.00
             assertThat(totalRow.getCell(4).getNumericCellValue()).isEqualTo(25.00);
         }
     }

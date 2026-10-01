@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// No auth required — builds the category filter on the public menu.
 @RestController
 @RequestMapping("/api/categories")
 @RequiredArgsConstructor

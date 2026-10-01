@@ -52,7 +52,6 @@ public class BakongExchangeRateServiceImpl implements BakongExchangeRateService 
         return toResponse(repository.save(entity));
     }
 
-    // updatedByAdmin is null if never updated, or if the Super Admin made the last change.
     private BakongExchangeRateResponse toResponse(BakongExchangeRate entity) {
         Admin admin = entity.getUpdatedByAdmin();
         return new BakongExchangeRateResponse(

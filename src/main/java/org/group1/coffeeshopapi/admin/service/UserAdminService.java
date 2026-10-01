@@ -9,13 +9,11 @@ import org.springframework.data.domain.Pageable;
 
 import java.util.UUID;
 
-// Super-admin-only view across every account regardless of role (admin, barista, customer).
 public interface UserAdminService {
     Page<UserResponse> list(Role roleFilter, Pageable pageable);
     UserResponse getById(UUID id);
     UserResponse update(UUID id, UpdateProfileRequest request);
     void delete(UUID id);
 
-    // Suspend/ban/soft-delete any account, including customers.
     UserResponse updateStatus(UUID id, UpdateUserStatusRequest request);
 }

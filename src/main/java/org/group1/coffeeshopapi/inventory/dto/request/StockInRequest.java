@@ -6,7 +6,6 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-// Receives a new stock batch ("lot") into inventory for a product.
 public record StockInRequest(
         @NotNull(message = "Product is required")
         UUID productId,

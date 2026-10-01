@@ -40,8 +40,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-// Change is given back in whichever currency the customer wants — normally whatever they
-// tendered in, but they can ask for the other one instead.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplCashChangeTest {
 
@@ -85,7 +83,6 @@ class OrderServiceImplCashChangeTest {
         Order order = pendingOrder(baristaId, "10.00");
         when(bakongExchangeRateService.getCurrentRate()).thenReturn(USD_TO_KHR_RATE);
 
-        // 45,000 KHR ≈ $10.98 at this rate, so $0.98 change ≈ 4018 KHR.
         service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.KHR, new BigDecimal("45000"), null));
 
         assertThat(order.getChangeCurrency()).isEqualTo(Currency.KHR);
@@ -115,7 +112,6 @@ class OrderServiceImplCashChangeTest {
                 new CashPaymentRequest(Currency.USD, new BigDecimal("15.00"), Currency.KHR));
 
         assertThat(order.getChangeCurrency()).isEqualTo(Currency.KHR);
-        // $5.00 change * 4100 = 20500 KHR.
         assertThat(order.getChangeDue()).isEqualByComparingTo("20500");
     }
 
@@ -137,8 +133,6 @@ class OrderServiceImplCashChangeTest {
         order.setStatus(OrderStatus.PENDING);
         order.setTotalAmount(new BigDecimal(totalAmount));
         when(orderRepository.findByHandledByForUpdate(order.getId(), baristaId)).thenReturn(Optional.of(order));
-        // Not every test in this class reaches save() (the exchange-rate-missing case throws
-        // first), so this stub is lenient rather than required.
         Mockito.lenient().when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         return order;
     }

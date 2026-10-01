@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// No auth required — anyone can see upcoming events.
 @RestController
 @RequestMapping("/api/events")
 @RequiredArgsConstructor

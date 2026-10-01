@@ -5,9 +5,6 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 
-// Builds a Pageable from optional request params, using shared defaults so every "list" endpoint
-// paginates the same way. The API's page numbers are 1-based; this converts to Spring Data's
-// 0-based index.
 public final class PageUtil {
 
     private PageUtil() {

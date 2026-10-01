@@ -16,7 +16,6 @@ import java.util.UUID;
 public record ProductResponse(
         UUID id,
         String name,
-        // Khmer translation of the name — null if none was set.
         String nameKh,
         String description,
         String imageUrl,
@@ -26,7 +25,6 @@ public record ProductResponse(
         BigDecimal unitsPerStock,
         UUID categoryId,
         String categoryName,
-        // Which customizations this product accepts, inherited from its category.
         CategoryGroup categoryGroup,
         Status status,
         BigDecimal quantityOnHand,
@@ -36,9 +34,7 @@ public record ProductResponse(
         LocalDateTime discountStartAt,
         LocalDateTime discountEndAt,
         boolean discountActive,
-        // Empty means the product isn't purchasable yet.
         List<ProductVariantResponse> variants,
-        // Extras this product offers. Empty means none.
         List<ProductExtraResponse> extras,
         UUID createdBy,
         String createdByName,

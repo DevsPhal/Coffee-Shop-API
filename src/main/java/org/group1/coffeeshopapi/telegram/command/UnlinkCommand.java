@@ -25,7 +25,6 @@ public class UnlinkCommand implements TelegramCommand {
         }
     }
 
-    // The reply text uses HTML markup (bold, escaped tags).
     @Override
     public boolean useHtml() {
         return true;

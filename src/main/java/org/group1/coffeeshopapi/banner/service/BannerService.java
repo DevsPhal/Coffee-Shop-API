@@ -11,7 +11,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.UUID;
 
-// actorAdmin is null when the Super Admin is the one acting.
 public interface BannerService {
     BannerResponse create(CreateBannerRequest request, Admin actorAdmin);
     BannerResponse getById(UUID id);

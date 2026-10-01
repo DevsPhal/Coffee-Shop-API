@@ -110,7 +110,6 @@ public class InventoryServiceImpl implements InventoryService {
         return toResponse(movement);
     }
 
-    // Records the money side of a stock-in, so reporting doesn't have to re-derive spend by hand.
     private void recordStockPurchaseExpense(Product product, StockMovement movement, BigDecimal quantity, BigDecimal unitCost) {
         StockExpense expense = new StockExpense();
         expense.setProduct(product);
@@ -137,8 +136,6 @@ public class InventoryServiceImpl implements InventoryService {
             Sheet sheet = workbook.getSheetAt(0);
             DataFormatter formatter = new DataFormatter();
 
-            // Row 0 is the header (sku, quantity, unitCost, note). Each valid row is stocked in
-            // just like a manual receipt; valid rows are still saved even if others fail.
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
                 if (row == null || isStockInRowEmpty(row, formatter)) {
@@ -179,7 +176,6 @@ public class InventoryServiceImpl implements InventoryService {
                     stockIn(new StockInRequest(product.getId(), quantity, unitCost, note.isBlank() ? null : note), performedBy);
                     created++;
                 } catch (ApiException e) {
-                    // One bad row (e.g. a product with no inventory record) shouldn't sink the rest.
                     errors.add(new StockInImportRowError(excelRowNumber, sku, e.getMessage()));
                 }
             }
@@ -273,7 +269,6 @@ public class InventoryServiceImpl implements InventoryService {
         }
 
         if (remainingToCut.compareTo(BigDecimal.ZERO) > 0) {
-            // Batches on hand don't actually cover quantityOnHand — the two drifted out of sync.
             throw new InvalidOperationException("Insufficient batch stock to fulfill this cut");
         }
 

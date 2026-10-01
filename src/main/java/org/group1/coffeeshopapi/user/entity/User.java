@@ -17,8 +17,6 @@ import org.group1.coffeeshopapi.common.enums.RegisterType;
 import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
 
-// Shared shape for every account. Never persisted on its own — Admin, Barista, and Customer
-// each have their own table for these fields plus their own role-specific columns.
 @Getter
 @Setter
 @Entity
@@ -41,8 +39,6 @@ public abstract class User extends BaseEntity {
     @Column
     private String avatarUrl;
 
-    // A converter, not @Enumerated(EnumType.STRING) — a blank/unrecognized stored value must
-    // become null on read, not throw and crash the whole query. See GenderConverter.
     @Convert(converter = GenderConverter.class)
     @Column(length = 20)
     private Gender gender;
@@ -54,13 +50,9 @@ public abstract class User extends BaseEntity {
     @Column
     private String telegramChatId;
 
-    // Telegram's own @handle, captured once at Telegram widget registration time — not kept in
-    // sync if the person changes it in Telegram afterward.
     @Column
     private String telegramUsername;
 
-    // How this account was created/verified — set once and never changed afterward, even if a
-    // Telegram chat is linked/unlinked later.
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private RegisterType registerType;

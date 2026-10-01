@@ -53,7 +53,6 @@ public class CategoryServiceImpl implements CategoryService {
 
     @Override
     public Page<CategoryResponse> list(Pageable pageable) {
-        // createdByAdmin/updatedByAdmin are batched by Hibernate itself.
         return categoryRepository.findAll(pageable).map(categoryMapper::toResponse);
     }
 

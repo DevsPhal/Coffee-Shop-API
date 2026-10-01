@@ -57,7 +57,6 @@ class StompAuthChannelInterceptorTest {
         assertRefused("ROLE_CUSTOMER", RealtimeDestinations.INVENTORY);
         assertRefused("ROLE_CUSTOMER", RealtimeDestinations.STAFF_CALLS);
         assertAllowed("ROLE_CUSTOMER", "/user" + RealtimeDestinations.USER_STAFF_CALLS);
-        // Exact match only — a lookalike topic isn't a way around the rules.
         assertRefused("ROLE_CUSTOMER", RealtimeDestinations.CATALOG + "/../orders");
     }
 

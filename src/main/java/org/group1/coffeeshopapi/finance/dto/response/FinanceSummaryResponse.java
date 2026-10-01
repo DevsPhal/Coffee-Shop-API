@@ -10,7 +10,6 @@ public record FinanceSummaryResponse(
         BigDecimal bakongIn,
         BigDecimal totalIn,
 
-        // The two streams that add up to totalOut — manual entries vs. auto-recorded stock costs.
         BigDecimal manualExpensesOut,
         BigDecimal stockPurchasesOut,
 

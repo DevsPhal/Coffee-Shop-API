@@ -17,15 +17,12 @@ public record OrderItemRequest(
         @Min(value = 1, message = "Quantity must be at least 1")
         Integer quantity,
 
-        // Pick a size by id or by name (e.g. "Medium", matched case-insensitively). Both optional;
-        // variantId wins if both are given.
         UUID variantId,
         String variantName,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,
 
-        // Extras (e.g. Pearl) to add. Null/empty means none.
         List<UUID> extraIds
 ) {
 }

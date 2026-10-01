@@ -58,8 +58,6 @@ public class EventServiceImpl implements EventService {
         event.setCreatedByAdmin(actorAdmin);
         event = eventRepository.save(event);
 
-        // Broadcasting to Telegram is a side effect, not part of "was the event created" — a bad
-        // chat id or a Telegram API hiccup must not turn a successful create into a 500.
         try {
             telegramEventService.announceNewEvent(event);
         } catch (Exception ex) {
@@ -76,7 +74,6 @@ public class EventServiceImpl implements EventService {
 
     @Override
     public Page<EventResponse> list(Pageable pageable) {
-        // createdByAdmin loads batched, not N+1, across this page's rows.
         return eventRepository.findAll(pageable).map(eventMapper::toResponse);
     }
 

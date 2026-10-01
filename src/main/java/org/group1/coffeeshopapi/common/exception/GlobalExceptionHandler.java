@@ -94,7 +94,6 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, "Required form part '" + ex.getRequestPartName() + "' is missing", request);
     }
 
-    // Malformed multipart body — a client mistake, not a server error.
     @ExceptionHandler(MultipartException.class)
     public ResponseEntity<ErrorResponse> handleMultipartError(HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST,
@@ -102,8 +101,6 @@ public class GlobalExceptionHandler {
                         + "with a valid boundary (let your HTTP client set this header automatically)", request);
     }
 
-    // This can mean either a duplicate value (unique constraint) or a blocked delete (foreign
-    // key) — SQLState 23505 tells them apart.
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<ErrorResponse> handleDataIntegrityViolation(DataIntegrityViolationException ex,
                                                                        HttpServletRequest request) {
@@ -127,17 +124,11 @@ public class GlobalExceptionHandler {
         return null;
     }
 
-    // Business code occasionally throws this directly for "this value is well-formed but not
-    // acceptable here" (e.g. an enum constant with no handling on this endpoint) — a client
-    // mistake, not a server fault.
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest request) {
         return build(HttpStatus.BAD_REQUEST, ex.getMessage(), request);
     }
 
-    // A lazy reference (e.g. getReferenceById) pointed at a row that no longer exists — the
-    // referencing id was valid when the request started (e.g. a JWT for an admin later deleted)
-    // but the row is gone by the time it's actually read.
     @ExceptionHandler(EntityNotFoundException.class)
     public ResponseEntity<ErrorResponse> handleEntityNotFound(HttpServletRequest request) {
         return build(HttpStatus.CONFLICT, "A referenced record no longer exists — please refresh and try again", request);

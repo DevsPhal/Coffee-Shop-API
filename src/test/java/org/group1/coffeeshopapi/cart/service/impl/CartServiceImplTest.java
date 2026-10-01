@@ -29,8 +29,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-// Defense-in-depth check — covers a customer still POSTing a productId they already had (a
-// stale page, a bookmark) after it sold out.
 @ExtendWith(MockitoExtension.class)
 class CartServiceImplTest {
 

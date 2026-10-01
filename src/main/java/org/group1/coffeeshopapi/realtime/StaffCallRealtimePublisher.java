@@ -9,8 +9,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
-// Staff see every call and answer, so an answered alert disappears on every screen. The customer
-// only hears back when someone answers.
 @Slf4j
 @Component
 @RequiredArgsConstructor

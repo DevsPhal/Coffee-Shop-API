@@ -14,8 +14,6 @@ import java.util.TimeZone;
 @EnableJpaAuditing
 public class CoffeeShopApiApplication {
 
-    // Pins the JVM's default timezone to the shop's real-world clock, so every date/time
-    // field stays correct no matter what timezone the host is set to.
     static {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Phnom_Penh"));
     }

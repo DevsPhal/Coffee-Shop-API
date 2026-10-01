@@ -6,8 +6,6 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 
-// Password change for the signed-in account. Requires the current password so a hijacked
-// session can't lock the real owner out.
 public record ChangePasswordRequest(
         @NotBlank(message = "Current password is required")
         @Schema(example = "Qwert!12@")

@@ -15,8 +15,6 @@ import java.math.BigDecimal;
 @Mapper(componentModel = "spring")
 public interface OrderMapper {
 
-    // handledBy is a plain audit id, so its display name/role come from the ActorSummary
-    // resolved separately and passed in.
     @Mapping(target = "id", source = "order.id")
     @Mapping(target = "handledById", source = "order.handledBy")
     @Mapping(target = "handledByName", source = "handledByActor.name")

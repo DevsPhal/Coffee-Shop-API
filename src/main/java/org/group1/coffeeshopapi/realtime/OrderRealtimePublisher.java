@@ -11,7 +11,6 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.time.LocalDateTime;
 
-// Pushes order changes only after commit, so clients never see a change that got rolled back.
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -28,7 +27,6 @@ public class OrderRealtimePublisher {
                 messagingTemplate.convertAndSendToUser(event.customerEmail(), RealtimeDestinations.USER_ORDERS, message);
             }
         } catch (RuntimeException ex) {
-            // The order is already saved — a failed push must not turn into an error response.
             log.warn("Failed to push order update for {}", event.order().id(), ex);
         }
     }

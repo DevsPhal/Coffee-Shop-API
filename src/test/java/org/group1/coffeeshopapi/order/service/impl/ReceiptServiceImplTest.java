@@ -24,8 +24,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 
-// Covers which order states may get a printed document: a receipt needs the order fully
-// finished, while an invoice only needs it paid.
 @ExtendWith(MockitoExtension.class)
 class ReceiptServiceImplTest {
 
@@ -82,8 +80,6 @@ class ReceiptServiceImplTest {
                 .hasMessageContaining("hasn't been paid");
     }
 
-    // The Khmer name is shaped and drawn as vector paths, not as font text, so this just checks
-    // that path doesn't blow up rather than the actual glyph shapes.
     @Test
     void aProductWithAKhmerNameStillProducesAReceipt() {
         UUID orderId = UUID.randomUUID();

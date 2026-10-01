@@ -47,7 +47,6 @@ public class InventoryController {
                 PageResponse.of(inventoryService.list(PageUtil.buildPageable(page, size))));
     }
 
-    // Products at or below their reorder level, worst-first.
     @GetMapping("/low-stock")
     public ApiResponse<PageResponse<InventoryResponse>> listLowStock(
             @RequestParam(required = false) Integer page,
@@ -76,9 +75,6 @@ public class InventoryController {
         return ApiResponse.of(HttpStatus.OK, "Stock received successfully.", response);
     }
 
-    // Columns: sku, quantity, unitCost, note (optional). Lets one delivery invoice covering many
-    // products be imported in one file instead of one form per line. Valid rows are still saved
-    // even if others in the file fail.
     @PostMapping(value = "/stock-in/import", consumes = "multipart/form-data")
     public ApiResponse<StockInImportResponse> stockInFromExcel(@RequestParam("file") MultipartFile file) {
         StockInImportResponse response = inventoryService.stockInFromExcel(file, currentActor.id());
@@ -91,7 +87,6 @@ public class InventoryController {
         return ApiResponse.of(HttpStatus.OK, "Stock cut successfully.", response);
     }
 
-    // Every stock-purchase expense that month, as a downloadable .xlsx — defaults to this month.
     @GetMapping("/expenses/report/monthly")
     public ResponseEntity<byte[]> monthlyExpenseReport(
             @RequestParam(required = false) @DateTimeFormat(pattern = "yyyy-MM") YearMonth month) {

@@ -23,8 +23,6 @@ public class TelegramUpdateHandler {
     private final TelegramApiClient apiClient;
     private final TelegramLinkService telegramLinkService;
 
-    // Catch broadly so an unexpected error still gets a reply instead of Telegram retrying the
-    // same update forever.
     public void handle(TelegramUpdate update) {
         if (update.callbackQuery() != null) {
             handleCallbackQuery(update.callbackQuery());
@@ -45,7 +43,6 @@ public class TelegramUpdateHandler {
     }
 
     private void dispatch(TelegramMessage message) {
-        // A shared contact card, not a command — routed separately.
         if (message.contact() != null) {
             Long senderId = message.from() != null ? message.from().id() : null;
             String reply = telegramLinkService.verifyPendingContact(message.chat().id(), message.contact(), senderId);
@@ -63,7 +60,6 @@ public class TelegramUpdateHandler {
         }
 
         String[] parts = text.split("\\s+", 2);
-        // Lowercased so "/Menu" still matches "/menu".
         String commandName = parts[0].split("@")[0].toLowerCase();
         String argument = parts.length > 1 ? parts[1] : null;
 
@@ -73,16 +69,12 @@ public class TelegramUpdateHandler {
             return;
         }
 
-        // Not Optional::map — a command can legitimately return null (already replied itself),
-        // and map would collapse that into "unknown command".
         TelegramCommand matchedCommand = command.get();
         String reply = matchedCommand.execute(message, argument);
         sendReply(message.chat().id(), matchedCommand, reply);
     }
 
-    // A tapped quick-action button, routed through the same command lookup as a typed command.
     private void handleCallbackQuery(TelegramCallbackQuery callbackQuery) {
-        // Answered first, unconditionally, so the button's loading spinner always clears.
         apiClient.answerCallbackQuery(callbackQuery.id(), null);
 
         TelegramMessage source = callbackQuery.message();
@@ -105,8 +97,6 @@ public class TelegramUpdateHandler {
             return;
         }
 
-        // Build a synthetic message carrying the actual tapper's identity, since the callback's
-        // own "message" belongs to whoever the keyboard was originally sent to.
         TelegramCommand matchedCommand = command.get();
         TelegramMessage syntheticMessage =
                 new TelegramMessage(source.messageId(), source.chat(), callbackQuery.from(), null, null);
@@ -114,7 +104,6 @@ public class TelegramUpdateHandler {
         sendReply(source.chat().id(), matchedCommand, reply);
     }
 
-    // A null reply means the command already sent its own message — nothing left to do here.
     private void sendReply(Long chatId, TelegramCommand command, String reply) {
         if (reply == null) {
             return;

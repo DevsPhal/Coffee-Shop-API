@@ -10,14 +10,11 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.List;
 import java.util.UUID;
 
-// Config-driven super admin login — not a real database row, so it can never be
-// locked out or deleted by mistake.
 public class SuperAdminUserDetails implements UserDetails {
     private static final long serialVersionUID = 1L;
 
     public static final UUID ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
-    // Fixed display name — the super admin's profile isn't editable.
     public static final String DISPLAY_NAME = "Super Admin";
 
     private final String email;

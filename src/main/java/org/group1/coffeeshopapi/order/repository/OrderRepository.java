@@ -17,8 +17,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-// Queries are explicit JPQL, not derived method names, so every Page<Order> query can
-// left-join-fetch customer and avoid one query per row.
 public interface OrderRepository extends JpaRepository<Order, UUID> {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -62,13 +60,19 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             countQuery = "select count(o) from Order o")
     Page<Order> findAllWithActors(Pageable pageable);
 
-    // A customer's self-service order, still PENDING, not yet claimed by staff.
+    @Query("select o.id from Order o where o.status = :status and o.paymentMethod = :paymentMethod "
+            + "and o.bakongMd5Hash is not null "
+            + "and (o.bakongExpiresAt >= :payableSince or o.bakongPreviousMd5Hashes is not null) "
+            + "order by o.createdAt")
+    List<UUID> findIdsAwaitingBakongPayment(
+            @Param("status") OrderStatus status, @Param("paymentMethod") PaymentMethod paymentMethod,
+            @Param("payableSince") LocalDateTime payableSince);
+
     @Query("select o from Order o left join fetch o.customer where o.customer is not null and o.handledBy is null "
             + "and o.status = :status and o.paymentMethod = :paymentMethod")
     Page<Order> findAwaitingBaristaClaim(
             @Param("status") OrderStatus status, @Param("paymentMethod") PaymentMethod paymentMethod, Pageable pageable);
 
-    // Customer delivery orders still waiting for staff to quote a fee, oldest first.
     @Query("select o from Order o left join fetch o.customer where o.status = :status "
             + "and o.customer is not null and o.deliveryFeeSetAt is null "
             + "and (o.fulfillmentMethod = :delivery or o.deliveryLatitude is not null) "
@@ -76,28 +80,22 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findAwaitingDeliveryFee(
             @Param("status") OrderStatus status, @Param("delivery") FulfillmentMethod delivery, Pageable pageable);
 
-    // The delivery board: everything currently with a courier, oldest dispatch first.
     @Query("select o from Order o left join fetch o.customer where o.status = :status "
             + "order by o.dispatchedAt asc")
     Page<Order> findByStatusForDeliveryBoard(@Param("status") OrderStatus status, Pageable pageable);
 
-    // The kitchen queue: PAID orders, plus unpaid PENDING cash orders (which can be started early).
     @Query("select o from Order o left join fetch o.customer where o.status = :paid "
             + "or (o.status = :pending and o.paymentMethod = :cash)")
     Page<Order> findAwaitingPreparation(
             @Param("paid") OrderStatus paid, @Param("pending") OrderStatus pending,
             @Param("cash") PaymentMethod cash, Pageable pageable);
 
-    // Backs the daily report: paid sales for one barista in [start, end). Filters on paidAt, not
-    // status, since paidAt alone reliably means "this sale happened". The end is exclusive so a
-    // sale at exactly midnight counts on one day, not two.
     @Query("select o from Order o where o.handledBy = :handledBy "
             + "and o.paidAt >= :start and o.paidAt < :end")
     List<Order> findPaidByHandledByInRange(
             @Param("handledBy") UUID handledBy,
             @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
-    // Backs the admin-wide daily report and finance totals: paid sales in [start, end).
     @Query("select o from Order o where o.paidAt >= :start and o.paidAt < :end")
     List<Order> findPaidInRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

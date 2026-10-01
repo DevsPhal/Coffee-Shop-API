@@ -24,8 +24,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
-// Covers the daily takings report: per-barista grouping, shop-wide totals including
-// no-staff-attached Bakong sales, and the highest-earner-first ordering.
 @ExtendWith(MockitoExtension.class)
 class ReportServiceImplTest {
 

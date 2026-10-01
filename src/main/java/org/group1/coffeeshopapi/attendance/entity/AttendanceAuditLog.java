@@ -15,8 +15,6 @@ import org.group1.coffeeshopapi.common.enums.AttendanceAuditAction;
 
 import java.util.UUID;
 
-// One row per attendance action (check-in, check-out, admin backfill/correction) — who did it and
-// when.
 @Getter
 @Setter
 @Entity

@@ -20,7 +20,6 @@ public record CreateExpenseRequest(
         @DecimalMin(value = "0.0", inclusive = false, message = "Amount must be greater than zero")
         BigDecimal amount,
 
-        // Defaults to today when omitted.
         LocalDate expenseDate
 ) {
 }

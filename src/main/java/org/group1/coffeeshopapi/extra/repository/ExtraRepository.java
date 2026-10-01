@@ -15,8 +15,6 @@ public interface ExtraRepository extends JpaRepository<Extra, UUID> {
     Optional<Extra> findByNameIgnoreCase(String name);
     boolean existsByNameIgnoreCase(String name);
 
-    // One atomic statement, so two orders using the same extra at once can't both read the
-    // old amount and overwrite each other. Floors at zero; untracked (null) extras are skipped.
     @Modifying
     @Query("update Extra e set e.quantityOnHand = case when e.quantityOnHand > :quantity "
             + "then e.quantityOnHand - :quantity else 0 end "

@@ -13,13 +13,11 @@ import java.util.UUID;
 
 public interface AttendanceService {
 
-    // ---------- Barista self-service ----------
     AttendanceResponse checkIn(UUID baristaId);
     AttendanceResponse checkOut(UUID baristaId);
     AttendanceResponse getCurrentOpenShift(UUID baristaId);
     Page<AttendanceResponse> listOwn(UUID baristaId, Pageable pageable);
 
-    // ---------- Admin ----------
     Page<AttendanceResponse> listAll(UUID baristaId, LocalDateTime from, LocalDateTime to, Pageable pageable);
     AttendanceResponse getById(UUID id);
     AttendanceResponse create(CreateAttendanceRequest request, UUID actorId);

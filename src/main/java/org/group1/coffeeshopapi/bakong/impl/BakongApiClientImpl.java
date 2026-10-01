@@ -37,7 +37,6 @@ public class BakongApiClientImpl implements BakongApiClient {
         try {
             return interpret(call(md5Hash, tokenService.currentToken()));
         } catch (HttpClientErrorException.Unauthorized e) {
-            // Token expired — renew it and try once more before giving up.
             log.info("Bakong rejected the access token; attempting to renew it");
             String renewed = tokenService.renew();
             if (renewed == null) {
@@ -68,7 +67,6 @@ public class BakongApiClientImpl implements BakongApiClient {
                 .body(BakongCheckTransactionResponse.class);
     }
 
-    // A non-zero responseCode is a real answer, not an error — it just means not paid yet.
     private BakongTransactionCheckResult interpret(BakongCheckTransactionResponse response) {
         if (response == null) {
             return BakongTransactionCheckResult.failed("Empty response from Bakong");
@@ -85,7 +83,6 @@ public class BakongApiClientImpl implements BakongApiClient {
 
     private BakongTransactionCheckResult unreachable(String md5Hash, RestClientException e) {
         if (e instanceof HttpClientErrorException.Forbidden) {
-            // Bakong only answers payment checks from servers in Cambodia.
             log.error("Bakong refused check_transaction_by_md5 with 403 for md5={} — this server's IP is "
                     + "likely outside Cambodia; route BAKONG_BASE_URL through a relay in Cambodia", md5Hash);
             return BakongTransactionCheckResult.failed(
@@ -103,7 +100,6 @@ public class BakongApiClientImpl implements BakongApiClient {
         }
     }
 
-    // Lets a customer tap to pay instead of scanning the QR on their own screen.
     @Override
     public BakongDeeplinkResult generateDeeplink(String qrString, String callbackUrl) {
         if (!bakongProperties.isConfigured()) {

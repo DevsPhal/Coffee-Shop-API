@@ -37,7 +37,6 @@ class ProductTest {
 
         BigDecimal price = product.getFinalPrice(new BigDecimal("1.35"), LocalDateTime.now());
 
-        // 1.35 - 12.5% = 1.18125, stored as 1.18
         assertThat(price).isEqualByComparingTo("1.18");
         assertThat(price.scale()).isEqualTo(2);
     }

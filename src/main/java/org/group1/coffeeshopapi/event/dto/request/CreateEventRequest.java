@@ -9,7 +9,6 @@ import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// latitude/longitude must be given together, or omitted when the event has no fixed venue.
 public record CreateEventRequest(
         @NotBlank(message = "Title is required")
         @Size(max = 255, message = "Title must not exceed 255 characters")

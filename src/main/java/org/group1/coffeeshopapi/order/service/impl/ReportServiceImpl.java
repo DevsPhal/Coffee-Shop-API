@@ -40,8 +40,6 @@ public class ReportServiceImpl implements ReportService {
     public AdminDailyReportResponse getDailyReport(LocalDate date) {
         List<Order> orders = orderRepository.findPaidInRange(startOfDay(date), endOfDay(date));
 
-        // Self-service customer orders paid via Bakong have no staff attached — they still
-        // count toward shop-wide totals below, but there's no one to attribute a report row to.
         List<Order> staffHandled = orders.stream().filter(order -> order.getHandledBy() != null).toList();
 
         Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(

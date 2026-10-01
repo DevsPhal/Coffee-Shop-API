@@ -13,8 +13,6 @@ import org.group1.coffeeshopapi.common.entity.BaseEntity;
 
 import java.time.LocalDateTime;
 
-// One row per barista work shift. checkOutAt is null while the shift is still open — a barista
-// can only have one open shift at a time.
 @Getter
 @Setter
 @Entity
@@ -34,8 +32,6 @@ public class Attendance extends BaseEntity {
     @Column
     private Long workedMinutes;
 
-    // Optional free-text note — e.g. an admin's reason when backfilling a missed punch or
-    // correcting a shift's times.
     @Column
     private String note;
 }

@@ -13,8 +13,6 @@ import org.group1.coffeeshopapi.extra.entity.Extra;
 
 import java.math.BigDecimal;
 
-// One extra (e.g. Pearl) added to an order item. extraName/extraPrice are a snapshot of the
-// Extra at sale time, so a later rename/repricing doesn't change how a past order displays.
 @Getter
 @Setter
 @Entity

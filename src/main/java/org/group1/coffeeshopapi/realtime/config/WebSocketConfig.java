@@ -14,8 +14,6 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketTransportRegistration;
 
-// STOMP over WebSocket at /ws. Clients connect with an "Authorization: Bearer <token>" STOMP
-// header, then subscribe to the topics in RealtimeDestinations.
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
@@ -41,13 +39,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         String[] origins = corsProperties.getAllowedOrigins().toArray(String[]::new);
         registry.addEndpoint(ENDPOINT).setAllowedOrigins(origins);
-        // SockJS fallback for networks that block raw WebSocket.
         registry.addEndpoint(ENDPOINT + "/sockjs").setAllowedOrigins(origins).withSockJS();
     }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // Heartbeats let both sides notice a dead connection within ~10s.
         registry.enableSimpleBroker("/topic", "/queue")
                 .setHeartbeatValue(new long[] {10_000, 10_000})
                 .setTaskScheduler(brokerTaskScheduler);

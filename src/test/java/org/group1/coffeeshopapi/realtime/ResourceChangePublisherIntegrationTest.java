@@ -25,7 +25,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-// Real JPA + transactions: entity changes reach the broker once, and only after commit.
 @SpringBootTest
 @ActiveProfiles("test")
 class ResourceChangePublisherIntegrationTest {
@@ -45,13 +44,11 @@ class ResourceChangePublisherIntegrationTest {
 
         UUID id = transactionTemplate.execute(status -> {
             Extra extra = extraRepository.save(newExtra());
-            // Nothing goes out while the transaction is still open.
             verify(messagingTemplate, never()).convertAndSend(anyString(), any(Object.class));
             extra.setPrice(new BigDecimal("0.75"));
             return extra.getId();
         });
 
-        // Created then updated in one transaction collapses into a single CREATED message.
         verify(messagingTemplate, times(1)).convertAndSend(eq(RealtimeDestinations.CATALOG),
                 argThat((Object message) -> message instanceof ResourceChangeMessage change
                         && change.resource() == ResourceType.EXTRA

@@ -11,7 +11,6 @@ public record UpdateCategoryRequest(
         String description,
         Status status,
 
-        // Null means leave unchanged, same as every other field here.
         CategoryGroup categoryGroup
 ) {
 }

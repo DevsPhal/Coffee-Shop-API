@@ -13,8 +13,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
-// Collects changes for the current transaction and sends them once, after commit. A bulk
-// import touching the same product many times still sends one message for it.
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -60,7 +58,6 @@ public class ResourceChangePublisher {
             messagingTemplate.convertAndSend(resource.destination(),
                     new ResourceChangeMessage(resource, id, change, LocalDateTime.now()));
         } catch (RuntimeException ex) {
-            // The data is already saved — a failed push must not turn into an error response.
             log.warn("Failed to push {} change for {}", resource, id, ex);
         }
     }

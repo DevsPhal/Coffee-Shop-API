@@ -54,13 +54,10 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         }
         redisTemplate.delete(key);
 
-        // Works the same for a Customer, Admin, or Barista account.
         User user = userRepository.findById(UUID.fromString(userId))
                 .orElseThrow(() -> new ResourceNotFoundException("❌ Account no longer exists."));
 
         if (user.getStatus() == UserStatus.PENDING_VERIFICATION && user.getRegisterType() == RegisterType.TELEGRAM) {
-            // A staff invite pending phone verification. Don't activate yet — ask for their
-            // contact first; verifyPendingContact finishes the job.
             redisTemplate.opsForValue().set(
                     RedisKeys.TELEGRAM_PENDING_CONTACT_PREFIX + chatId,
                     user.getId().toString(),
@@ -68,13 +65,11 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
             telegramApiClient.sendContactRequest(chatId,
                     "👋 Hi " + TelegramFormat.titleCase(user.getFullName()) + "! To activate your account, please "
                             + "confirm it's really you by sharing your phone number below.");
-            // Already replied above.
             return null;
         }
 
         Optional<User> currentlyLinked = userRepository.findByTelegramChatId(chatId.toString());
         if (currentlyLinked.map(User::getId).filter(id -> id.equals(user.getId())).isPresent()) {
-            // Already linked to this account — nothing to do.
             return "✅ <b>You're already linked</b> as "
                     + TelegramFormat.escape(TelegramFormat.titleCase(user.getFullName())) + ".";
         }
@@ -95,8 +90,6 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
                     + "send /start &lt;code&gt; with your invite code first.";
         }
 
-        // Reject a forwarded contact card that isn't the sender's own — the key stays in place so
-        // they can retry with the button themselves.
         if (contact.userId() == null || !contact.userId().equals(senderUserId)) {
             return "⚠️ Please share your own phone number using the button below, not someone else's contact.";
         }
@@ -125,12 +118,9 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
                 + "no email or password needed.";
     }
 
-    // Hands this chat id to `user`, first freeing it from whoever currently holds it.
     private void claimChat(User user, Optional<User> currentlyLinked, Long chatId) {
         currentlyLinked.ifPresent(existing -> {
             existing.setTelegramChatId(null);
-            // Flush now so the old owner clears before the new owner claims the same chat id
-            // (it's unique-constrained).
             userRepository.saveAndFlush(existing);
             authUserSyncService.sync(existing);
         });

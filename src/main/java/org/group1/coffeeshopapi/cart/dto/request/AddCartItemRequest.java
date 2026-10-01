@@ -17,13 +17,11 @@ public record AddCartItemRequest(
         @Min(value = 1, message = "Quantity must be at least 1")
         Integer quantity,
 
-        // Variant selection — all optional. When variantId is set it must belong to productId.
         UUID variantId,
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,
 
-        // Extras (e.g. Pearl) to add. Null/empty means none.
         List<UUID> extraIds
 ) {
 }

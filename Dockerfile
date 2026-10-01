@@ -1,4 +1,3 @@
-# ---- Build stage ----
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 
@@ -7,17 +6,14 @@ COPY gradle gradle
 COPY build.gradle settings.gradle ./
 RUN chmod +x gradlew
 
-# Cache dependencies separately from source for faster rebuilds
 RUN ./gradlew dependencies --no-daemon || true
 
 COPY src src
 RUN ./gradlew build -x test --no-daemon
 
-# ---- Run stage ----
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
-# (logs, file mtimes, ...) consistent with the same zone.
 ENV TZ=Asia/Phnom_Penh
 
 RUN addgroup -S spring && adduser -S spring -G spring

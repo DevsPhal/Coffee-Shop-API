@@ -50,7 +50,6 @@ public class AdminAttendanceController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, attendanceService.getById(id));
     }
 
-    // Backfills a shift a barista forgot to punch in the app (or punched outside it entirely).
     @PostMapping
     public ResponseEntity<ApiResponse<AttendanceResponse>> create(@Valid @RequestBody CreateAttendanceRequest request) {
         AttendanceResponse response = attendanceService.create(request, currentActor.id());
@@ -58,14 +57,12 @@ public class AdminAttendanceController {
                 .body(ApiResponse.of(HttpStatus.CREATED, "Attendance record created successfully.", response));
     }
 
-    // Corrects an existing record's times/note — e.g. closing a shift a barista forgot to check out of.
     @PatchMapping("/{id}")
     public ApiResponse<AttendanceResponse> update(@PathVariable UUID id, @Valid @RequestBody UpdateAttendanceRequest request) {
         return ApiResponse.of(HttpStatus.OK, "Attendance record updated successfully.",
                 attendanceService.update(id, request, currentActor.id()));
     }
 
-    // Full audit trail for one attendance record — check-in, check-out, and any admin backfill/correction.
     @GetMapping("/{id}/history")
     public ApiResponse<List<AttendanceAuditLogResponse>> getHistory(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, attendanceService.getHistory(id));

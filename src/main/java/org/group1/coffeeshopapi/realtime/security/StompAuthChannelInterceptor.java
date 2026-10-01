@@ -27,8 +27,6 @@ import java.security.Principal;
 import java.util.Map;
 import java.util.Set;
 
-// Authenticates the STOMP CONNECT frame with the same JWT rules as JwtAuthFilter, and checks
-// who may subscribe to what.
 @Component
 @RequiredArgsConstructor
 public class StompAuthChannelInterceptor implements ChannelInterceptor {
@@ -36,7 +34,6 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private static final Set<String> STAFF_ROLES = Set.of("ROLE_ADMIN", "ROLE_BARISTA", "ROLE_SUPER_ADMIN");
     private static final Set<String> ADMIN_ROLES = Set.of("ROLE_ADMIN", "ROLE_SUPER_ADMIN");
 
-    // Who may subscribe to each topic. Anything not listed here (or under /user/) is refused.
     private static final Map<String, Set<String>> TOPIC_ROLES = Map.of(
             RealtimeDestinations.STAFF_ORDERS, STAFF_ROLES,
             RealtimeDestinations.INVENTORY, STAFF_ROLES,
@@ -64,7 +61,6 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         } else if (command == StompCommand.SUBSCRIBE) {
             authorizeSubscribe(accessor.getUser(), accessor.getDestination());
         } else if (command == StompCommand.SEND) {
-            // Nothing is handled on /app yet — the socket is push-only.
             throw new MessageDeliveryException("Sending messages is not supported");
         }
         return message;
@@ -85,8 +81,6 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             if (!userDetails.isEnabled()) {
                 throw new MessageDeliveryException("Account is not active");
             }
-            // Kept on the session so WebSocketSessionSweeper can close it once the token is no
-            // longer valid.
             Map<String, Object> attributes = accessor.getSessionAttributes();
             if (attributes != null) {
                 attributes.put(SESSION_TOKEN_ID, claims.getId());
@@ -106,7 +100,6 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         if (destination == null) {
             throw new MessageDeliveryException("Missing destination");
         }
-        // Spring resolves /user/** to this session's own queue, so any signed-in user may use it.
         if (destination.startsWith("/user/")) {
             return;
         }

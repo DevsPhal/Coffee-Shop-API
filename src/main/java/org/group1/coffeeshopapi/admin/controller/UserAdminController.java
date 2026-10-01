@@ -53,7 +53,6 @@ public class UserAdminController {
         return ApiResponse.of(HttpStatus.OK, "Account deleted successfully.", null);
     }
 
-    // Moderation action for any role — e.g. suspending/banning a customer, or soft-deleting an account.
     @PatchMapping("/{id}/status")
     public ApiResponse<UserResponse> updateStatus(
             @PathVariable UUID id, @Valid @RequestBody UpdateUserStatusRequest request) {

@@ -30,8 +30,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Covers the shift check-in/check-out state machine and the future-time/overlap validation on
-// admin-entered records.
 @ExtendWith(MockitoExtension.class)
 class AttendanceServiceImplTest {
 

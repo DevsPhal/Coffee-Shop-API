@@ -18,7 +18,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
 
-// No auth required — guests can browse the menu; adding to cart and ordering still need a customer login.
 @RestController
 @RequestMapping("/api/products")
 @RequiredArgsConstructor

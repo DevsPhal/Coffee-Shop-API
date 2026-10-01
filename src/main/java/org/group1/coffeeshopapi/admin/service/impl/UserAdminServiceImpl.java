@@ -45,7 +45,6 @@ public class UserAdminServiceImpl implements UserAdminService {
             case ADMIN -> adminRepository.findAll(pageable);
             case BARISTA -> baristaRepository.findAll(pageable);
             case CUSTOMER -> customerRepository.findAll(pageable);
-            // The super admin is config-driven, not a database row — nothing here to list.
             case SUPER_ADMIN -> throw new InvalidOperationException("Super admin has no listable account record");
         };
         return users.map(userMapper::toResponse);
@@ -67,7 +66,6 @@ public class UserAdminServiceImpl implements UserAdminService {
     @Override
     @Transactional
     public void delete(UUID id) {
-        // Retain order/attendance references while disabling login and existing sessions.
         updateStatus(id, new UpdateUserStatusRequest(UserStatus.DELETED));
     }
 
@@ -81,7 +79,6 @@ public class UserAdminServiceImpl implements UserAdminService {
         userRepository.save(user);
         authUserSyncService.sync(user);
         if (request.status() != UserStatus.ACTIVE) {
-            // Block them from getting a new access token once deactivated.
             tokenService.revokeRefreshToken(user.getId());
         }
 

@@ -11,8 +11,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.UUID;
 
-// Keeps auth_users in sync with every account. Call sync() after saving a User, and remove()
-// after deleting one.
 @Service
 @RequiredArgsConstructor
 public class AuthUserSyncService {
@@ -23,7 +21,6 @@ public class AuthUserSyncService {
         sync(user.getId(), user.getRole(), user.getFullName(), user.getStatus());
     }
 
-    // The Super Admin has no User row — call this after it logs in instead, so it still shows up.
     public void syncSuperAdmin() {
         sync(SuperAdminUserDetails.ID, Role.SUPER_ADMIN, SuperAdminUserDetails.DISPLAY_NAME, UserStatus.ACTIVE);
     }

@@ -15,8 +15,6 @@ import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
 
 import java.util.UUID;
 
-// One row per order-handling action (created, cash collected, cancelled, etc.), attributed to
-// whoever performed it — a full history, since the order itself only remembers the latest actor.
 @Getter
 @Setter
 @Entity

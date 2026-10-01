@@ -7,7 +7,6 @@ public interface TokenService {
         return createLoginTicket(userId, false);
     }
 
-    // viaTelegram marks a ticket whose code went to Telegram, so a resend uses the same channel.
     String createLoginTicket(UUID userId, boolean viaTelegram);
     boolean isTelegramLoginTicket(String ticket);
     UUID peekLoginTicket(String ticket);

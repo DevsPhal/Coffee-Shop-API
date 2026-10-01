@@ -34,7 +34,6 @@ public class MinioFileStorageService implements FileStorageService {
             throw new InvalidOperationException("Image must not exceed 5MB");
         }
 
-        // Don't trust the client-supplied Content-Type — check the actual file bytes instead.
         byte[] bytes;
         try {
             bytes = file.getBytes();
@@ -93,7 +92,6 @@ public class MinioFileStorageService implements FileStorageService {
         return true;
     }
 
-    // RIFF....WEBP: "RIFF" at offset 0, 4-byte chunk size, "WEBP" at offset 8.
     private boolean isWebp(byte[] data) {
         return data.length >= 12
                 && data[0] == 'R' && data[1] == 'I' && data[2] == 'F' && data[3] == 'F'
@@ -112,8 +110,6 @@ public class MinioFileStorageService implements FileStorageService {
                     .object(objectKey)
                     .build());
         } catch (Exception e) {
-            // Best-effort: an orphaned object in MinIO is harmless, so failing to delete it
-            // should never block the caller's own create/update/delete flow.
             log.warn("Failed to delete file '{}' from MinIO", fileUrl, e);
         }
     }

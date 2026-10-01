@@ -19,8 +19,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 
-// Extras use a plain stock count, not the full FIFO batch tracking products get — a topping like
-// Pearl doesn't need that level of detail.
 @Service
 @RequiredArgsConstructor
 public class ExtraServiceImpl implements ExtraService {
@@ -80,7 +78,6 @@ public class ExtraServiceImpl implements ExtraService {
     @Override
     @Transactional
     public void delete(UUID id) {
-        // Rejected with a constraint error if this extra is still used by a past order or product.
         Extra extra = findById(id);
         String imageUrl = extra.getImageUrl();
         extraRepository.delete(extra);

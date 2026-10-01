@@ -25,14 +25,11 @@ class UserMapperTest {
     @Mock private ActorLookupService actorLookupService;
     @InjectMocks private UserMapper userMapper;
 
-    // /api/users/me maps the user the JWT filter loaded, outside any session, so the barista's
-    // lazy creator must never be read beyond its id — that used to fail /me with a 500.
     @Test
     void mapsAnAdminCreatedBaristaWithoutReadingTheLazyCreator() {
         UUID adminId = UUID.randomUUID();
         Admin detachedCreator = mock(Admin.class);
         when(detachedCreator.getId()).thenReturn(adminId);
-        // Any other access on the mock returns null/defaults; a real detached proxy would throw.
 
         Barista barista = new Barista();
         barista.setId(UUID.randomUUID());

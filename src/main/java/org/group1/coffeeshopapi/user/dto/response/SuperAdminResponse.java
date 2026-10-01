@@ -7,8 +7,6 @@ import org.group1.coffeeshopapi.common.enums.UserStatus;
 
 import java.util.UUID;
 
-// Profile shape for the config-driven super admin. phoneNumber/avatarUrl/gender always come back
-// null — there's no real account row to hold them.
 @Builder
 public record SuperAdminResponse(
         UUID id,

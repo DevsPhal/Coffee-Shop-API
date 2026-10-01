@@ -11,5 +11,4 @@ class CoffeeShopApiApplicationTests {
     @Test
     void contextLoads() {
     }
-
 }

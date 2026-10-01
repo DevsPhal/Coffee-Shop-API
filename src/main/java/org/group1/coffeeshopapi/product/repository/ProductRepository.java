@@ -16,7 +16,6 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     boolean existsBySkuIgnoreCase(String sku);
     Optional<Product> findBySkuIgnoreCase(String sku);
 
-    // Used on update: excludes the product's own row from the duplicate check.
     boolean existsBySkuIgnoreCaseAndIdNot(String sku, UUID id);
     boolean existsByCategoryId(UUID categoryId);
     Page<Product> findByCategoryId(UUID categoryId, Pageable pageable);
@@ -24,11 +23,9 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     Page<Product> findByStatus(Status status, Pageable pageable);
     Page<Product> findByCategoryIdAndStatus(UUID categoryId, Status status, Pageable pageable);
 
-    // Small-catalog reads for the Telegram bot menu — no pagination needed for a shop's full menu.
     List<Product> findByStatusOrderByNameAsc(Status status);
     List<Product> findByCategoryIdAndStatusOrderByNameAsc(UUID categoryId, Status status);
 
-    // Only shows products with stock on hand — used for customer-facing catalog reads.
     @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
             "WHERE p.status = :status AND p.category.status = :status AND i.quantityOnHand > 0")
     Page<Product> findByStatusAndInStock(@Param("status") Status status, Pageable pageable);

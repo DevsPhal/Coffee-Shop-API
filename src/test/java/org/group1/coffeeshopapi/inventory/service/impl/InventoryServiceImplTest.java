@@ -45,8 +45,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Covers the FIFO/LIFO stock-cut algorithm and stock-in bookkeeping — the core of the inventory
-// module.
 @ExtendWith(MockitoExtension.class)
 class InventoryServiceImplTest {
 
@@ -117,8 +115,6 @@ class InventoryServiceImplTest {
 
     @Test
     void cuttingStockWhenBatchesHaveDriftedBelowQuantityOnHandIsRejected() {
-        // quantityOnHand says there's enough, but the batches backing it don't actually cover it —
-        // a data-drift scenario that must fail loudly rather than silently under-cut.
         Product product = product();
         Inventory inventory = inventoryWithQuantity(product, new BigDecimal("10"));
         StockBatch onlyBatch = batch(new BigDecimal("4"), new BigDecimal("2.00"));
@@ -209,7 +205,6 @@ class InventoryServiceImplTest {
         when(productRepository.findBySkuIgnoreCase("ORPHAN")).thenReturn(Optional.of(orphan));
         when(inventoryRepository.findByProductIdForUpdate(good.getId()))
                 .thenReturn(Optional.of(inventoryWithQuantity(good, BigDecimal.ZERO)));
-        // A product with no inventory record — stockIn throws for this one row.
         when(inventoryRepository.findByProductIdForUpdate(orphan.getId())).thenReturn(Optional.empty());
 
         StockInImportResponse response = service.stockInFromExcel(workbook(

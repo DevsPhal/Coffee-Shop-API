@@ -66,7 +66,6 @@ class TelegramInvoiceServiceImplTest {
         UUID customerId = UUID.randomUUID();
         when(customerRepository.findById(customerId)).thenReturn(Optional.of(customerWithChat()));
 
-        // Paid in KHR, but the customer asked for their change back in USD.
         OrderInvoice invoice = cashInvoice(new BigDecimal("80000"), Currency.KHR, new BigDecimal("1.25"), Currency.USD);
         service.sendInvoice(customerId, invoice);
 

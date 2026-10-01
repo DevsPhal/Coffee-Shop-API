@@ -6,8 +6,6 @@ import jakarta.validation.constraints.Size;
 
 import java.util.List;
 
-// A walk-in POS sale rung up by an admin or barista. Always pickup — no delivery option, since
-// the customer is standing right there.
 public record StaffCreateOrderRequest(
         @NotEmpty(message = "Order must contain at least one item")
         @Valid

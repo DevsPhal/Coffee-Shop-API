@@ -37,7 +37,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Login-ticket and account-status rules around OTP login and token refresh.
 @ExtendWith(MockitoExtension.class)
 class AuthServiceImplTokenRulesTest {
 

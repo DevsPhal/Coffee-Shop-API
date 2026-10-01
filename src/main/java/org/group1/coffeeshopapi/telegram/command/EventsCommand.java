@@ -15,7 +15,6 @@ public class EventsCommand implements TelegramCommand {
         return "/events";
     }
 
-    // Sends the events directly (with photos/locations) instead of returning one reply string.
     @Override
     public String execute(TelegramMessage message, String argument) {
         telegramEventService.sendUpcomingEvents(message.chat().id());

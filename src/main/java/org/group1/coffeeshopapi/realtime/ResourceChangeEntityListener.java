@@ -14,10 +14,6 @@ import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.UUID;
 
-// Hooked onto the watched entities with @EntityListeners, so every save path is covered
-// without each service having to remember to publish. Spring Boot builds JPA listeners as
-// beans; the publisher is looked up lazily because this listener is created while JPA itself
-// is still starting up.
 public class ResourceChangeEntityListener {
 
     private final ObjectProvider<ResourceChangePublisher> publisherProvider;
@@ -50,7 +46,6 @@ public class ResourceChangeEntityListener {
             case Product product -> publisher.record(ResourceType.PRODUCT, product.getId(), change);
             case Category category -> publisher.record(ResourceType.CATEGORY, category.getId(), change);
             case Extra extra -> publisher.record(ResourceType.EXTRA, extra.getId(), change);
-            // Sizes and attached extras are part of their product as far as clients are concerned.
             case ProductVariant variant -> publisher.record(ResourceType.PRODUCT, productId(variant.getProduct()), ChangeType.UPDATED);
             case ProductExtra productExtra -> publisher.record(ResourceType.PRODUCT, productId(productExtra.getProduct()), ChangeType.UPDATED);
             case Inventory inventory -> publisher.record(ResourceType.INVENTORY, productId(inventory.getProduct()), change);

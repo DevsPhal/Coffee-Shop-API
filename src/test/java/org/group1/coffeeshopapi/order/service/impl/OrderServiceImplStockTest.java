@@ -65,8 +65,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Stock is counted in stock units (cartons), sales in sell units (cans); stock is checked before
-// any money changes hands, and a Bakong payment that already arrived is never blocked by it.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplStockTest {
 
@@ -123,7 +121,6 @@ class OrderServiceImplStockTest {
                 new OrderItemRequest(cans.getId(), 12, piece.getId(), null, null, null, null, List.of())), null),
                 UUID.randomUUID());
 
-        // 12 + 12 cans = one whole carton, checked once.
         verify(inventoryService).requireAvailable(cans.getId(), new BigDecimal("1.000"));
     }
 
@@ -172,7 +169,6 @@ class OrderServiceImplStockTest {
         customer.setId(customerId);
         order.setCustomer(customer);
         order.setPaymentMethod(PaymentMethod.BAKONG);
-        // The customer saved the USD QR, then the page swapped in a KHR one before they paid.
         order.setBakongMd5Hash("khr-md5");
         order.setBakongCurrency(Currency.KHR);
         long stillPayable = java.time.Instant.now().plusSeconds(600).getEpochSecond();

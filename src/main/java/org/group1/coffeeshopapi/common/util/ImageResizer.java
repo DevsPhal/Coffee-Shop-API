@@ -10,8 +10,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-// Downscales an image to fit a bounding box and re-encodes it as JPEG. Never upscales, and
-// falls back to the original bytes if the format can't be decoded (e.g. WEBP, animated GIF).
 public final class ImageResizer {
 
     private ImageResizer() {

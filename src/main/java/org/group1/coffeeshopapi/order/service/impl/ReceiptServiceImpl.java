@@ -42,7 +42,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ReceiptServiceImpl implements ReceiptService {
 
-    // 80mm-wide thermal-receipt page. Height is computed per receipt from its line count.
     private static final float PAGE_WIDTH = 227f;
     private static final float MARGIN = 14f;
     private static final float LINE_HEIGHT = 14f;
@@ -51,9 +50,6 @@ public class ReceiptServiceImpl implements ReceiptService {
     private static final PDType1Font FONT_BOLD = new PDType1Font(Standard14Fonts.FontName.HELVETICA_BOLD);
     private static final PDType1Font FONT_ITALIC = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
 
-    // Khmer script needs real shaping (subscript consonants, reordering vowels) that PDFBox can't
-    // do on its own, so Khmer text is drawn as filled vector outlines via Java2D instead of as
-    // PDFBox glyph text.
     private static final String KHMER_FONT_RESOURCE = "/font/NotoSansKhmer-VariableFont_wdth,wght.ttf";
     private static final java.awt.Font KHMER_FONT = loadKhmerFont();
     private static final float KHMER_INDENT = 10f;
@@ -155,7 +151,6 @@ public class ReceiptServiceImpl implements ReceiptService {
         return lines;
     }
 
-    // e.g. "Barista Phal".
     private String servedByLabel(OrderResponse order) {
         if (order.handledByName() == null || order.handledByName().isBlank()) {
             return "-----";
@@ -211,14 +206,11 @@ public class ReceiptServiceImpl implements ReceiptService {
         cs.endText();
     }
 
-    // Shapes the text with Java2D (which handles Khmer subscripts/reordering correctly) and fills
-    // the resulting glyph outlines directly as PDF paths, instead of drawing it as font text.
     private void drawKhmerText(PDPageContentStream cs, String value, float x, float y, float size) throws IOException {
         if (value == null || value.isBlank()) {
             return;
         }
         TextLayout layout = new TextLayout(value, KHMER_FONT.deriveFont(size), new FontRenderContext(null, true, true));
-        // PDF page space is y-up; Java2D glyph outlines are y-down, so flip vertically to match.
         AffineTransform transform = new AffineTransform();
         transform.translate(x, y);
         transform.scale(1, -1);
@@ -279,7 +271,6 @@ public class ReceiptServiceImpl implements ReceiptService {
         return sb.toString();
     }
 
-    // Normalizes however a name was typed at signup (e.g. "SOPHAL NEM") to "Sophal Nem".
     private String titleCase(String text) {
         if (text == null || text.isBlank()) {
             return text;
@@ -299,13 +290,10 @@ public class ReceiptServiceImpl implements ReceiptService {
         return amount == null ? "-" : "$" + amount.setScale(2, RoundingMode.HALF_UP);
     }
 
-    // KHR has no minor unit, so it's shown as a whole number rather than usd()'s 2 decimal places.
     private String khr(BigDecimal amount) {
         return amount == null ? "-" : amount.setScale(0, RoundingMode.HALF_UP) + " KHR";
     }
 
-    // "Tendered (USD): $20.00" or "Change (KHR): 5500 KHR" — label carries the currency so it
-    // still reads clearly when tendered and change aren't in the same one.
     private ReceiptLine amountLine(String label, BigDecimal amount, Currency currency) {
         String value = currency == Currency.KHR ? khr(amount) : usd(amount);
         return ReceiptLine.twoColumn(label + " (" + currency + ")", value, FONT, 9);
@@ -319,8 +307,6 @@ public class ReceiptServiceImpl implements ReceiptService {
         return value == null || value.isBlank() ? fallback : value;
     }
 
-    // These fonts only render plain ASCII — swap out anything else (e.g. Khmer text) rather than
-    // failing the whole receipt.
     private String sanitize(String text) {
         if (text == null) {
             return "";

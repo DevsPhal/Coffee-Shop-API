@@ -14,17 +14,14 @@ public final class TelegramFormat {
         return "$" + amount.setScale(2, RoundingMode.HALF_UP);
     }
 
-    // Whole-number currencies (e.g. KHR) have no decimal places to show.
     public static String wholeAmount(BigDecimal amount, String currencyCode) {
         return amount.setScale(0, RoundingMode.HALF_UP) + " " + currencyCode;
     }
 
-    // Escapes text before it's put into an HTML message.
     public static String escape(String text) {
         return HtmlUtils.htmlEscape(text);
     }
 
-    // Title-cases a name for display, e.g. "iced latte" becomes "Iced Latte".
     public static String titleCase(String text) {
         if (text == null || text.isBlank()) {
             return text;
@@ -41,7 +38,6 @@ public final class TelegramFormat {
         return result.toString();
     }
 
-    // Capitalizes the first letter, collapses stray whitespace, and adds ending punctuation.
     public static String professionalize(String text) {
         if (text == null || text.isBlank()) {
             return text;

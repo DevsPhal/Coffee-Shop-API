@@ -13,9 +13,6 @@ BEGIN
             ('admins', 'status'),
             ('auth_users', 'gender'),
             ('auth_users', 'status'),
-            -- OrderStatus gained PAID and PREPARING when the barista queue stopped treating
-            -- "paid for" and "handed over" as the same thing; OrderAuditAction gained the two
-            -- actions that move an order between them.
             ('orders', 'status'),
             ('order_audit_logs', 'action')
         ) AS t(table_name, column_name)

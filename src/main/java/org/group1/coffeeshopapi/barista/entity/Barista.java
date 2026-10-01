@@ -23,7 +23,6 @@ import org.group1.coffeeshopapi.user.entity.User;
 })
 public class Barista extends User {
 
-    // Which admin created this account. Null if created by the Super Admin instead.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private Admin createdByAdmin;

@@ -27,8 +27,6 @@ public class MinioConfig {
                 .build();
     }
 
-    // Makes sure the bucket exists and is publicly readable, since images are served straight
-    // from MinIO.
     @Bean
     public ApplicationRunner minioBucketInitializer(MinioClient minioClient) {
         return (ApplicationArguments args) -> {

@@ -13,7 +13,6 @@ import org.springframework.context.annotation.Configuration;
 public class TelegramProperties {
     private String botToken;
     private String botUsername;
-    // The domain set with @BotFather's /setdomain — the only host the Login Widget works on.
     private String loginDomain;
     private String webhookSecret;
     private String webhookBaseUrl;
@@ -30,7 +29,6 @@ public class TelegramProperties {
         return webhookBaseUrl + webhookPath;
     }
 
-    // Bot username without the leading "@", as t.me links and the Login Widget expect it.
     public String plainBotUsername() {
         return botUsername != null && botUsername.startsWith("@")
                 ? botUsername.substring(1)

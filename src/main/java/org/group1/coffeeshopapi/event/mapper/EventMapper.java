@@ -15,6 +15,5 @@ public interface EventMapper {
     @Mapping(target = "createdByRole", source = "event.createdByAdmin.role")
     EventResponse toResponse(Event event);
 
-    // Strips staff identity before an event reaches the public.
     CustomerEventResponse toCustomerResponse(Event event);
 }

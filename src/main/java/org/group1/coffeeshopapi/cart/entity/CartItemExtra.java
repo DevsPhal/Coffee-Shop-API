@@ -11,8 +11,6 @@ import lombok.Setter;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 
-// One extra (e.g. Pearl) toggled on for a cart item. A live relation, since cart prices are
-// computed live until checkout.
 @Getter
 @Setter
 @Entity

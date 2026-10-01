@@ -37,7 +37,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// The customer's single-product view must follow the same rules as the menu list.
 @ExtendWith(MockitoExtension.class)
 class ProductServiceImplOrderableTest {
 

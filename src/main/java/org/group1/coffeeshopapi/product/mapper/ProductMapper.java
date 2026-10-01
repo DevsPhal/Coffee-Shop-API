@@ -37,8 +37,6 @@ public interface ProductMapper {
     ProductResponse toResponse(Product product, Inventory inventory, List<ProductVariantResponse> variants,
             List<ProductExtraResponse> extras);
 
-    // Strips internal fields before a product reaches a customer, and hides any out-of-stock
-    // extra entirely rather than offering a choice they can't actually have.
     @Mapping(target = "extras", qualifiedByName = "inStockOnly")
     CustomerProductResponse toCustomerResponse(ProductResponse response);
 

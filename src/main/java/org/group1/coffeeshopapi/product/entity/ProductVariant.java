@@ -19,8 +19,6 @@ import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
 import java.math.BigDecimal;
 
-// A per-product variant choice (e.g. Medium/Large), each with its own price. A product has no
-// price of its own — every price comes from one of these rows.
 @Getter
 @Setter
 @Entity
@@ -34,12 +32,10 @@ public class ProductVariant extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    // Fixed set of sizes (MEDIUM/LARGE/PIECE) rather than free text.
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private VariantLabel name;
 
-    // The absolute price charged when this variant is selected. Never negative.
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price = BigDecimal.ZERO;
 

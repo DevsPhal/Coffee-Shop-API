@@ -20,8 +20,6 @@ public class BakongTokenServiceImpl implements BakongTokenService {
     private final RestClient bakongRestClient;
     private final BakongProperties bakongProperties;
 
-    // Null until a renewal succeeds, then holds the renewed token for the rest of this process's
-    // life. Not written back to config — a restart just renews again on the next failure.
     private final AtomicReference<String> renewedToken = new AtomicReference<>();
 
     @Override
@@ -39,7 +37,6 @@ public class BakongTokenServiceImpl implements BakongTokenService {
         }
 
         try {
-            // NBC issues a new token and also emails it; the response body is the copy we keep.
             BakongRenewTokenResponse response = bakongRestClient.post()
                     .uri("/v1/renew_token")
                     .body(Map.of("email", email))

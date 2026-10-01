@@ -12,13 +12,9 @@ public class RedisKeys {
     public static final String JWT_DENYLIST_PREFIX = "jwt:denylist:";
     public static final String TELEGRAM_LINK_CODE_PREFIX = "tg:link:";
     public static final String TELEGRAM_EVENT_REMINDER_PREFIX = "tg:event-reminder:";
-    // chatId -> pending staff userId, set while a Telegram-invited staff member is being asked to
-    // share their contact so it can be matched against the phone number their admin entered.
     public static final String TELEGRAM_PENDING_CONTACT_PREFIX = "tg:pending-contact:";
 
-    // Per-customer cooldown between "call staff" presses.
     public static final String STAFF_CALL_COOLDOWN_PREFIX = "staffcall:cooldown:";
-    // Hash of orderId -> calledAt for calls no staff member has answered yet.
     public static final String STAFF_CALL_OPEN = "staffcall:open";
 
     public static String otpKey(String purpose, String email) {

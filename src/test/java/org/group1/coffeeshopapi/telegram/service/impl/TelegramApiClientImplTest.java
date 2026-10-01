@@ -7,8 +7,6 @@ import java.math.BigDecimal;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 
-// No bot token is configured in tests, so this just guards that every send method takes the
-// same early-return path instead of NPEing on a null token.
 class TelegramApiClientImplTest {
 
     private final TelegramApiClientImpl client = new TelegramApiClientImpl(new TelegramProperties());

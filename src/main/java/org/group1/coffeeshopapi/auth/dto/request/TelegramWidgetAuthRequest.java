@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-// The signed payload Telegram's Login Widget hands back after the user authorizes. Omit
-// lastName/username/photoUrl entirely when Telegram didn't send them — don't send empty strings.
 public record TelegramWidgetAuthRequest(
         @NotNull(message = "Telegram id is required")
         Long id,

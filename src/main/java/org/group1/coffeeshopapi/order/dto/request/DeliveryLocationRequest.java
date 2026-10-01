@@ -8,7 +8,6 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 
-// A customer's pinned delivery location, plus what the courier needs to find them.
 public record DeliveryLocationRequest(
         @NotNull(message = "Latitude is required")
         @DecimalMin(value = "-90", message = "Latitude must be between -90 and 90")

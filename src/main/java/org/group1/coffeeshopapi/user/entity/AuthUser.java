@@ -17,8 +17,6 @@ import org.group1.coffeeshopapi.common.enums.UserStatus;
 
 import java.util.UUID;
 
-// One row per account (admin, barista, customer, or the super admin), so any caller can list or
-// search every account in one place without knowing the role ahead of time.
 @Getter
 @Setter
 @Entity
@@ -32,7 +30,6 @@ public class AuthUser {
     @Column(nullable = false, length = 31)
     private Role role;
 
-    // Nullable so adding this column doesn't break existing rows — it fills in on the next sync.
     @Column(length = 100)
     private String name;
 
@@ -40,7 +37,6 @@ public class AuthUser {
     @Column(length = 20)
     private UserStatus status;
 
-    // Only the one matching `role` actually resolves — the other two find no row.
     @OneToOne
     @JoinColumn(name = "id", referencedColumnName = "id", insertable = false, updatable = false)
     private Admin admin;

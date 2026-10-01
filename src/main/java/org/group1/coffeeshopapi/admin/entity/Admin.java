@@ -12,7 +12,6 @@ import org.hibernate.annotations.BatchSize;
 
 import java.util.UUID;
 
-// BatchSize avoids one query per row when a page of entities each lazily loads their admin.
 @Getter
 @Setter
 @Entity
@@ -24,7 +23,6 @@ import java.util.UUID;
 })
 public class Admin extends User {
 
-    // Which admin/super admin created this account — null for pre-existing rows.
     @Column
     private UUID createdBy;
 

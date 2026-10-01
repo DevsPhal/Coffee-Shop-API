@@ -9,8 +9,6 @@ import org.group1.coffeeshopapi.product.entity.Product;
 
 import java.util.UUID;
 
-// Which customizations a product accepts, based on its category group: FRESH_DRINK takes size,
-// sugar, ice and milk; BEVERAGE only takes a size; everything else takes none.
 public final class ProductVariantPolicy {
     private ProductVariantPolicy() {}
 
@@ -29,14 +27,12 @@ public final class ProductVariantPolicy {
             }
             return;
         }
-        // SNACK, or no group at all.
         if (variantId != null || sugarLevel != null || iceLevel != null || milkType != null) {
             throw new InvalidOperationException(
                     "'" + name + "' doesn't support size, sugar, ice, or milk customization");
         }
     }
 
-    // Whether a caller may explicitly pick a variant for this product.
     public static boolean allowsSizeChoice(Product product) {
         CategoryGroup group = product.getCategory().getCategoryGroup();
         return group == CategoryGroup.FRESH_DRINK || group == CategoryGroup.BEVERAGE;

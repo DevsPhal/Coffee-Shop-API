@@ -9,8 +9,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 
-// A MultipartFile backed by in-memory bytes, for handing already-processed data (e.g. a resized
-// image) to code that expects a MultipartFile.
 public class InMemoryMultipartFile implements MultipartFile {
 
     private final String name;

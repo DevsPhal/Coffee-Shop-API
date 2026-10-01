@@ -45,8 +45,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Covers the extra-stock deduction that happens on top of the regular product stock cut when
-// an order is paid.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplExtraStockTest {
 
@@ -143,7 +141,6 @@ class OrderServiceImplExtraStockTest {
     void payingCashLeavesAnUntrackedExtraAloneAndNeverSavesIt() {
         Extra untracked = new Extra();
         untracked.setId(UUID.randomUUID());
-        // Left null on purpose — null means this extra's stock isn't tracked.
 
         OrderItemExtra orderItemExtra = new OrderItemExtra();
         orderItemExtra.setExtra(untracked);

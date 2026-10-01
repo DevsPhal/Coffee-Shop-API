@@ -81,7 +81,6 @@ public class AuthServiceImpl implements AuthService {
         if (userRepository.existsByEmail(email)) {
             throw new DuplicateResourceException("An account with this email already exists");
         }
-        // Check phone uniqueness up front so a taken number gets a clear error, not a raw DB failure.
         if (request.phoneNumber() != null && !request.phoneNumber().isBlank()
                 && customerRepository.existsByPhoneNumber(request.phoneNumber())) {
             throw new DuplicateResourceException("An account with this phone number already exists");
@@ -104,7 +103,6 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public void verifyRegistration(VerifyRegistrationRequest request) {
         String email = request.email().toLowerCase();
-        // Staff invited via Telegram verify by phone number instead, not this email flow.
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
 
@@ -123,7 +121,6 @@ public class AuthServiceImpl implements AuthService {
         String email = request.email().toLowerCase();
 
         if (superAdminProperties.matches(email)) {
-            // Super admin skips OTP — it's a config-only account, not a real user row.
             authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(email, request.password()));
             authUserSyncService.syncSuperAdmin();
@@ -152,8 +149,6 @@ public class AuthServiceImpl implements AuthService {
             throw new InvalidCredentialsException("Invalid Telegram login signature");
         }
 
-        // A verified Telegram signature is trusted identity proof: an unknown id just registers a
-        // new customer account on the spot, no email/password/OTP needed. A known id just logs in.
         User user = userRepository.findByTelegramChatId(String.valueOf(request.id()))
                 .orElseGet(() -> registerCustomerViaTelegram(request));
         if (user.getStatus() != UserStatus.ACTIVE) {
@@ -162,12 +157,7 @@ public class AuthServiceImpl implements AuthService {
         return issueTokens(user.getId(), user.getEmail(), user.getRole());
     }
 
-    // Always registers as CUSTOMER — staff accounts are invite-only, never self-registered.
     private Customer registerCustomerViaTelegram(TelegramWidgetAuthRequest request) {
-        // Gender is never required here (Telegram doesn't send it, and it's optional everywhere
-        // else too) — but unlike gender, a Telegram username identifies the account, so a
-        // first-time sign-in needs one even though it's optional on the DTO itself (existing
-        // customers logging back in without one still work fine — this only gates registration).
         if (request.username() == null || request.username().isBlank()) {
             throw new InvalidOperationException(
                     "Please set a username in Telegram (Settings → Username) before signing in");
@@ -187,9 +177,6 @@ public class AuthServiceImpl implements AuthService {
         customerRepository.saveAndFlush(customer);
         authUserSyncService.sync(customer);
 
-        // Best-effort: some widget logins come from users who've never opened a chat with the
-        // bot, and Telegram forbids a bot from messaging someone who hasn't started one — the
-        // client already swallows that failure rather than breaking the login.
         telegramApiClient.sendHtmlMessageWithButtons(request.id(),
                 "🎉 <b>Welcome, " + TelegramFormat.escape(TelegramFormat.titleCase(customer.getFullName())) + "!</b>\n\n"
                         + "You're now logged in — you'll get your order receipts, new event alerts, "
@@ -200,8 +187,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse loginViaPhone(PhoneLoginRequest request) {
-        // Staff only, and few of them — compared in memory so "072 345 5674", "0723455674" and
-        // "+855 72 345 5674" all find the same account however it was typed on the invite.
         User user = Stream.concat(adminRepository.findAll().stream(), baristaRepository.findAll().stream())
                 .filter(staff -> PhoneNumberUtil.matches(staff.getPhoneNumber(), request.phoneNumber()))
                 .findFirst()
@@ -222,8 +207,6 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthTokenResponse verifyLoginOtp(VerifyLoginOtpRequest request) {
-        // Peek, not consume: a mistyped code must not throw away the login — OtpService already
-        // limits wrong attempts. The ticket is only used up once the code is right.
         UUID userId = tokenService.peekLoginTicket(request.loginTicket());
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Account no longer exists"));
@@ -239,14 +222,11 @@ public class AuthServiceImpl implements AuthService {
         switch (request.purpose()) {
             case REGISTER -> {
                 String email = requireEmail(request);
-                // Staff invited via Telegram never register an OTP here, so this is customer-only.
                 User user = userRepository.findByEmail(email)
                         .orElseThrow(() -> new ResourceNotFoundException("No account found for this email"));
                 if (user.getStatus() == UserStatus.ACTIVE) {
                     throw new DuplicateResourceException("This account has already been verified");
                 }
-                // Already has a linked chat (registered/invited via Telegram, or linked it since)
-                // — keep resending there instead of switching back to email.
                 if (user.getTelegramChatId() != null) {
                     otpService.resendViaTelegram(email, user.getFullName(), OtpPurpose.REGISTER,
                             Long.parseLong(user.getTelegramChatId()));
@@ -261,8 +241,6 @@ public class AuthServiceImpl implements AuthService {
                 UUID userId = tokenService.peekLoginTicket(request.loginTicket());
                 User user = userRepository.findById(userId)
                         .orElseThrow(() -> new ResourceNotFoundException("Account no longer exists"));
-                // Resend over the channel the first code went to — a phone login never has a
-                // usable email, only the Telegram chat.
                 if (tokenService.isTelegramLoginTicket(request.loginTicket()) && user.getTelegramChatId() != null) {
                     otpService.resendViaTelegram(user.getEmail(), user.getFullName(), OtpPurpose.LOGIN,
                             Long.parseLong(user.getTelegramChatId()));
@@ -327,7 +305,6 @@ public class AuthServiceImpl implements AuthService {
                 tokenService.revokeRefreshToken(userId);
             }
         } catch (JwtException | IllegalArgumentException ignored) {
-            // Already invalid/expired token — logout is idempotent either way.
         }
     }
 
@@ -361,8 +338,6 @@ public class AuthServiceImpl implements AuthService {
         return new AuthTokenResponse(accessToken, refreshToken, "Bearer", expiresInMs, formatDuration(expiresInMs));
     }
 
-    // e.g. 86400000 -> "1 day", 90000 -> "1 minute 30 seconds". Seconds are dropped once the
-    // duration reaches a day/hour/minute, since they're not meaningful at that granularity.
     private String formatDuration(long millis) {
         Duration duration = Duration.ofMillis(millis);
         long days = duration.toDays();
@@ -389,7 +364,6 @@ public class AuthServiceImpl implements AuthService {
         return String.join(" ", parts);
     }
 
-    // Offers a "Connect Telegram" link only to customers who haven't linked a chat yet.
     private String telegramDeepLinkFor(User user) {
         if (user.getRole() != Role.CUSTOMER || user.getTelegramChatId() != null) {
             return null;
@@ -397,7 +371,6 @@ public class AuthServiceImpl implements AuthService {
         return telegramLinkService.generateLinkCode(user.getId()).deepLink();
     }
 
-    // A deactivated or deleted account gets no new tokens, even with a valid OTP or refresh token.
     private void requireActive(User user) {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException("This account can't log in right now");

@@ -43,8 +43,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     String email = claims.getSubject();
                     UserDetails userDetails = userDetailsService.loadUserByUsername(email);
 
-                    // Re-checked on every request (not just at login) so a deactivated account's
-                    // still-valid access token stops working immediately, not just at its natural expiry.
                     if (userDetails.isEnabled()) {
                         var auth = new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
@@ -53,7 +51,6 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     }
                 }
             } catch (JwtException | IllegalArgumentException | UsernameNotFoundException ignored) {
-                // Invalid/expired token, or the account no longer exists (e.g. deleted) — treat as unauthenticated.
                 SecurityContextHolder.clearContext();
             }
         }

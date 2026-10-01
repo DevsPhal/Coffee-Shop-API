@@ -11,7 +11,6 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
-// A manually logged cash outflow (rent, supplies, wages, ...) — "money out" for profit reporting.
 @Getter
 @Setter
 @Entity

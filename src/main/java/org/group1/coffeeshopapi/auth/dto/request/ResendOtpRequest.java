@@ -5,7 +5,6 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
 import org.group1.coffeeshopapi.common.enums.OtpPurpose;
 
-// email and loginTicket are each required depending on purpose — checked in the service instead.
 public record ResendOtpRequest(
         @NotNull(message = "Purpose is required")
         OtpPurpose purpose,

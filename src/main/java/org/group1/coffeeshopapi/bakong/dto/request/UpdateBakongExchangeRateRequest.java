@@ -10,7 +10,6 @@ public record UpdateBakongExchangeRateRequest(
         @DecimalMin(value = "0.0", inclusive = false, message = "Exchange rate must be greater than zero")
         BigDecimal khrPerUsdRate,
 
-        // Optional real-world reference rate — omit to leave it unchanged.
         @DecimalMin(value = "0.0", inclusive = false, message = "Market rate must be greater than zero")
         BigDecimal marketRate
 ) {

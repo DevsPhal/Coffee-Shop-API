@@ -13,7 +13,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Map;
 
-// Renders raw QR payload text (e.g. a KHQR string) into a scannable PNG image.
 public final class QrImageUtil {
 
     private QrImageUtil() {

@@ -7,7 +7,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.util.List;
 
-// The browser origins allowed to call this API.
 @Getter
 @Setter
 @Configuration

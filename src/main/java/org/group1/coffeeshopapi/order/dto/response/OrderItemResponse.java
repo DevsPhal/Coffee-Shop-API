@@ -21,7 +21,6 @@ public record OrderItemResponse(
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,
-        // Extras (e.g. Pearl) added to this line — unitPrice/subtotal already include their price.
         List<OrderItemExtraResponse> extras
 ) {
 }

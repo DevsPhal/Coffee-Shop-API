@@ -17,7 +17,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Real queries against H2: a sale paid exactly at midnight belongs to the new day only.
 @SpringBootTest
 @ActiveProfiles("test")
 @Transactional

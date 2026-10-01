@@ -24,8 +24,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Covers the duplicate-name and in-use-by-products guards — the only real logic in an otherwise
-// thin CRUD service.
 @ExtendWith(MockitoExtension.class)
 class CategoryServiceImplTest {
 

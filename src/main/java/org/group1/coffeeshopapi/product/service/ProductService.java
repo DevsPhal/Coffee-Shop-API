@@ -12,17 +12,13 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.util.UUID;
 
-// actorAdmin is null when the Super Admin is the one acting.
 public interface ProductService {
     ProductResponse create(CreateProductRequest request, Admin actorAdmin);
     ProductResponse getById(UUID id);
 
-    // Customer view of one product: only if it can actually be ordered, with only its active
-    // sizes and extras. 404 otherwise.
     ProductResponse getOrderableById(UUID id);
     Page<ProductResponse> list(UUID categoryId, Pageable pageable);
 
-    // Customer-facing menu: only products currently on sale.
     Page<ProductResponse> listActive(UUID categoryId, Pageable pageable);
     ProductResponse update(UUID id, UpdateProductRequest request, Admin actorAdmin);
     void delete(UUID id);
@@ -33,7 +29,5 @@ public interface ProductService {
     ProductResponse uploadImage(UUID id, MultipartFile file, Admin actorAdmin);
     ProductResponse removeImage(UUID id, Admin actorAdmin);
 
-    // Bulk-creates products from an .xlsx sheet. Rows that fail validation are skipped and
-    // reported; valid rows are still created.
     ProductImportResponse importFromExcel(MultipartFile file, Admin actorAdmin);
 }

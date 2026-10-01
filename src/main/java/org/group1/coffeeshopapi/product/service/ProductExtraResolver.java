@@ -14,8 +14,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
-// Turns requested extra ids into actual Extra rows. Every id must be offered and active on the
-// product, or the whole request is rejected.
 public final class ProductExtraResolver {
     private ProductExtraResolver() {}
 
@@ -33,18 +31,16 @@ public final class ProductExtraResolver {
         Set<UUID> seen = new HashSet<>();
         for (UUID extraId : extraIds) {
             if (!seen.add(extraId)) {
-                continue; // a duplicate id in the request — already resolved once above
+                continue;
             }
             Extra extra = attachedByExtraId.get(extraId);
             if (extra == null) {
                 throw new InvalidOperationException(
                         "One or more extras aren't available on '" + product.getName() + "'");
             }
-            // The extra can be switched off globally, not just on this product.
             if (extra.getStatus() != Status.ACTIVE) {
                 throw new InvalidOperationException("'" + extra.getName() + "' is not available right now");
             }
-            // Null means not stock-tracked — always available.
             if (extra.getQuantityOnHand() != null && extra.getQuantityOnHand().signum() <= 0) {
                 throw new InvalidOperationException("'" + extra.getName() + "' is out of stock");
             }

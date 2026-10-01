@@ -14,8 +14,6 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-// Plain field-for-field mapping isn't worth a test of its own — this only covers the one bit of
-// real logic: hiding an out-of-stock extra from the customer view.
 class ProductMapperTest {
 
     private final ProductMapper mapper = new ProductMapperImpl();

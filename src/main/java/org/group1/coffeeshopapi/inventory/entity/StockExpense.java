@@ -14,7 +14,6 @@ import org.group1.coffeeshopapi.product.entity.Product;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
-// The cost of one stock-in event. Auto-generated only, never created or edited by an admin.
 @Getter
 @Setter
 @Entity

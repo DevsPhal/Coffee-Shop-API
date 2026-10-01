@@ -89,9 +89,6 @@ public class ProductController {
                 productService.removeImage(id, currentActor.adminRef()));
     }
 
-    // Columns: name, description, sku, unit, price, category, reorder level, size options
-    // (optional), sell unit (optional), units per stock (optional). Valid rows are created even
-    // if others fail.
     @PostMapping(value = "/import", consumes = "multipart/form-data")
     public ApiResponse<ProductImportResponse> importExcel(@RequestParam("file") MultipartFile file) {
         ProductImportResponse response = productService.importFromExcel(file, currentActor.adminRef());

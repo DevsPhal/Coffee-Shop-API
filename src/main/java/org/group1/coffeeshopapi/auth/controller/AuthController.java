@@ -48,9 +48,6 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, message, result));
     }
 
-    // Logs in via the Telegram Login Widget — no email/password needed. A first-time Telegram id
-    // registers a new customer on the spot instead of erroring.
-    // Bot username and allowed domain for the Login Widget, so the frontend doesn't hardcode them.
     @GetMapping("/telegram/widget-config")
     public ResponseEntity<ApiResponse<TelegramWidgetConfigResponse>> telegramWidgetConfig() {
         String loginDomain = telegramProperties.getLoginDomain();
@@ -67,8 +64,6 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "Login successful.", tokens));
     }
 
-    // Staff invited over Telegram: phone number in, a code sent to their linked Telegram chat out.
-    // Finished with /verify-login-otp, the same second step as the email login.
     @PostMapping("/login/phone")
     public ResponseEntity<ApiResponse<LoginResponse>> loginViaPhone(@Valid @RequestBody PhoneLoginRequest request) {
         LoginResponse result = authService.loginViaPhone(request);

@@ -58,8 +58,6 @@ public class UserController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, profile);
     }
 
-    // Self-service edit of your own name, phone and gender. Not available to the super admin,
-    // whose profile is fixed by configuration.
     @PatchMapping("/me")
     public ApiResponse<UserResponse> updateMe(
             @Valid @RequestBody UpdateProfileRequest request,
@@ -69,8 +67,6 @@ public class UserController {
                 userProfileService.updateProfile(userId, request));
     }
 
-    // For accounts created via Telegram widget login, which never collects a phone number.
-    // Phone is required here even though it's optional on updateMe/UpdateProfileRequest.
     @PostMapping("/me/complete-profile")
     public ApiResponse<UserResponse> completeProfile(
             @Valid @RequestBody CompleteProfileRequest request,
@@ -120,8 +116,6 @@ public class UserController {
         return requireCustomUser(principal, "Super admin does not have an avatar");
     }
 
-    // The super admin has no User row, so every self-service write here turns it away with a
-    // reason the UI can show.
     private CustomUserDetails requireCustomUser(UserDetails principal, String message) {
         if (!(principal instanceof CustomUserDetails customUserDetails)) {
             throw new InvalidOperationException(message);

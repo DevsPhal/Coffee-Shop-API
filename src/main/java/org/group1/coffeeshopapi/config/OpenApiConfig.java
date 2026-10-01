@@ -20,7 +20,6 @@ import org.springframework.context.annotation.Configuration;
                         + "account management. See the tag list below for the full surface area, "
                         + "grouped by who can call it (Super Admin / Admin / Barista / Customer / public)."
         ),
-        // Production listed first so it's the default in the Swagger UI dropdown.
         servers = {
                 @Server(url = "https://api.590stcafe.shop", description = "Production"),
                 @Server(url = "http://localhost:8080", description = "Local Development")

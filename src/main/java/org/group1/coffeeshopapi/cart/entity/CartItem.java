@@ -43,8 +43,6 @@ public class CartItem extends BaseEntity {
     @Column(nullable = false)
     private Integer quantity;
 
-    // Optional — not every product is customizable. A live relation, since cart prices are
-    // computed live until checkout (unlike an order, which snapshots them).
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "size_option_id")
     private ProductVariant variant;
@@ -61,11 +59,9 @@ public class CartItem extends BaseEntity {
     @Column(length = 20)
     private MilkType milkType;
 
-    // Which extras (e.g. Pearl) were added — a yes/no toggle per extra, not a quantity.
     @OneToMany(mappedBy = "cartItem", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CartItemExtra> extras = new ArrayList<>();
 
-    // Replaces the whole selection in one go — an empty set clears every extra off this item.
     public void setExtraSelection(Set<Extra> selected) {
         extras.clear();
         for (Extra extra : selected) {
@@ -76,7 +72,6 @@ public class CartItem extends BaseEntity {
         }
     }
 
-    // Reads the selection back as plain Extra entities.
     public Set<Extra> getSelectedExtras() {
         return extras.stream().map(CartItemExtra::getExtra).collect(Collectors.toCollection(LinkedHashSet::new));
     }

@@ -15,8 +15,6 @@ import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
 import java.math.BigDecimal;
 
-// One row per product. quantityOnHand is a running total kept in sync with the batches below —
-// batches are the source of truth, this is just the fast-read total.
 @Getter
 @Setter
 @Entity

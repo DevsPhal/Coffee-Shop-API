@@ -3,10 +3,6 @@ package org.group1.coffeeshopapi.common.util;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-/**
- * Straight-line (great-circle) distance between two lat/lng points via the Haversine formula —
- * not a road/route distance, just a reference number for staff evaluating a delivery fee.
- */
 public final class GeoUtil {
 
     private static final double EARTH_RADIUS_METERS = 6_371_000;

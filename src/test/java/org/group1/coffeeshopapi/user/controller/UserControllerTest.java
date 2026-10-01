@@ -27,8 +27,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-// The super admin has no real user row and a fixed, config-driven profile, so every
-// self-service write endpoint here has to turn it away instead of applying the change.
 @ExtendWith(MockitoExtension.class)
 class UserControllerTest {
 

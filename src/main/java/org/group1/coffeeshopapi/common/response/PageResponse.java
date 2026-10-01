@@ -4,8 +4,6 @@ import org.springframework.data.domain.Page;
 
 import java.util.List;
 
-// page is 1-based (page 1 = the first page), matching the request param PageUtil accepts —
-// Spring Data's own Page is 0-based internally, so getNumber() is converted back here.
 public record PageResponse<T>(
         List<T> content,
         int page,

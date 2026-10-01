@@ -12,7 +12,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.util.List;
 import java.util.UUID;
 
-// actorAdmin is null when the Super Admin is the one acting.
 public interface EventService {
     EventResponse create(CreateEventRequest request, Admin actorAdmin);
     EventResponse getById(UUID id);
@@ -23,9 +22,7 @@ public interface EventService {
     EventResponse uploadImage(UUID id, MultipartFile file);
     EventResponse removeImage(UUID id);
 
-    // Flips ACTIVE events whose endAt has passed over to INACTIVE. Polled by EventExpiryScheduler.
     void expireEndedEvents();
 
-    // Public: still-active events that haven't ended yet, soonest first.
     List<CustomerEventResponse> listUpcoming();
 }

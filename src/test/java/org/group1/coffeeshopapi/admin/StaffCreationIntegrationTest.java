@@ -32,7 +32,6 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Real controllers, security and persistence, using an isolated H2 database and rolled-back records. */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
@@ -71,9 +70,6 @@ class StaffCreationIntegrationTest {
         assertThat(passwordEncoder.matches(PASSWORD, stored.getPassword())).isTrue();
         assertThat(authUserRepository.findById(id).orElseThrow().getRole()).isEqualTo(targetRole);
 
-        // An admin created by the Super Admin still records its reserved id. A barista can't,
-        // since that link is a real foreign key and the Super Admin has no row to point to —
-        // null here is expected, not a bug.
         if (targetRole == Role.ADMIN) {
             assertThat(data.at("/createdBy").asText()).isEqualTo(SuperAdminUserDetails.ID.toString());
         } else {

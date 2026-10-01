@@ -37,7 +37,6 @@ import java.util.UUID;
 @SecurityRequirement(name = "bearerAuth")
 public class CustomerOrderController {
 
-    // A 300x300 PNG scans reliably on a phone camera without being needlessly large to transfer.
     private static final int QR_IMAGE_SIZE = 300;
 
     private final OrderService orderService;
@@ -61,7 +60,6 @@ public class CustomerOrderController {
                 orderService.getOwnForCustomer(id, currentUser.getId()));
     }
 
-    // The receipt for a finished order (COMPLETED or DELIVERED).
     @GetMapping(value = "/{id}/receipt", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> getReceipt(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -70,8 +68,6 @@ public class CustomerOrderController {
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "receipt-" + id + ".pdf", true);
     }
 
-    // Same document, but available as soon as the order is paid — no need to wait for pickup or
-    // delivery.
     @GetMapping(value = "/{id}/invoice", produces = MediaType.APPLICATION_PDF_VALUE)
     public ResponseEntity<byte[]> getInvoice(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -80,8 +76,6 @@ public class CustomerOrderController {
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "invoice-" + id + ".pdf", true);
     }
 
-    // Pins or moves the delivery location on a pending order. Staff get a live alert to quote the
-    // fee; pay once awaitingDeliveryFee is false and totalAmount includes it.
     @PutMapping("/{id}/delivery-location")
     public ApiResponse<OrderResponse> pinDeliveryLocation(
             @PathVariable UUID id,
@@ -91,8 +85,6 @@ public class CustomerOrderController {
                 orderService.pinDeliveryLocation(id, currentUser.getId(), request));
     }
 
-    // Asks staff to come help with this order. Once per 30s — a 429 says how long to wait, and
-    // nextCallAllowedAt says when to re-enable the button.
     @PostMapping("/{id}/call-staff")
     public ApiResponse<StaffCallResponse> callStaff(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -100,7 +92,6 @@ public class CustomerOrderController {
                 staffCallService.call(id, currentUser.getId()));
     }
 
-    // Despite the name, this applies to delivery orders too.
     @PostMapping("/{id}/pay/cash-on-pickup")
     public ApiResponse<OrderResponse> payCashOnPickup(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -117,7 +108,6 @@ public class CustomerOrderController {
                 orderService.generateBakongQrForCustomer(id, currentUser.getId(), currency));
     }
 
-    // Link that opens the customer's banking app to pay, instead of scanning the QR.
     @PostMapping("/{id}/pay/bakong/deeplink")
     public ApiResponse<BakongDeeplinkResponse> generateBakongDeeplink(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
@@ -132,7 +122,6 @@ public class CustomerOrderController {
                 orderService.confirmBakongPaymentForCustomer(id, currentUser.getId()));
     }
 
-    // Renders the QR string generateBakongQr already produced as a scannable image.
     @GetMapping(value = "/{id}/pay/bakong/qr/image", produces = MediaType.IMAGE_PNG_VALUE)
     public ResponseEntity<byte[]> getBakongQrImage(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {

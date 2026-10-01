@@ -11,7 +11,6 @@ public class EventExpiryScheduler {
 
     private final EventService eventService;
 
-    // Every 15 minutes; initialDelay avoids firing before the app has fully started.
     @Scheduled(initialDelay = 60_000, fixedRate = 900_000)
     public void expireEndedEvents() {
         eventService.expireEndedEvents();

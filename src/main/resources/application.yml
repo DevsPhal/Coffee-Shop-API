@@ -2,12 +2,6 @@ spring:
   config:
     import: optional:file:.env[.properties]
 
-  # Falls back to "local" whenever nothing else says otherwise — running from an IDE or
-  # `./gradlew bootRun` just works with no extra setup. Deployment/production/docker-compose.yml
-  # overrides this to "production" via a real container environment variable (a plain .env file
-  # can't activate a profile — Spring only honors SPRING_PROFILES_ACTIVE from an actual OS/process
-  # environment variable, not from spring.config.import's file-based property source).
-  # See application-local.yml / application-production.yml for what each one changes.
   profiles:
     active: local
 
@@ -23,9 +17,6 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
-    # Prevents Hibernate from auto-generating CHECK constraints on @Enumerated(STRING) columns —
-    # see NoEnumCheckPostgreSQLDialect for why: with no migration tool, ddl-auto: update never
-    # revisits those constraints when an enum's values change, so they silently go stale.
     database-platform: org.group1.coffeeshopapi.config.NoEnumCheckPostgreSQLDialect
 
   mail:
@@ -37,16 +28,11 @@ spring:
       mail:
         smtp:
           auth: true
-          # Port 587 uses STARTTLS (the default); for port 465 set MAIL_SMTP_SSL=true and
-          # MAIL_SMTP_STARTTLS=false.
           starttls:
             enable: ${MAIL_SMTP_STARTTLS:true}
             required: ${MAIL_SMTP_STARTTLS:true}
           ssl:
             enable: ${MAIL_SMTP_SSL:false}
-          # Sending an OTP email is now synchronous (see MailServiceImpl) — a genuinely
-          # unreachable SMTP host must fail fast with a clear error rather than hang the
-          # register/login/resend-otp request until some much longer platform-level timeout.
           connectiontimeout: 10000
           timeout: 10000
           writetimeout: 10000
@@ -65,20 +51,14 @@ spring:
       max-file-size: 5MB
       max-request-size: 5MB
 
-  # LocalDateTime itself carries no zone, so the JVM default set in
-  # CoffeeShopApiApplication's static block is what actually fixes "now" everywhere — this just
-  # keeps Jackson consistent with that same zone for any zone-aware type (Instant/OffsetDateTime).
   jackson:
     time-zone: Asia/Phnom_Penh
-    # Gender (and any other optional enum field) has no @NotBlank/@NotNull, so an unselected
-    # dropdown sending "" must deserialize to null instead of failing with a 400.
     deserialization:
       accept-empty-string-as-null-object: true
 
 bakong:
   base-url: ${BAKONG_BASE_URL:https://api-bakong.nbc.gov.kh}
   token: ${BAKONG_TOKEN:}
-  # Only needed for automatic token renewal — see BakongTokenService.
   email: ${BAKONG_EMAIL:}
   account-id: ${BAKONG_ACCOUNT_ID:}
   account-information: ${BAKONG_ACCOUNT_INFORMATION:}
@@ -91,15 +71,11 @@ bakong:
   purpose-of-transaction: ${BAKONG_PURPOSE_OF_TRANSACTION:Payment}
   currency: ${BAKONG_CURRENCY:USD}
   expiration-minutes: ${BAKONG_EXPIRATION_MINUTES:15}
+  auto-confirm-interval-ms: ${BAKONG_AUTO_CONFIRM_INTERVAL_MS:10000}
   khr-per-usd-rate: ${BAKONG_KHR_PER_USD_RATE:4100}
-  # Shop branding and the storefront URL for the deeplink payment app; the Bakong app returns
-  # to <deeplink-callback-url>/payment?orderId=... after paying.
   app-icon-url: ${BAKONG_APP_ICON_URL:https://590stcafe.shop/images/Logo.svg}
   deeplink-callback-url: ${BAKONG_DEEPLINK_CALLBACK_URL:https://590stcafe.shop/}
 
-# The shop's own pinned coordinates, so a delivery order's distance can be shown to whichever
-# admin/barista is evaluating its delivery fee (see OrderResponse.distanceMeters). Blank until
-# set — distance is simply omitted (not estimated) until an admin configures it.
 shop:
   location:
     latitude: ${SHOP_LATITUDE:}
@@ -119,34 +95,26 @@ jwt:
 
 mail:
   sender:
-    # The From address customers see. Your SMTP provider must allow sending as it (a verified
-    # domain or alias), otherwise it rewrites or rejects the message.
     address: ${MAIL_FROM:otp@590stcafe.shop}
     name: ${MAIL_FROM_NAME:590st Cafe}
     support-email: ${MAIL_SUPPORT_EMAIL:${MAIL_FROM:otp@590stcafe.shop}}
 
 app:
   auth:
-    # log-otp is intentionally not set here — see application-local.yml / application-production.yml.
     otp-expiry-minutes: ${APP_AUTH_OTP_EXPIRY_MINUTES:5}
     otp-max-attempts: ${APP_AUTH_OTP_MAX_ATTEMPTS:5}
     otp-resend-cooldown-seconds: ${APP_AUTH_OTP_RESEND_COOLDOWN_SECONDS:60}
   staff-call:
-    # How long a customer must wait between "call staff" presses.
     cooldown-seconds: ${APP_STAFF_CALL_COOLDOWN_SECONDS:30}
   super-admin:
     email: ${SUPER_ADMIN_EMAIL:}
     password: ${SUPER_ADMIN_PASSWORD:}
   cors:
-    # Browser origins allowed to call this API. The storefront and admin are separate apps on
-    # their own ports, so every request they make is cross-origin. Set CORS_ALLOWED_ORIGINS to
-    # a comma-separated list when deploying behind real hostnames.
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:3001,https://admin.590stcafe.shop}
 
 telegram:
   bot-token: ${TELEGRAM_BOT_TOKEN:}
   bot-username: ${TELEGRAM_BOT_USERNAME:}
-  # Must match @BotFather's /setdomain for this bot. Blank = frontend skips the host check.
   login-domain: ${TELEGRAM_LOGIN_DOMAIN:590stcafe.shop}
   webhook-secret: ${TELEGRAM_WEBHOOK_SECRET:}
   webhook-base-url: ${TELEGRAM_WEBHOOK_BASE_URL:}

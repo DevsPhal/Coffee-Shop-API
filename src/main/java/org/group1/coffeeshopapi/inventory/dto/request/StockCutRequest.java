@@ -7,7 +7,6 @@ import org.group1.coffeeshopapi.common.enums.StockStrategy;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-// Cuts (deducts) stock from a product's oldest (FIFO) or newest (LIFO) batches first.
 public record StockCutRequest(
         @NotNull(message = "Product is required")
         UUID productId,

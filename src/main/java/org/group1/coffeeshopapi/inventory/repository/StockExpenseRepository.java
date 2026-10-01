@@ -12,6 +12,5 @@ import java.util.UUID;
 public interface StockExpenseRepository extends JpaRepository<StockExpense, UUID> {
     Page<StockExpense> findByProductIdOrderByExpenseDateDesc(UUID productId, Pageable pageable);
 
-    // Half-open range: [start, end).
     List<StockExpense> findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(LocalDate start, LocalDate end);
 }

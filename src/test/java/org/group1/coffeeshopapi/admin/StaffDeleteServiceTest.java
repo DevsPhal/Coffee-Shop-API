@@ -24,8 +24,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Deleting staff works like deleting any user: the row stays so attendance and order history
-// keep their references, but the account can no longer log in.
 @ExtendWith(MockitoExtension.class)
 class StaffDeleteServiceTest {
 

@@ -19,6 +19,7 @@ import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.entity.Order;
+import org.group1.coffeeshopapi.order.entity.OrderAuditLog;
 import org.group1.coffeeshopapi.order.entity.OrderItem;
 import org.group1.coffeeshopapi.order.mapper.OrderAuditLogMapper;
 import org.group1.coffeeshopapi.order.mapper.OrderMapper;
@@ -54,8 +55,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Covers the cash-on-delivery/pickup flow: a cash order can start being prepared before its
-// cash is actually collected, so payment and fulfillment progress aren't the same signal.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplFulfillmentFlowTest {
 
@@ -132,7 +131,6 @@ class OrderServiceImplFulfillmentFlowTest {
         service.startPreparing(order.getId(), UUID.randomUUID());
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PREPARING);
-        // Stock was already cut back when the order reached PAID — starting prep must not cut it twice.
         verify(inventoryService, never()).stockCut(any(), any());
     }
 
@@ -326,6 +324,89 @@ class OrderServiceImplFulfillmentFlowTest {
         assertThatThrownBy(() -> service.selectCashOnPickup(order.getId(), customerId))
                 .isInstanceOf(PaymentVerificationUnavailableException.class);
         assertThat(order.getBakongMd5Hash()).isEqualTo("md5");
+    }
+
+    @Test
+    void autoConfirmMarksAPaidWalkInOrderAsPaidAndCreditsTheBarista() {
+        UUID baristaId = UUID.randomUUID();
+        Order order = pendingBakongOrder(LocalDateTime.now().plusMinutes(10));
+        order.setHandledBy(baristaId);
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bakongApiClient.checkTransactionByMd5("md5"))
+                .thenReturn(BakongTransactionCheckResult.paid("hash", new BigDecimal("10.00"), "USD", "ok"));
+
+        boolean confirmed = service.confirmBakongPaymentAutomatically(order.getId());
+
+        assertThat(confirmed).isTrue();
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getPaidAt()).isNotNull();
+        assertThat(order.getBakongTransactionHash()).isEqualTo("hash");
+        ArgumentCaptor<OrderAuditLog> audit = ArgumentCaptor.forClass(OrderAuditLog.class);
+        verify(orderAuditLogRepository).save(audit.capture());
+        assertThat(audit.getValue().getAction()).isEqualTo(OrderAuditAction.BAKONG_CONFIRMED);
+        assertThat(audit.getValue().getActorId()).isEqualTo(baristaId);
+    }
+
+    @Test
+    void autoConfirmCreditsTheCustomerForAnOnlineOrder() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        Order order = pendingBakongOrder(LocalDateTime.now().plusMinutes(10));
+        order.setCustomer(customer);
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bakongApiClient.checkTransactionByMd5("md5"))
+                .thenReturn(BakongTransactionCheckResult.paid("hash", new BigDecimal("10.00"), "USD", "ok"));
+
+        assertThat(service.confirmBakongPaymentAutomatically(order.getId())).isTrue();
+
+        ArgumentCaptor<OrderAuditLog> audit = ArgumentCaptor.forClass(OrderAuditLog.class);
+        verify(orderAuditLogRepository).save(audit.capture());
+        assertThat(audit.getValue().getActorId()).isEqualTo(customerId);
+    }
+
+    @Test
+    void autoConfirmLeavesAnUnpaidOrderPending() {
+        Order order = pendingBakongOrder(LocalDateTime.now().plusMinutes(10));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(bakongApiClient.checkTransactionByMd5("md5")).thenReturn(BakongTransactionCheckResult.notPaid("not found"));
+
+        assertThat(service.confirmBakongPaymentAutomatically(order.getId())).isFalse();
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+        verify(orderRepository, never()).save(any(Order.class));
+    }
+
+    @Test
+    void autoConfirmStopsAskingBakongOnceTheQrCanNoLongerBePaid() {
+        Order order = pendingBakongOrder(LocalDateTime.now().minusHours(2));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+
+        assertThat(service.confirmBakongPaymentAutomatically(order.getId())).isFalse();
+        verify(bakongApiClient, never()).checkTransactionByMd5(any());
+    }
+
+    @Test
+    void autoConfirmIgnoresOrdersThatAreNoLongerAwaitingBakong() {
+        Order paid = pendingBakongOrder(LocalDateTime.now().plusMinutes(10));
+        paid.setStatus(OrderStatus.PAID);
+        Order cash = pendingCashOrder();
+        when(orderRepository.findByIdForUpdate(paid.getId())).thenReturn(Optional.of(paid));
+        when(orderRepository.findByIdForUpdate(cash.getId())).thenReturn(Optional.of(cash));
+
+        assertThat(service.confirmBakongPaymentAutomatically(paid.getId())).isFalse();
+        assertThat(service.confirmBakongPaymentAutomatically(cash.getId())).isFalse();
+        verify(bakongApiClient, never()).checkTransactionByMd5(any());
+    }
+
+    private Order pendingBakongOrder(LocalDateTime expiresAt) {
+        Order order = pendingCashOrder();
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongQrString("qr");
+        order.setBakongMd5Hash("md5");
+        order.setBakongExpiresAt(expiresAt);
+        return order;
     }
 
     private Order pendingCashOrder() {

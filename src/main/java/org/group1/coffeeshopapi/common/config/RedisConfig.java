@@ -13,8 +13,6 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.connection.lettuce.LettucePoolingClientConfiguration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
-// Explicit Redis connection + pooling setup. Host/port/password/timeouts still come from
-// application.yml.
 @Configuration
 public class RedisConfig {
 

@@ -91,9 +91,7 @@ import java.util.UUID;
 @Transactional(readOnly = true)
 public class OrderServiceImpl implements OrderService {
 
-    // A QR with less time left than this is replaced rather than handed back on a reload.
     private static final long QR_REUSE_MIN_REMAINING_SECONDS = 60;
-    // How many replaced QRs to keep checking, and for how long past their own expiry.
     private static final int MAX_PREVIOUS_QRS = 5;
     private static final long PREVIOUS_QR_GRACE_SECONDS = 30 * 60;
 
@@ -117,12 +115,9 @@ public class OrderServiceImpl implements OrderService {
     private final ApplicationEventPublisher eventPublisher;
     private final ResourceChangePublisher resourceChangePublisher;
 
-    // ---------- Walk-in (POS) sales — barista or admin, ringing up their own sale ----------
-
     @Override
     @Transactional
     public OrderResponse create(StaffCreateOrderRequest request, UUID baristaId) {
-        // Always pickup — a walk-in sale has no delivery leg.
         Order order = buildOrder(new CreateOrderRequest(request.items(), request.note()));
         order.setHandledBy(baristaId);
         order = orderRepository.save(order);
@@ -216,7 +211,6 @@ public class OrderServiceImpl implements OrderService {
         order.setDeliveryFee(fee);
         order.setDeliveryFeeSetAt(LocalDateTime.now());
         recalculateTotal(order);
-        // Any existing QR now encodes the wrong total — a new one has to be generated.
         clearBakongQr(order);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.DELIVERY_FEE_SET, actorId);
@@ -229,14 +223,11 @@ public class OrderServiceImpl implements OrderService {
                 OrderStatus.PENDING, FulfillmentMethod.DELIVERY, pageable));
     }
 
-    // ---------- Fulfillment ----------
-
     @Override
     @Transactional
     public OrderResponse startPreparing(UUID id, UUID actorId) {
         Order order = findAnyForUpdate(id);
         if (order.getStatus() == OrderStatus.PENDING) {
-            // Cash orders can be made before they're paid; Bakong orders must clear first.
             if (order.getPaymentMethod() != PaymentMethod.CASH) {
                 throw new InvalidOperationException("Order is not paid (currently pending)");
             }
@@ -305,8 +296,6 @@ public class OrderServiceImpl implements OrderService {
         return toResponsePage(orderRepository.findByStatusForDeliveryBoard(OrderStatus.OUT_FOR_DELIVERY, pageable));
     }
 
-    // ---------- Customer self-service orders ----------
-
     @Override
     @Transactional
     public OrderResponse createForCustomer(CreateOrderRequest request, UUID customerId,
@@ -344,7 +333,6 @@ public class OrderServiceImpl implements OrderService {
         requireStockAvailable(order);
         requireNoBakongPaymentReceived(order);
         order.setPaymentMethod(PaymentMethod.CASH);
-        // Drop any QR so an old Bakong payment can't also be confirmed on a cash order.
         clearBakongQr(order);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.CASH_SELECTED, customerId);
@@ -364,7 +352,6 @@ public class OrderServiceImpl implements OrderService {
         if (request.contactName() != null) {
             order.setContactName(request.contactName());
         }
-        // A new location needs a new quote, and the customer picks how to pay once they see it.
         order.setDeliveryFee(BigDecimal.ZERO);
         order.setDeliveryFeeSetAt(null);
         order.setPaymentMethod(null);
@@ -396,6 +383,24 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public List<UUID> listOrdersAwaitingBakongPayment() {
+        return orderRepository.findIdsAwaitingBakongPayment(OrderStatus.PENDING, PaymentMethod.BAKONG,
+                LocalDateTime.now().minusSeconds(PREVIOUS_QR_GRACE_SECONDS));
+    }
+
+    @Override
+    @Transactional
+    public boolean confirmBakongPaymentAutomatically(UUID id) {
+        Order order = orderRepository.findByIdForUpdate(id).orElse(null);
+        if (order == null || order.getStatus() != OrderStatus.PENDING
+                || order.getPaymentMethod() != PaymentMethod.BAKONG || order.getBakongMd5Hash() == null
+                || !hasPayableBakongQr(order)) {
+            return false;
+        }
+        return confirmBakong(order, null).getStatus() != OrderStatus.PENDING;
+    }
+
+    @Override
     @Transactional
     public OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId) {
         return toResponse(confirmBakong(findByCustomerForUpdate(id, customerId), null));
@@ -410,8 +415,6 @@ public class OrderServiceImpl implements OrderService {
         recordChange(order, OrderAuditAction.CANCELLED, customerId);
         return toResponse(order);
     }
-
-    // ---------- Admin ----------
 
     @Override
     public OrderResponse getAny(UUID id) {
@@ -449,7 +452,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public List<OrderAuditLogResponse> getHistory(UUID orderId) {
-        findAny(orderId); // 404s if the order doesn't exist
+        findAny(orderId);
         List<OrderAuditLog> logs = orderAuditLogRepository.findByOrderIdOrderByCreatedAtAsc(orderId);
 
         Set<UUID> actorIds = new HashSet<>();
@@ -462,8 +465,6 @@ public class OrderServiceImpl implements OrderService {
                 .map(log -> orderAuditLogMapper.toResponse(log, actors.get(log.getActorId())))
                 .toList();
     }
-
-    // ---------- Shared logic ----------
 
     private Order buildOrder(CreateOrderRequest request) {
         Order order = new Order();
@@ -521,8 +522,6 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // Checked when the order is placed and again right before payment starts, so a customer is
-    // never charged for something already sold out. Lines of the same product are summed.
     private void requireStockAvailable(Order order) {
         Map<UUID, BigDecimal> neededByProduct = new LinkedHashMap<>();
         for (OrderItem item : order.getItems()) {
@@ -532,7 +531,6 @@ public class OrderServiceImpl implements OrderService {
         neededByProduct.forEach(inventoryService::requireAvailable);
     }
 
-    // Null delivery means "not given" — the order stays pickup, the default.
     private void applyFulfillmentDetails(Order order, CheckoutDetailsRequest delivery) {
         if (delivery == null) {
             return;
@@ -543,8 +541,6 @@ public class OrderServiceImpl implements OrderService {
         order.setDeliveryAddress(delivery.address());
     }
 
-    // Resolves a size by variantId or variantName (case-insensitive) — variantId wins if both are
-    // given. Returns null if neither was given, so the caller can auto-resolve instead.
     private ProductVariant resolveExplicitVariant(Product product, OrderItemRequest itemRequest) {
         if (itemRequest.variantId() != null) {
             return requireActiveVariant(variantRepository
@@ -584,7 +580,6 @@ public class OrderServiceImpl implements OrderService {
         return ProductExtraResolver.resolve(product, extraIds, attached);
     }
 
-    // The one place totalAmount is computed, so it's always item subtotals plus delivery fee.
     private void recalculateTotal(Order order) {
         BigDecimal itemsTotal = order.getItemsTotal();
         BigDecimal deliveryFee = order.getDeliveryFee() != null ? order.getDeliveryFee() : BigDecimal.ZERO;
@@ -599,8 +594,6 @@ public class OrderServiceImpl implements OrderService {
             throw new InvalidOperationException("Amount tendered is less than the order total");
         }
         BigDecimal changeDueUsd = tenderedInUsd.subtract(order.getTotalAmount());
-        // Defaults to whatever currency was tendered, so USD in gives USD change back — but the
-        // customer can ask for the other currency instead.
         Currency changeCurrency = request.changeCurrency() != null ? request.changeCurrency() : request.currency();
 
         order.setHandledBy(fulfillingActorId);
@@ -615,7 +608,6 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // Totals are always in USD, so a KHR cash payment has to be converted back for comparison.
     private BigDecimal khrToUsd(BigDecimal khrAmount) {
         BigDecimal rate = bakongExchangeRateService.getCurrentRate();
         if (rate == null || rate.signum() <= 0) {
@@ -624,7 +616,6 @@ public class OrderServiceImpl implements OrderService {
         return khrAmount.divide(rate, 2, RoundingMode.HALF_UP);
     }
 
-    // KHR has no minor unit, so change given back in KHR is rounded to a whole number.
     private BigDecimal usdToKhr(BigDecimal usdAmount) {
         BigDecimal rate = bakongExchangeRateService.getCurrentRate();
         if (rate == null || rate.signum() <= 0) {
@@ -637,8 +628,6 @@ public class OrderServiceImpl implements OrderService {
         requireDeliveryFeeQuoted(order);
         requireStockAvailable(order);
 
-        // A reload, or coming back from a banking app, asks for the QR again. Hand back the one
-        // the customer may already be paying rather than replacing it.
         Currency wanted = currency != null ? currency : bakongProperties.getCurrency();
         LocalDateTime now = LocalDateTime.now();
         if (order.getPaymentMethod() == PaymentMethod.BAKONG
@@ -671,14 +660,11 @@ public class OrderServiceImpl implements OrderService {
                 expiresAt, expiresInSeconds);
     }
 
-    // performedBy is null for a customer's own confirm — the stock cut then falls back to the
-    // Super Admin's id, since stock movements always need a staff actor.
     private Order confirmBakong(Order order, UUID performedBy) {
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new InvalidOperationException("Order has been cancelled");
         }
         if (order.getStatus() != OrderStatus.PENDING) {
-            // Already paid — treat a repeat confirm as a no-op.
             return order;
         }
         if (order.getPaymentMethod() != PaymentMethod.BAKONG || order.getBakongMd5Hash() == null) {
@@ -687,13 +673,10 @@ public class OrderServiceImpl implements OrderService {
 
         String paidMd5 = order.getBakongMd5Hash();
         BakongTransactionCheckResult result = bakongApiClient.checkTransactionByMd5(paidMd5);
-        // Couldn't ask Bakong at all — say so rather than report "not paid" for a payment that
-        // may well have arrived. The previous hashes would fail the same way, so skip them.
         if (result.failed()) {
             throw new PaymentVerificationUnavailableException(
                     result.message() != null ? result.message() : "Could not verify the payment with Bakong.");
         }
-        // Not the current QR — the customer may have paid one this order replaced.
         if (!result.paid()) {
             for (String md5 : payablePreviousMd5Hashes(order)) {
                 BakongTransactionCheckResult previous = bakongApiClient.checkTransactionByMd5(md5);
@@ -706,7 +689,6 @@ public class OrderServiceImpl implements OrderService {
         }
         if (result.paid()) {
             if (!paidMd5.equals(order.getBakongMd5Hash())) {
-                // Record what was actually paid, not the QR that replaced it.
                 order.setBakongMd5Hash(paidMd5);
                 if (result.amount() != null) {
                     order.setBakongAmount(result.amount());
@@ -715,7 +697,6 @@ public class OrderServiceImpl implements OrderService {
                     try {
                         order.setBakongCurrency(Currency.valueOf(result.currency().trim().toUpperCase()));
                     } catch (IllegalArgumentException ignored) {
-                        // Leave the stored currency; the amount and transaction hash still stand.
                     }
                 }
             }
@@ -725,8 +706,10 @@ public class OrderServiceImpl implements OrderService {
             }
             UUID customerId = order.getCustomer() != null ? order.getCustomer().getId() : null;
             UUID stockActorId = performedBy != null ? performedBy : SuperAdminUserDetails.ID;
-            UUID auditActorId = performedBy != null ? performedBy : customerId;
-            // The money has already arrived, so a stock shortfall must not block recording it.
+            UUID auditActorId = performedBy != null ? performedBy
+                    : customerId != null ? customerId
+                    : order.getHandledBy() != null ? order.getHandledBy()
+                    : SuperAdminUserDetails.ID;
             markPaid(order, stockActorId, true);
             order = orderRepository.save(order);
             recordChange(order, OrderAuditAction.BAKONG_CONFIRMED, auditActorId);
@@ -734,8 +717,12 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // Keeps the hash of the QR about to be replaced while it can still be paid. Capped, since
-    // every one of these costs a Bakong call on each confirm.
+    private boolean hasPayableBakongQr(Order order) {
+        LocalDateTime payableSince = LocalDateTime.now().minusSeconds(PREVIOUS_QR_GRACE_SECONDS);
+        boolean currentPayable = order.getBakongExpiresAt() != null && !order.getBakongExpiresAt().isBefore(payableSince);
+        return currentPayable || !payablePreviousMd5Hashes(order).isEmpty();
+    }
+
     private void rememberReplacedQr(Order order) {
         if (order.getBakongMd5Hash() == null || order.getBakongExpiresAt() == null) {
             return;
@@ -754,8 +741,6 @@ public class OrderServiceImpl implements OrderService {
         order.setBakongPreviousMd5Hashes(String.join(" ", entries));
     }
 
-    // Replaced QRs whose own expiry (plus a grace period for a transfer sent at the last second
-    // to settle) hasn't passed — older ones can no longer be paid, so there's nothing to ask.
     private List<String> payablePreviousMd5Hashes(Order order) {
         List<String> hashes = new ArrayList<>();
         for (String entry : previousQrEntries(order)) {
@@ -785,8 +770,6 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    // Always stamps paidAt and sends the invoice. Only cuts stock and moves to PAID if that
-    // hasn't already happened — a cash order already PREPARING had its stock cut back then.
     private void markPaid(Order order, UUID stockActorId, boolean moneyAlreadyReceived) {
         if (order.getStatus() == OrderStatus.PENDING) {
             cutStockForOrder(order, stockActorId, moneyAlreadyReceived);
@@ -799,7 +782,6 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    // capToAvailable cuts whatever is on hand instead of failing on a shortfall.
     private void cutStockForOrder(Order order, UUID stockActorId, boolean capToAvailable) {
         for (OrderItem item : order.getItems()) {
             StockCutRequest cut = new StockCutRequest(
@@ -818,8 +800,6 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    // Untracked (null quantityOnHand) extras are left alone; a tracked one is floored at zero.
-    // A bulk update skips entity listeners, so the live update is recorded here.
     private void deductExtraStock(Extra extra, int quantitySold) {
         if (extra.getQuantityOnHand() == null) {
             return;
@@ -844,8 +824,6 @@ public class OrderServiceImpl implements OrderService {
         return requireStatus(order, OrderStatus.PENDING);
     }
 
-    // Looser than requirePending — a cash order can be paid any time before handover, not just
-    // while still PENDING. Checks paidAt, the real source of truth, rather than status.
     private Order requireUnpaid(Order order) {
         if (order.getPaidAt() != null) {
             throw new InvalidOperationException("Payment has already been collected for this order");
@@ -857,8 +835,6 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // A delivery order's total isn't final until staff quotes the fee, so nothing can be paid or
-    // prepared before then.
     private Order requireDeliveryFeeQuoted(Order order) {
         if (order.isAwaitingDeliveryFee()) {
             throw new InvalidOperationException(
@@ -867,8 +843,6 @@ public class OrderServiceImpl implements OrderService {
         return order;
     }
 
-    // A delivery order needs a GPS pin (for distance and the fee) plus an address and phone for
-    // the courier. A pin alone also means delivery.
     private void requireConsistentDelivery(Order order) {
         if (order.getDeliveryLatitude() != null) {
             order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
@@ -887,7 +861,6 @@ public class OrderServiceImpl implements OrderService {
         }
     }
 
-    // A cash order that was prepared unpaid must still be paid before it's marked done.
     private void requirePaymentSettled(Order order) {
         if (order.getPaidAt() == null) {
             throw new InvalidOperationException("Collect payment for this order before completing it");
@@ -907,8 +880,6 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
     }
 
-    // Row-locked lookups for anything that changes an order, so two people acting on the same
-    // order at once (e.g. two baristas, or a customer and staff) run one after the other.
     private Order findAnyForUpdate(UUID id) {
         return orderRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
@@ -924,15 +895,12 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + id));
     }
 
-    // The storefront's payment page for this order, so the Bakong app returns there after paying.
     private String paymentPageUrl(Order order) {
         String site = bakongProperties.getDeeplinkCallbackUrl();
         String base = site.endsWith("/") ? site.substring(0, site.length() - 1) : site;
         return base + "/payment?orderId=" + order.getId();
     }
 
-    // Clearing a QR drops the record needed to confirm it, so first make sure none of this
-    // order's QRs was already paid. If one was, the normal confirm step records it.
     private void requireNoBakongPaymentReceived(Order order) {
         List<String> hashes = new ArrayList<>();
         if (order.getBakongMd5Hash() != null) {
@@ -974,7 +942,6 @@ public class OrderServiceImpl implements OrderService {
         return id != null ? customerRepository.getReferenceById(id) : null;
     }
 
-    // Audits the change and queues a live update, sent once the transaction commits.
     private void recordChange(Order order, OrderAuditAction action, UUID actorId) {
         OrderAuditLog log = new OrderAuditLog();
         log.setOrder(order);
@@ -982,7 +949,6 @@ public class OrderServiceImpl implements OrderService {
         log.setActorId(actorId);
         orderAuditLogRepository.save(log);
 
-        // Flush so updatedAt in the pushed order reflects this change.
         orderRepository.flush();
         String customerEmail = order.getCustomer() != null ? order.getCustomer().getEmail() : null;
         eventPublisher.publishEvent(new OrderChangedEvent(action, toResponse(order), customerEmail));

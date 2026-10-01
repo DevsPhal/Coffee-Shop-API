@@ -30,8 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-// Open calls and the cooldown live in Redis: they're short-lived and shared across app instances.
-// The audit log keeps the permanent record of who called and who answered.
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -56,7 +54,6 @@ public class StaffCallServiceImpl implements StaffCallService {
                     "This order is already " + order.getStatus().name().toLowerCase() + " — staff can't be called for it");
         }
 
-        // SET NX is atomic, so a double-tap can't get two calls through.
         String cooldownKey = RedisKeys.STAFF_CALL_COOLDOWN_PREFIX + customerId;
         Boolean allowed = redisTemplate.opsForValue()
                 .setIfAbsent(cooldownKey, orderId.toString(), Duration.ofSeconds(cooldownSeconds));
@@ -68,8 +65,6 @@ public class StaffCallServiceImpl implements StaffCallService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        // Calling again before anyone answers keeps the original time, so staff see how long
-        // the customer has really been waiting.
         redisTemplate.opsForHash().putIfAbsent(RedisKeys.STAFF_CALL_OPEN, orderId.toString(), now.toString());
         LocalDateTime calledAt = openCallTime(orderId, now);
 
@@ -87,7 +82,6 @@ public class StaffCallServiceImpl implements StaffCallService {
 
         List<StaffCallResponse> open = new ArrayList<>();
         for (Order order : orderRepository.findAllById(calledAtById.keySet())) {
-            // A call on an order that has since finished is no longer anyone's job.
             if (order.getStatus().isFinished()) {
                 redisTemplate.opsForHash().delete(RedisKeys.STAFF_CALL_OPEN, order.getId().toString());
                 continue;
@@ -104,7 +98,6 @@ public class StaffCallServiceImpl implements StaffCallService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
         LocalDateTime calledAt = openCallTime(orderId, null);
-        // HDEL is atomic, so when two staff members tap at once only one of them answers.
         Long removed = redisTemplate.opsForHash().delete(RedisKeys.STAFF_CALL_OPEN, orderId.toString());
         if (removed == null || removed == 0) {
             throw new InvalidOperationException("No open call for this order — someone may have answered it already");

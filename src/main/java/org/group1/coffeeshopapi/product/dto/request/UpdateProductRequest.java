@@ -12,7 +12,6 @@ import java.util.UUID;
 public record UpdateProductRequest(
         @Size(max = 255, message = "Name must not exceed 255 characters")
         String name,
-        // Khmer translation of the name — optional.
         @Size(max = 255, message = "Khmer name must not exceed 255 characters")
         String nameKh,
         @Size(max = 255, message = "Description must not exceed 255 characters")

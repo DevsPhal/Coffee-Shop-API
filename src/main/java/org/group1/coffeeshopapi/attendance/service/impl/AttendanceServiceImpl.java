@@ -155,7 +155,7 @@ public class AttendanceServiceImpl implements AttendanceService {
 
     @Override
     public List<AttendanceAuditLogResponse> getHistory(UUID id) {
-        findById(id); // 404s if the record doesn't exist
+        findById(id);
         List<AttendanceAuditLog> logs = attendanceAuditLogRepository.findByAttendanceIdOrderByCreatedAtAsc(id);
 
         Set<UUID> actorIds = new HashSet<>();
@@ -183,7 +183,6 @@ public class AttendanceServiceImpl implements AttendanceService {
         if (checkIn == null) {
             throw new InvalidOperationException("Check-in time is required");
         }
-        // Attendance records what already happened, so neither time may be in the future.
         if (checkIn.isAfter(now)) {
             throw new InvalidOperationException(
                     "Check-in time cannot be in the future — the shift has not started yet");

@@ -11,9 +11,6 @@ spring:
     show-sql: false
     open-in-view: false
 
-# Stub values for placeholders that application.yml requires with no default
-# (${MAIL_HOST} etc.) — the test profile never sends real mail or issues real
-# JWTs, so these just need to exist for the context to start.
 MAIL_HOST: localhost
 MAIL_PORT: 3025
 MAIL_USERNAME: test@example.com

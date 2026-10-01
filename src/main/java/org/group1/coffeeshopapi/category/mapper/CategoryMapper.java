@@ -19,6 +19,5 @@ public interface CategoryMapper {
     @Mapping(target = "updatedByRole", source = "category.updatedByAdmin.role")
     CategoryResponse toResponse(Category category);
 
-    // Strips staff audit identities before a category reaches a customer.
     CustomerCategoryResponse toCustomerResponse(CategoryResponse response);
 }

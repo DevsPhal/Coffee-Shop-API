@@ -5,12 +5,11 @@ public class SecurityConstants {
 
     public static final String JWT_HEADER = "Authorization";
     public static final String JWT_PREFIX = "Bearer ";
-    public static final long JWT_EXPIRATION_MS = 86_400_000L;      // 1 day
-    public static final long REFRESH_EXPIRATION_MS = 604_800_000L; // 7 days
+    public static final long JWT_EXPIRATION_MS = 86_400_000L;
+    public static final long REFRESH_EXPIRATION_MS = 604_800_000L;
 
     public static final String TELEGRAM_WEBHOOK_PATH = "/api/telegram/webhook";
 
-    // Storefront reads a guest can see before logging in. GET only; cart and orders stay under /api/customer/**.
     public static final String[] PUBLIC_READ_ENDPOINTS = {
             "/api/banners/**",
             "/api/events/**",
@@ -21,7 +20,6 @@ public class SecurityConstants {
     public static final String[] PUBLIC_ENDPOINTS = {
             "/api/auth/**",
             TELEGRAM_WEBHOOK_PATH,
-            // WebSocket handshake — the JWT is checked on the STOMP CONNECT frame instead.
             "/ws/**",
             "/swagger-ui.html",
             "/swagger-ui/**",
@@ -31,8 +29,6 @@ public class SecurityConstants {
             "/verify",
             "/css/**",
             "/js/**",
-            // Manual Telegram Login Widget test page (src/main/resources/static) — served at the
-            // root context path like any other static resource, not under /css or /js above.
             "/telegramWidget.html"
     };
 }

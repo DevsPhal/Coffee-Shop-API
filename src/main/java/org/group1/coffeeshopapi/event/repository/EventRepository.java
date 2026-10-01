@@ -10,12 +10,9 @@ import java.util.UUID;
 
 public interface EventRepository extends JpaRepository<Event, UUID> {
 
-    // The customer-facing /events list: still-relevant events (hasn't ended yet), soonest first.
     List<Event> findByStatusAndEndAtAfterOrderByStartAtAsc(Status status, LocalDateTime now);
 
-    // Backs the 24h-before reminder scan — events whose startAt falls in the scheduler's lookahead window.
     List<Event> findByStatusAndStartAtBetween(Status status, LocalDateTime start, LocalDateTime end);
 
-    // Backs EventExpiryScheduler — still-ACTIVE events whose endAt has already passed.
     List<Event> findByStatusAndEndAtBefore(Status status, LocalDateTime now);
 }

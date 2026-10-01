@@ -12,8 +12,6 @@ public record CreateCategoryRequest(
         @Size(max = 255, message = "Description must not exceed 255 characters")
         String description,
 
-        // Which customizations products in this category accept. Leave null for an internal
-        // category customers never order from directly.
         CategoryGroup categoryGroup
 ) {
 }

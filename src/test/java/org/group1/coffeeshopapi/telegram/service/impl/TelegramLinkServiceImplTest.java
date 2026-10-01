@@ -29,8 +29,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Covers the Telegram account-linking security checks: contact-card spoofing rejection and
-// phone-number matching for a staff invite.
 @ExtendWith(MockitoExtension.class)
 class TelegramLinkServiceImplTest {
 
@@ -61,12 +59,9 @@ class TelegramLinkServiceImplTest {
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(valueOperations.get(RedisKeys.TELEGRAM_PENDING_CONTACT_PREFIX + CHAT_ID)).thenReturn(userId.toString());
 
-        // The card's own userId (111) doesn't match whoever actually sent it (999) — a forwarded
-        // contact, not the tapper's own.
         String result = service.verifyPendingContact(CHAT_ID, contact("85512345678", 111L), 999L);
 
         assertThat(result).contains("your own phone number");
-        // The pending key is left in place so they can immediately retry with their own card.
         verify(redisTemplate, never()).delete(RedisKeys.TELEGRAM_PENDING_CONTACT_PREFIX + CHAT_ID);
         verify(userRepository, never()).findById(any());
     }

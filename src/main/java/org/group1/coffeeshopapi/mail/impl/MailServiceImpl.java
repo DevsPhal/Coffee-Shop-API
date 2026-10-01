@@ -19,7 +19,6 @@ import org.thymeleaf.context.Context;
 @RequiredArgsConstructor
 public class MailServiceImpl implements MailService {
 
-    // Embedded inline so the logo shows up without needing a public URL.
     private static final String LOGO_CONTENT_ID = "logo";
     private static final String LOGO_CLASSPATH_LOCATION = "templates/email/images/590stCafeLogo.jpeg";
 
@@ -27,8 +26,6 @@ public class MailServiceImpl implements MailService {
     private final TemplateEngine templateEngine;
     private final MailSenderProperties senderProperties;
 
-    // Synchronous on purpose, so a failed send surfaces as a real error instead of a false
-    // "check your email".
     @Override
     public void sendOtpEmail(String to, String fullName, String otp, int expiryMinutes, String purposeLabel,
                               String telegramDeepLink) {
@@ -67,11 +64,9 @@ public class MailServiceImpl implements MailService {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
-            // Shows as "590st Cafe <otp@590stcafe.shop>"; replies go to the support address.
             helper.setFrom(senderProperties.getAddress(), senderProperties.getName());
             helper.setReplyTo(senderProperties.getSupportEmail());
             helper.setSubject(purposeLabel + " Verification Code");
-            // Let the email client choose HTML or plain text; both contain the same code.
             helper.setText(plainText, html);
             if (logoAvailable) {
                 helper.addInline(LOGO_CONTENT_ID, logo);

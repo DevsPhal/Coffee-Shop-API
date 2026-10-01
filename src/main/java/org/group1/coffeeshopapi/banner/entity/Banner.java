@@ -14,7 +14,6 @@ import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
 
-// A promotional image shown on the storefront landing page, ordered by sortOrder ascending.
 @Getter
 @Setter
 @Entity
@@ -27,7 +26,6 @@ public class Banner extends BaseEntity {
     @Column
     private String imageUrl;
 
-    // Where tapping the banner should take the customer (a product/category path, or an external URL).
     @Column
     private String linkUrl;
 
@@ -38,7 +36,6 @@ public class Banner extends BaseEntity {
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
 
-    // Who created this banner — null if it was the Super Admin.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "admin_id")
     private Admin admin;

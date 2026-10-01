@@ -6,8 +6,6 @@ import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-// Admin-only: backfills a shift a barista forgot to punch (or punched outside the app entirely).
-// checkOutAt may be left null to record an open (still ongoing) shift.
 public record CreateAttendanceRequest(
         @NotNull(message = "Barista is required")
         UUID baristaId,

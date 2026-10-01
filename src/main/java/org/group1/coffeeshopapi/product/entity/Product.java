@@ -34,7 +34,6 @@ public class Product extends BaseEntity {
     @Column(nullable = false)
     private String name;
 
-    // Khmer translation of the name, shown alongside the English name — optional.
     @Column
     private String nameKh;
 
@@ -47,21 +46,16 @@ public class Product extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String sku;
 
-    // Unit a stock batch is bought/counted in, e.g. a PACK or CARTON of the sell unit below.
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StockUnit stockUnit;
 
-    // Unit a single sale is rung up in, e.g. a CUP or PLATE — what the customer actually orders.
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private SellUnit sellUnit;
 
-    // How many sell units one stock unit yields, e.g. a CARTON of 24 CANs -> 24.
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal unitsPerStock = BigDecimal.ONE;
-
-    // A product has no price of its own — every price comes from one of its variants.
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "category_id", nullable = false)
@@ -71,7 +65,6 @@ public class Product extends BaseEntity {
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
 
-    // Discount is optional and admin-set; null discountType means "no discount configured".
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private DiscountType discountType;
@@ -85,7 +78,6 @@ public class Product extends BaseEntity {
     @Column
     private LocalDateTime discountEndAt;
 
-    // Which admin created or last modified this product — null if it was the Super Admin.
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private Admin createdByAdmin;
@@ -104,8 +96,6 @@ public class Product extends BaseEntity {
         return discountEndAt == null || !at.isAfter(discountEndAt);
     }
 
-    // Rounded to cents, so line totals, the order total and the Bakong QR amount all match what
-    // the database stores (scale 2).
     public BigDecimal getFinalPrice(BigDecimal basePrice, LocalDateTime at) {
         if (!isDiscountActive(at)) {
             return basePrice.setScale(2, RoundingMode.HALF_UP);
@@ -118,15 +108,12 @@ public class Product extends BaseEntity {
         return discounted.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     }
 
-    // Stock is counted in stock units (e.g. CARTONs), sales in sell units (e.g. CANs), so selling
-    // 1 CAN of a 24-CAN carton uses 1/24 of a carton. Stock is stored to 3 decimals.
     public BigDecimal toStockQuantity(int sellQuantity) {
         BigDecimal perStock = unitsPerStock != null && unitsPerStock.signum() > 0 ? unitsPerStock : BigDecimal.ONE;
         return BigDecimal.valueOf(sellQuantity).divide(perStock, 3, RoundingMode.HALF_UP)
                 .max(new BigDecimal("0.001"));
     }
 
-    // Sellable only while both the product and its category are active.
     public boolean isAvailableForSale() {
         return status == Status.ACTIVE && category != null && category.getStatus() == Status.ACTIVE;
     }

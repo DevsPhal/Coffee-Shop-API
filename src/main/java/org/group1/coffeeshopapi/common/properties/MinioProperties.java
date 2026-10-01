@@ -10,10 +10,8 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 @ConfigurationProperties(prefix = "minio")
 public class MinioProperties {
-    // Internal endpoint the backend uses to talk to MinIO.
     private String endpoint;
 
-    // Endpoint embedded in URLs handed back to clients; falls back to endpoint when unset.
     private String publicEndpoint;
 
     private String accessKey;

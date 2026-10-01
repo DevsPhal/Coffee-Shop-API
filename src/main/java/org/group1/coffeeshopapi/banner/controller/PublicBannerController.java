@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
-// No auth required — the storefront landing page loads this before a visitor logs in.
 @RestController
 @RequestMapping("/api/banners")
 @RequiredArgsConstructor

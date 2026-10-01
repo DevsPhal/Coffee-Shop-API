@@ -12,12 +12,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-// Customer-facing menu view of a product — leaves out internal fields like inventory counts and
-// staff audit info that only the admin catalog needs.
 public record CustomerProductResponse(
         UUID id,
         String name,
-        // Khmer translation of the name — null if none was set.
         String nameKh,
         String description,
         String imageUrl,
@@ -35,8 +32,6 @@ public record CustomerProductResponse(
         LocalDateTime discountEndAt,
         boolean discountActive,
         List<ProductVariantResponse> variants,
-        // Extras (e.g. Pearl) this product offers — the customer chooses to add or not add each
-        // one when ordering.
         List<ProductExtraResponse> extras
 ) {
 }

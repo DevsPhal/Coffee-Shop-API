@@ -10,13 +10,11 @@ import org.group1.coffeeshopapi.common.enums.StockUnit;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-// No price here — add one or more variants after creating the product.
 public record CreateProductRequest(
         @NotBlank(message = "Product name is required")
         @Size(max = 255, message = "Name must not exceed 255 characters")
         String name,
 
-        // Khmer translation of the name — optional.
         @Size(max = 255, message = "Khmer name must not exceed 255 characters")
         String nameKh,
 

@@ -17,7 +17,6 @@ public interface BannerMapper {
     @Mapping(target = "updatedByAdminRole", source = "banner.updatedByAdmin.role")
     BannerResponse toResponse(Banner banner);
 
-    // Public listing — hides staff names/roles from anonymous visitors.
     @Mapping(target = "id", source = "banner.id")
     @Mapping(target = "adminId", source = "banner.admin.id")
     @Mapping(target = "adminName", ignore = true)

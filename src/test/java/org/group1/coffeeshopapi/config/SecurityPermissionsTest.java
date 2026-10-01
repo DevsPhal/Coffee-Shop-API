@@ -29,7 +29,6 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Exercises the production filter chain; the probe isolates authorization from business validation. */
 @WebMvcTest
 @ContextConfiguration(classes = SecurityPermissionsTest.ProbeController.class)
 @Import({SecurityConfig.class, JwtAuthFilter.class, RestAccessDeniedHandler.class, RestAuthenticationEntryPoint.class, CorsProperties.class})

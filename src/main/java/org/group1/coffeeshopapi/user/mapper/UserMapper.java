@@ -31,16 +31,12 @@ public class UserMapper {
         } else if (user instanceof Barista barista) {
             createdBy = idOf(barista.getCreatedByAdmin());
         }
-        // Resolved by id, never by walking the lazy creator relation: /me maps the user the JWT
-        // filter loaded, whose session is already closed, so touching the creator's fields there
-        // threw LazyInitializationException and failed /me for every admin-created barista.
         ActorSummary createdByActor = actorLookupService.resolve(createdBy);
         if (createdByActor != null) {
             createdByName = createdByActor.name();
             createdByRole = createdByActor.role();
         }
 
-        // A Telegram-invited account has no real email — just an internal placeholder — so hide it.
         String email = user.getRegisterType() == RegisterType.TELEGRAM ? null : user.getEmail();
 
         return UserResponse.builder()
@@ -61,7 +57,6 @@ public class UserMapper {
                 .build();
     }
 
-    // A lazy proxy knows its id without loading the row (and without an open session).
     private static UUID idOf(Admin admin) {
         if (admin == null) {
             return null;

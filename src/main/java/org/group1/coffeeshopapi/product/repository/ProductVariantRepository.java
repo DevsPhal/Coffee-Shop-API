@@ -13,7 +13,6 @@ public interface ProductVariantRepository extends JpaRepository<ProductVariant, 
     List<ProductVariant> findByProductIdOrderBySortOrderAscNameAsc(UUID productId);
     List<ProductVariant> findByProductIdAndStatusOrderBySortOrderAscNameAsc(UUID productId, Status status);
 
-    // Batches the customer-facing menu list's variants across a whole page of products.
     List<ProductVariant> findByProductIdInAndStatusOrderBySortOrderAscNameAsc(List<UUID> productIds, Status status);
 
     List<ProductVariant> findByProductIdInOrderBySortOrderAscNameAsc(List<UUID> productIds);

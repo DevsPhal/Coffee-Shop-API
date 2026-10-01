@@ -16,15 +16,12 @@ import org.group1.coffeeshopapi.user.entity.Customer;
 import java.util.ArrayList;
 import java.util.List;
 
-// One active cart per customer. Line items carry no price snapshot — prices are computed live
-// from the product (via getFinalPrice) until checkout, where an Order/OrderItem takes the snapshot.
 @Getter
 @Setter
 @Entity
 @Table(name = "carts", uniqueConstraints = @UniqueConstraint(name = "uk_carts_customer_id", columnNames = "customer_id"))
 public class Cart extends BaseEntity {
 
-    // Always a real Customer — carts are customer-only, never touched by staff.
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_id", nullable = false)
     private Customer customer;

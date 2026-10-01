@@ -13,8 +13,6 @@ import org.group1.coffeeshopapi.product.entity.Product;
 
 import java.math.BigDecimal;
 
-// One stock receipt ("lot") for a product. remainingQuantity is drawn down as stock is cut, oldest
-// batch first under FIFO or newest first under LIFO.
 @Getter
 @Setter
 @Entity

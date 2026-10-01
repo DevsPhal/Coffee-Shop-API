@@ -17,7 +17,6 @@ import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
-// Marks one Extra (e.g. "Pearl") as offered on one Product (e.g. "Green Tea").
 @Getter
 @Setter
 @Entity

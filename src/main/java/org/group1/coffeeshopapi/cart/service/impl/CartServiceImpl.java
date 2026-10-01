@@ -76,7 +76,6 @@ public class CartServiceImpl implements CartService {
         if (!product.isAvailableForSale()) {
             throw new InvalidOperationException("Product '" + product.getName() + "' is not available");
         }
-        // A customer with a stale product page open shouldn't be able to add something sold out.
         BigDecimal stockOnHand = inventoryRepository.findByProductId(product.getId())
                 .map(Inventory::getQuantityOnHand)
                 .orElse(BigDecimal.ZERO);
@@ -130,7 +129,6 @@ public class CartServiceImpl implements CartService {
         if (request.extraIds() != null) {
             item.setExtraSelection(resolveExtras(item.getProduct(), request.extraIds()));
         }
-        // Validate against what the caller actually asked to change, not the item's stored state.
         ProductVariantPolicy.validate(item.getProduct(), request.variantId(), request.sugarLevel(),
                 request.iceLevel(), request.milkType());
         return toResponse(cartRepository.save(cart));
@@ -161,8 +159,6 @@ public class CartServiceImpl implements CartService {
             throw new InvalidOperationException("Cart is empty");
         }
 
-        // Only forward the variant id where the product actually allows picking a size — a
-        // SNACK-type product has one auto-resolved internally, but never let the customer choose.
         List<OrderItemRequest> items = cart.getItems().stream()
                 .map(item -> new OrderItemRequest(item.getProduct().getId(), item.getQuantity(),
                         ProductVariantPolicy.allowsSizeChoice(item.getProduct()) && item.getVariant() != null
@@ -194,7 +190,6 @@ public class CartServiceImpl implements CartService {
         return variant;
     }
 
-    // Explicit choice, or the product's one active option if it only has one.
     private ProductVariant resolveEffectiveVariant(Product product, UUID variantId) {
         if (variantId != null) {
             return resolveVariant(product.getId(), variantId);
@@ -251,9 +246,6 @@ public class CartServiceImpl implements CartService {
         for (CartItem item : cart.getItems()) {
             Product product = item.getProduct();
             ProductVariant variant = item.getVariant();
-            // Every current addItem/updateItem path resolves a variant or rejects the request, so
-            // this shouldn't happen — but a null one can't be priced, so skip it rather than 500
-            // the customer's whole cart over one stale row.
             if (variant == null) {
                 log.error("Cart item {} on cart {} has no variant — skipping from response", item.getId(), cart.getId());
                 continue;

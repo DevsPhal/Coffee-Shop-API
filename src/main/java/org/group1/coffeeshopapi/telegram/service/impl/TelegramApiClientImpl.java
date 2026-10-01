@@ -15,7 +15,6 @@ import java.util.Map;
 @Service
 public class TelegramApiClientImpl implements TelegramApiClient {
 
-    // One button per command. callback_data is the command's own name.
     private static final Map<String, Object> QUICK_ACTIONS_KEYBOARD = Map.of("inline_keyboard", List.of(
             List.of(button("🛒 Menu", "/menu"), button("🗂 Categories", "/categories")),
             List.of(button("🔥 Discounts", "/discounts"), button("🎉 Events", "/events")),
@@ -114,7 +113,6 @@ public class TelegramApiClientImpl implements TelegramApiClient {
                     .body(Map.of(
                             "url", properties.fullWebhookUrl(),
                             "secret_token", properties.getWebhookSecret(),
-                            // Without "callback_query" here, Telegram won't forward button taps at all.
                             "allowed_updates", List.of("message", "callback_query")))
                     .retrieve()
                     .toBodilessEntity();

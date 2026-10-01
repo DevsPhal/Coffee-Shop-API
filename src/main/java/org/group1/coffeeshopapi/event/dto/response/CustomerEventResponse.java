@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-// Public view of an event — excludes staff identity. Anyone can see it, linked account or not.
 public record CustomerEventResponse(
         UUID id,
         String title,

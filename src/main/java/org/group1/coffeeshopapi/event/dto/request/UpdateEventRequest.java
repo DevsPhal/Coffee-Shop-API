@@ -8,7 +8,6 @@ import org.group1.coffeeshopapi.common.enums.Status;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// latitude/longitude must be given together, or omitted to leave the venue pin unchanged.
 public record UpdateEventRequest(
         @Size(max = 255, message = "Title must not exceed 255 characters")
         String title,

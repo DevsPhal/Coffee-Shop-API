@@ -92,7 +92,6 @@ public class ProductServiceImpl implements ProductService {
         product.setUpdatedByAdmin(actorAdmin);
         product = productRepository.save(product);
 
-        // Every product gets its own inventory record right away.
         Inventory inventory = new Inventory();
         inventory.setProduct(product);
         inventory.setQuantityOnHand(BigDecimal.ZERO);
@@ -126,7 +125,6 @@ public class ProductServiceImpl implements ProductService {
         return toResponsePage(products, false);
     }
 
-    // Customer-facing: only shows products that are actually in stock.
     @Override
     public Page<ProductResponse> listActive(UUID categoryId, Pageable pageable) {
         Page<Product> products = categoryId != null
@@ -193,7 +191,6 @@ public class ProductServiceImpl implements ProductService {
         String imageUrl = product.getImageUrl();
         inventoryRepository.delete(inventory);
         productRepository.delete(product);
-        // Flush first so a blocked delete (still referenced by orders) keeps its image.
         productRepository.flush();
         if (imageUrl != null) {
             fileStorageService.delete(imageUrl);
@@ -284,15 +281,6 @@ public class ProductServiceImpl implements ProductService {
             Sheet sheet = workbook.getSheetAt(0);
             DataFormatter formatter = new DataFormatter();
 
-            // Row 0 is the header: name, description, sku, stockUnit, price, category,
-            // reorderLevel, variants, sellUnit, unitsPerStock, nameKh.
-            //
-            // variants is optional, e.g. "MEDIUM:1.50;LARGE:1.75" — lets one row set several
-            // sizes at once. If given, price is ignored; if blank, price is required and creates
-            // a single MEDIUM variant.
-            //
-            // sellUnit defaults to CUP and unitsPerStock defaults to 1 when left blank; nameKh is
-            // optional.
             for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
                 Row row = sheet.getRow(rowIndex);
                 if (row == null || isRowEmpty(row, formatter)) {
@@ -388,7 +376,6 @@ public class ProductServiceImpl implements ProductService {
                     continue;
                 }
 
-                // Everything is validated above, so this save should never fail.
                 Product product = new Product();
                 product.setName(name);
                 product.setNameKh(nameKh.isBlank() ? null : nameKh);
@@ -442,7 +429,6 @@ public class ProductServiceImpl implements ProductService {
     private record ParsedVariant(VariantLabel name, BigDecimal price) {
     }
 
-    // Parses "MEDIUM:1.50;LARGE:1.75" into one variant per pair.
     private List<ParsedVariant> parseVariants(String text) {
         List<ParsedVariant> parsed = new ArrayList<>();
         Set<VariantLabel> namesSeen = new HashSet<>();
@@ -513,8 +499,6 @@ public class ProductServiceImpl implements ProductService {
         return productMapper.toResponse(product, inventory, variants, extras);
     }
 
-    // Loads variants/extras for a whole page in one query each, instead of per row. The admin list
-    // shows inactive ones too (matching getById); the customer list shows only what can be ordered.
     private Page<ProductResponse> toResponsePage(Page<Product> products, boolean orderableOnly) {
         List<UUID> productIds = products.stream().map(Product::getId).toList();
 

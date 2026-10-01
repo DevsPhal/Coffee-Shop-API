@@ -12,6 +12,5 @@ import java.util.UUID;
 public interface ExpenseRepository extends JpaRepository<Expense, UUID> {
     Page<Expense> findAllByOrderByExpenseDateDesc(Pageable pageable);
 
-    // Half-open range: [start, end).
     List<Expense> findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(LocalDate start, LocalDate end);
 }

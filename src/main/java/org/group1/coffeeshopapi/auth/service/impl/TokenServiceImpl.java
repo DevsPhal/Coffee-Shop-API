@@ -16,7 +16,6 @@ import java.util.UUID;
 public class TokenServiceImpl implements TokenService {
 
     private static final Duration LOGIN_TICKET_TTL = Duration.ofMinutes(5);
-    // Appended to the stored user id for a ticket whose code was sent over Telegram.
     private static final String TELEGRAM_CHANNEL_SUFFIX = "|TELEGRAM";
 
     private final StringRedisTemplate redisTemplate;

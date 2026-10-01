@@ -17,7 +17,6 @@ import org.group1.coffeeshopapi.common.enums.Status;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// Admin-created promotional/announcement entry, e.g. a seasonal sale window or in-store event.
 @Getter
 @Setter
 @Entity
@@ -33,7 +32,6 @@ public class Event extends BaseEntity {
     @Column
     private String imageUrl;
 
-    // GPS pin for the event's venue. Optional; given together or not at all.
     @Column(precision = 9, scale = 6)
     private BigDecimal latitude;
 
@@ -50,7 +48,6 @@ public class Event extends BaseEntity {
     @Column(nullable = false)
     private Status status = Status.ACTIVE;
 
-    // Null if created by the Super Admin, who has no row in "admins".
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by")
     private Admin createdByAdmin;

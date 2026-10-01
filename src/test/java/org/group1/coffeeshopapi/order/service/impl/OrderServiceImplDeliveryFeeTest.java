@@ -58,10 +58,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// Covers the cash-on-delivery/pickup flow: a cash order can start being prepared before its
-// cash is actually collected, so payment and fulfillment progress aren't the same signal.
-// A delivery order's total isn't final until staff quotes the fee from the pinned distance, so
-// paying or preparing it is blocked until then.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplDeliveryFeeTest {
 

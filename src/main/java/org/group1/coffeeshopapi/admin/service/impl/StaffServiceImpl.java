@@ -53,7 +53,6 @@ public class StaffServiceImpl implements StaffService {
     @Override
     @Transactional
     public UserResponse create(CreateStaffRequest request, Role role, UUID createdBy) {
-        // Created by an admin, so it's trusted — active immediately, no OTP step.
         User staff = buildStaff(request, role, createdBy, UserStatus.ACTIVE, RegisterType.EMAIL);
         authUserSyncService.sync(staff);
         return userMapper.toResponse(staff);
@@ -64,7 +63,6 @@ public class StaffServiceImpl implements StaffService {
     public TelegramLinkCodeResponse createViaTelegram(InviteStaffRequest request, Role role, UUID createdBy) {
         User staff = buildInvitedStaff(request, role, createdBy);
         authUserSyncService.sync(staff);
-        // We can't message them yet — Telegram only allows that once they open the link.
         return telegramLinkService.generateLinkCode(staff.getId());
     }
 
@@ -121,8 +119,6 @@ public class StaffServiceImpl implements StaffService {
             default -> throw new IllegalArgumentException("Unsupported staff role: " + role);
         };
         staff.setFullName(request.fullName());
-        // No email/password collected for an invite — both get an unguessable placeholder, hidden
-        // from API responses, since login afterward is Telegram-only.
         staff.setEmail(TelegramAccountUtil.placeholderEmail());
         staff.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
         staff.setPhoneNumber(request.phoneNumber());
@@ -172,7 +168,6 @@ public class StaffServiceImpl implements StaffService {
         if (request.status() != null) {
             staff.setStatus(request.status());
             if (request.status() != UserStatus.ACTIVE) {
-                // Block them from getting a new access token once deactivated.
                 tokenService.revokeRefreshToken(staff.getId());
             }
         }
@@ -182,7 +177,6 @@ public class StaffServiceImpl implements StaffService {
         return userMapper.toResponse(staff);
     }
 
-    // Confirms the id actually belongs to this role before delegating to the shared avatar upload.
     @Override
     public UserResponse uploadAvatar(UUID id, MultipartFile file, Role role) {
         findByIdAndRole(id, role);
@@ -192,8 +186,6 @@ public class StaffServiceImpl implements StaffService {
     @Override
     @Transactional
     public void delete(UUID id, Role role) {
-        // Soft delete, same as UserAdminService: attendance, orders and audit logs keep pointing
-        // at a real row, while login and existing sessions stop working.
         User staff = findByIdAndRole(id, role);
         staff.setStatus(UserStatus.DELETED);
         userRepository.save(staff);

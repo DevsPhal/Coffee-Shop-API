@@ -73,7 +73,6 @@ public class BakongQrServiceImpl implements BakongQrService {
                 response.getData().getQr(), response.getData().getMd5(), resolvedCurrency, encodedAmount, expiresAt);
     }
 
-    // KHR has no minor unit, so the converted amount must be a whole number.
     private BigDecimal toKhr(BigDecimal usdAmount) {
         BigDecimal rate = exchangeRateService.getCurrentRate();
         if (rate == null || rate.signum() <= 0) {

@@ -8,11 +8,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.math.BigDecimal;
 
-// Config for generating Bakong KHQR codes and checking payment status via the Bakong Open API.
-// The access token expires after ~90 days; email is kept alongside it so the app can renew it
-// automatically instead of failing until someone pastes in a new one.
-//
-// khrPerUsdRate is just the starting exchange rate — an admin can override it later.
 @Getter
 @Setter
 @Configuration
@@ -20,7 +15,6 @@ import java.math.BigDecimal;
 public class BakongProperties {
     private String baseUrl;
     private String token;
-    // Address the token was registered to; used for automatic renewal.
     private String email;
 
     private String accountId;
@@ -35,7 +29,6 @@ public class BakongProperties {
     private Currency currency;
     private long expirationMinutes;
     private BigDecimal khrPerUsdRate;
-    // Shop branding, and the storefront base URL the Bakong app returns to after a deeplink payment.
     private String appIconUrl;
     private String deeplinkCallbackUrl;
 

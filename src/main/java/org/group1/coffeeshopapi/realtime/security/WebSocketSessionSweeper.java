@@ -20,9 +20,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-// A socket outlives the access token it connected with, so this closes any session whose token
-// has expired or been revoked (logout), or whose account is no longer active. The client should
-// refresh its token and reconnect when it sees close code 4001.
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -54,13 +51,11 @@ public class WebSocketSessionSweeper implements WebSocketHandlerDecoratorFactory
     @Scheduled(fixedDelay = 30_000)
     public void closeInvalidSessions() {
         Instant now = Instant.now();
-        // One account check per user per sweep, however many tabs they have open.
         Map<String, Boolean> activeByEmail = new HashMap<>();
         for (WebSocketSession session : sessions.values()) {
             Map<String, Object> attributes = session.getAttributes();
             Object expiresAt = attributes.get(StompAuthChannelInterceptor.SESSION_TOKEN_EXPIRES_AT);
             if (expiresAt == null) {
-                // Not past STOMP CONNECT yet.
                 continue;
             }
             String tokenId = (String) attributes.get(StompAuthChannelInterceptor.SESSION_TOKEN_ID);
@@ -78,7 +73,6 @@ public class WebSocketSessionSweeper implements WebSocketHandlerDecoratorFactory
         try {
             return Boolean.TRUE.equals(redisTemplate.hasKey(RedisKeys.JWT_DENYLIST_PREFIX + tokenId));
         } catch (RuntimeException ex) {
-            // Redis down — don't kick everyone out over it; the token expiry still applies.
             log.warn("Could not check token denylist for WebSocket session", ex);
             return false;
         }

@@ -47,8 +47,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-// A walk-in sale rung up by staff is always served in person at the counter — confirms it lands
-// as a plain pickup order instead of silently defaulting to something else.
 @ExtendWith(MockitoExtension.class)
 class OrderServiceImplWalkInSaleTest {
 

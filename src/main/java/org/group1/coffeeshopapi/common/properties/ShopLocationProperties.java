@@ -7,8 +7,6 @@ import org.springframework.context.annotation.Configuration;
 
 import java.math.BigDecimal;
 
-// The shop's own coordinates, used to compute delivery distance for fee evaluation.
-// Optional — distance is just omitted until this is configured.
 @Getter
 @Setter
 @Configuration

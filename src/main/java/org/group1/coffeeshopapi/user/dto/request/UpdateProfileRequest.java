@@ -5,9 +5,6 @@ import jakarta.validation.constraints.Pattern;
 import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 import org.group1.coffeeshopapi.common.enums.Gender;
 
-// Profile edit — every field is optional, and a null one is left unchanged. Used both for a
-// user editing their own profile and for an admin editing someone else's by id. Email and
-// password change through their own dedicated flows, so they're not here.
 public record UpdateProfileRequest(
         @Schema(example = "Sophal Nem")
         String fullName,

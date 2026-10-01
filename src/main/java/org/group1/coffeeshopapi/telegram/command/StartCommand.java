@@ -31,7 +31,6 @@ public class StartCommand implements TelegramCommand {
     public String execute(TelegramMessage message, String argument) {
         Long chatId = message.chat().id();
 
-        // No code given — just show whether this chat is already linked.
         if (argument == null || argument.isBlank()) {
             return telegramLinkService.linkedUserName(chatId)
                     .map(this::welcomeBack)

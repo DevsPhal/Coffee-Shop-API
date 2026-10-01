@@ -49,7 +49,6 @@ public class UserProfileServiceImpl implements UserProfileService {
             }
             user.setFullName(fullName);
         }
-        // A blank phone number clears the field; null leaves it untouched.
         if (request.phoneNumber() != null) {
             String phoneNumber = request.phoneNumber().trim();
             user.setPhoneNumber(phoneNumber.isEmpty() ? null : phoneNumber);
@@ -58,7 +57,6 @@ public class UserProfileServiceImpl implements UserProfileService {
             user.setGender(request.gender());
         }
 
-        // Flush now so a duplicate phone number surfaces as a clear error, not a raw DB failure.
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
@@ -103,7 +101,6 @@ public class UserProfileServiceImpl implements UserProfileService {
         userRepository.save(user);
         authUserSyncService.sync(user);
 
-        // Revoke the refresh token so other sessions can't silently renew with the old password.
         tokenService.revokeRefreshToken(user.getId());
     }
 

@@ -17,7 +17,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-// Single-row table holding the live USD-to-KHR rate — admins can update it without a redeploy.
 @Getter
 @Setter
 @Entity
@@ -30,15 +29,12 @@ public class BakongExchangeRate {
     @Id
     private Integer id = SINGLETON_ID;
 
-    // The rate actually used to convert order totals into KHR for the Bakong QR.
     @Column(nullable = false, precision = 15, scale = 4)
     private BigDecimal khrPerUsdRate;
 
-    // The real-world market rate, kept only for admins to compare khrPerUsdRate against.
     @Column(precision = 15, scale = 4)
     private BigDecimal marketRate;
 
-    // Null if never updated, or if the Super Admin made the last change (no admin row to reference).
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "updated_by_admin_id")
     private Admin updatedByAdmin;

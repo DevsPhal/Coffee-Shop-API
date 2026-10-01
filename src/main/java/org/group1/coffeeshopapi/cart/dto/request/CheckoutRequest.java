@@ -8,9 +8,6 @@ import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
 
 import java.math.BigDecimal;
 
-// deliveryLatitude/deliveryLongitude must be given together, or not at all (pickup, the default).
-// A delivery order needs the pin plus delivery details with an address and contact phone; staff
-// then quote the fee from the pin's distance before the order can be paid.
 public record CheckoutRequest(
         @Size(max = 500, message = "Note must not exceed 500 characters")
         String note,
@@ -23,8 +20,6 @@ public record CheckoutRequest(
         @DecimalMax(value = "180", message = "Longitude must be between -180 and 180")
         BigDecimal deliveryLongitude,
 
-        // Fulfillment method, plus the address/contact a courier needs for DELIVERY. Omit for
-        // pickup, the default.
         @Valid CheckoutDetailsRequest delivery
 ) {
 }

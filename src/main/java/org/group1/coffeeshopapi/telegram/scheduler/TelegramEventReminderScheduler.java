@@ -11,7 +11,6 @@ public class TelegramEventReminderScheduler {
 
     private final TelegramEventService telegramEventService;
 
-    // Runs every 30 minutes, starting 1 minute after the app boots.
     @Scheduled(initialDelay = 60_000, fixedRate = 1_800_000)
     public void remindUpcomingEvents() {
         telegramEventService.sendStartingSoonReminders();

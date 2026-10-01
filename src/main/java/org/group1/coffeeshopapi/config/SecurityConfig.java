@@ -38,7 +38,6 @@ public class SecurityConfig {
         return configuration.getAuthenticationManager();
     }
 
-    // Lets a browser-based frontend on another origin actually call this API.
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
@@ -73,10 +72,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/admins/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/users/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/baristas/**").hasRole("ADMIN")
-                        // Stock purchase costs are finance data, so Admin-only like /expenses.
                         .requestMatchers("/api/admin/inventory/expenses/**").hasRole("ADMIN")
-                        // Baristas get read-only access to the catalog and stock levels, but can't
-                        // change stock themselves — that stays Admin-only, matched below.
                         .requestMatchers(HttpMethod.GET, "/api/admin/categories/**", "/api/admin/products/**",
                                 "/api/admin/inventory/**", "/api/admin/extras/**")
                         .hasAnyRole("ADMIN", "BARISTA")
@@ -97,8 +93,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/barista/reports/**").hasRole("BARISTA")
                         .requestMatchers("/api/barista/attendance/**").hasRole("BARISTA")
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
-                        // Deny-by-default backstop for any admin/barista path not explicitly
-                        // matched above, so it can't fall through to anyRequest().authenticated().
                         .requestMatchers("/api/admin/**", "/api/barista/**").denyAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
