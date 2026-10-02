@@ -23,6 +23,4 @@ public interface AttendanceRepository extends JpaRepository<Attendance, UUID>, J
     Optional<Attendance> findByBaristaIdAndCheckOutAtIsNull(UUID baristaId);
 
     Page<Attendance> findByBaristaId(UUID baristaId, Pageable pageable);
-    Page<Attendance> findByCheckInAtBetween(LocalDateTime start, LocalDateTime end, Pageable pageable);
-    Page<Attendance> findByBaristaIdAndCheckInAtBetween(UUID baristaId, LocalDateTime start, LocalDateTime end, Pageable pageable);
 }

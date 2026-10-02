@@ -1,25 +1,20 @@
 HELP.md
 
-### Gradle ###
 .gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-### Environment Variables ###
 .env
 .env.*
 !.env.example
 
-### Redis ###
 dump.rdb
 
-### Deployment Docker ###
 Deployment/local/.env
 Deployment/production/.env
 
-### STS ###
 .apt_generated
 .classpath
 .factorypath
@@ -31,7 +26,6 @@ bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
-### IntelliJ IDEA ###
 .idea/
 *.iws
 *.iml
@@ -40,15 +34,12 @@ out/
 !**/src/main/**/out/
 !**/src/test/**/out/
 
-### NetBeans ###
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
 
-### VS Code ###
 .vscode/
 
-### macOS ###
 .DS_Store
