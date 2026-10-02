@@ -15,6 +15,7 @@ import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
+import org.group1.coffeeshopapi.order.dto.request.StaffCallRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -87,9 +88,10 @@ public class CustomerOrderController {
 
     @PostMapping("/{id}/call-staff")
     public ApiResponse<StaffCallResponse> callStaff(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+            @PathVariable UUID id, @Valid @RequestBody StaffCallRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, "Staff has been notified and will be with you shortly.",
-                staffCallService.call(id, currentUser.getId()));
+                staffCallService.call(id, currentUser.getId(), request));
     }
 
     @PostMapping("/{id}/pay/cash-on-pickup")

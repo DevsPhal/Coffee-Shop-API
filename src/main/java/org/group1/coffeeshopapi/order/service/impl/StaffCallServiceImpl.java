@@ -2,10 +2,13 @@ package org.group1.coffeeshopapi.order.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.RedisKeys;
+import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
+import org.group1.coffeeshopapi.common.enums.StaffCallReason;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.exception.TooManyRequestsException;
+import org.group1.coffeeshopapi.order.dto.request.StaffCallRequest;
 import org.group1.coffeeshopapi.order.dto.response.StaffCallResponse;
 import org.group1.coffeeshopapi.order.entity.Order;
 import org.group1.coffeeshopapi.order.entity.OrderAuditLog;
@@ -20,6 +23,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -46,12 +50,20 @@ public class StaffCallServiceImpl implements StaffCallService {
 
     @Override
     @Transactional
-    public StaffCallResponse call(UUID orderId, UUID customerId) {
+    public StaffCallResponse call(UUID orderId, UUID customerId, StaffCallRequest request) {
         Order order = orderRepository.findByIdAndCustomerId(orderId, customerId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
         if (order.getStatus().isFinished()) {
             throw new InvalidOperationException(
                     "This order is already " + order.getStatus().name().toLowerCase() + " — staff can't be called for it");
+        }
+        String note = StringUtils.hasText(request.note()) ? request.note().strip() : null;
+        if (request.reason() == StaffCallReason.OTHER && note == null) {
+            throw new InvalidOperationException("Please tell us what you need help with");
+        }
+        if (request.reason() == StaffCallReason.DELIVERY_HELP
+                && order.getFulfillmentMethod() != FulfillmentMethod.DELIVERY) {
+            throw new InvalidOperationException("Delivery help is only available for delivery orders");
         }
 
         String cooldownKey = RedisKeys.STAFF_CALL_COOLDOWN_PREFIX + customerId;
@@ -65,28 +77,28 @@ public class StaffCallServiceImpl implements StaffCallService {
         }
 
         LocalDateTime now = LocalDateTime.now();
-        redisTemplate.opsForHash().putIfAbsent(RedisKeys.STAFF_CALL_OPEN, orderId.toString(), now.toString());
-        LocalDateTime calledAt = openCallTime(orderId, now);
+        OpenCall existing = openCall(orderId);
+        OpenCall call = new OpenCall(existing != null ? existing.calledAt() : now, request.reason(), note);
+        redisTemplate.opsForHash().put(RedisKeys.STAFF_CALL_OPEN, orderId.toString(), call.encode());
 
         audit(order, OrderAuditAction.STAFF_CALLED, customerId);
-        publish(order, StaffCallMessage.Type.CALLED, calledAt, null);
-        return toResponse(order, calledAt, now.plusSeconds(cooldownSeconds));
+        publish(order, StaffCallMessage.Type.CALLED, call, null);
+        return toResponse(order, call, now.plusSeconds(cooldownSeconds));
     }
 
     @Override
     public List<StaffCallResponse> listOpen() {
         Map<Object, Object> entries = redisTemplate.opsForHash().entries(RedisKeys.STAFF_CALL_OPEN);
-        Map<UUID, LocalDateTime> calledAtById = new HashMap<>();
-        entries.forEach((id, calledAt) ->
-                calledAtById.put(UUID.fromString((String) id), LocalDateTime.parse((String) calledAt)));
+        Map<UUID, OpenCall> callsById = new HashMap<>();
+        entries.forEach((id, value) -> callsById.put(UUID.fromString((String) id), OpenCall.decode((String) value)));
 
         List<StaffCallResponse> open = new ArrayList<>();
-        for (Order order : orderRepository.findAllById(calledAtById.keySet())) {
+        for (Order order : orderRepository.findAllById(callsById.keySet())) {
             if (order.getStatus().isFinished()) {
                 redisTemplate.opsForHash().delete(RedisKeys.STAFF_CALL_OPEN, order.getId().toString());
                 continue;
             }
-            open.add(toResponse(order, calledAtById.get(order.getId()), null));
+            open.add(toResponse(order, callsById.get(order.getId()), null));
         }
         open.sort(Comparator.comparing(StaffCallResponse::calledAt));
         return open;
@@ -97,19 +109,19 @@ public class StaffCallServiceImpl implements StaffCallService {
     public void answer(UUID orderId, UUID actorId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
-        LocalDateTime calledAt = openCallTime(orderId, null);
+        OpenCall call = openCall(orderId);
         Long removed = redisTemplate.opsForHash().delete(RedisKeys.STAFF_CALL_OPEN, orderId.toString());
         if (removed == null || removed == 0) {
             throw new InvalidOperationException("No open call for this order — someone may have answered it already");
         }
 
         audit(order, OrderAuditAction.STAFF_CALL_ANSWERED, actorId);
-        publish(order, StaffCallMessage.Type.ANSWERED, calledAt, actorLookupService.resolve(actorId).name());
+        publish(order, StaffCallMessage.Type.ANSWERED, call, actorLookupService.resolve(actorId).name());
     }
 
-    private LocalDateTime openCallTime(UUID orderId, LocalDateTime fallback) {
+    private OpenCall openCall(UUID orderId) {
         Object stored = redisTemplate.opsForHash().get(RedisKeys.STAFF_CALL_OPEN, orderId.toString());
-        return stored != null ? LocalDateTime.parse((String) stored) : fallback;
+        return stored != null ? OpenCall.decode((String) stored) : null;
     }
 
     private void audit(Order order, OrderAuditAction action, UUID actorId) {
@@ -120,19 +132,39 @@ public class StaffCallServiceImpl implements StaffCallService {
         orderAuditLogRepository.save(log);
     }
 
-    private void publish(Order order, StaffCallMessage.Type type, LocalDateTime calledAt, String answeredByName) {
+    private void publish(Order order, StaffCallMessage.Type type, OpenCall call, String answeredByName) {
         StaffCallMessage message = new StaffCallMessage(type, order.getId(), customerName(order),
-                order.getStatus(), order.getFulfillmentMethod(), calledAt, answeredByName, LocalDateTime.now());
+                order.getStatus(), order.getFulfillmentMethod(),
+                call != null ? call.reason() : null, call != null ? call.note() : null,
+                call != null ? call.calledAt() : null, answeredByName, LocalDateTime.now());
         String customerEmail = order.getCustomer() != null ? order.getCustomer().getEmail() : null;
         eventPublisher.publishEvent(new StaffCallEvent(message, customerEmail));
     }
 
-    private StaffCallResponse toResponse(Order order, LocalDateTime calledAt, LocalDateTime nextCallAllowedAt) {
+    private StaffCallResponse toResponse(Order order, OpenCall call, LocalDateTime nextCallAllowedAt) {
         return new StaffCallResponse(order.getId(), customerName(order), order.getStatus(),
-                order.getFulfillmentMethod(), calledAt, nextCallAllowedAt);
+                order.getFulfillmentMethod(), call.reason(), call.note(), call.calledAt(), nextCallAllowedAt);
     }
 
     private String customerName(Order order) {
         return order.getCustomer() != null ? order.getCustomer().getFullName() : null;
+    }
+
+    record OpenCall(LocalDateTime calledAt, StaffCallReason reason, String note) {
+
+        private static final String SEPARATOR = "|";
+
+        String encode() {
+            return calledAt + SEPARATOR + reason.name() + SEPARATOR + (note != null ? note : "");
+        }
+
+        static OpenCall decode(String value) {
+            String[] parts = value.split("\\|", 3);
+            LocalDateTime calledAt = LocalDateTime.parse(parts[0]);
+            if (parts.length < 3) {
+                return new OpenCall(calledAt, StaffCallReason.OTHER, null);
+            }
+            return new OpenCall(calledAt, StaffCallReason.valueOf(parts[1]), parts[2].isEmpty() ? null : parts[2]);
+        }
     }
 }
