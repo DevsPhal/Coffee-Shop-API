@@ -13,6 +13,7 @@ public record StaffCallMessage(
         String customerName,
         OrderStatus orderStatus,
         FulfillmentMethod fulfillmentMethod,
+        String tableNumber,
         StaffCallReason reason,
         String note,
         LocalDateTime calledAt,

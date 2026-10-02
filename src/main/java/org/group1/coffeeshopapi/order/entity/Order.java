@@ -17,6 +17,7 @@ import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
+import org.group1.coffeeshopapi.table.entity.DiningTable;
 import org.group1.coffeeshopapi.user.entity.Customer;
 
 import java.math.BigDecimal;
@@ -51,6 +52,13 @@ public class Order extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private FulfillmentMethod fulfillmentMethod = FulfillmentMethod.PICKUP;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "dining_table_id")
+    private DiningTable diningTable;
+
+    @Column(length = 20)
+    private String tableNumber;
 
     @Column(precision = 12, scale = 2)
     private BigDecimal deliveryFee = BigDecimal.ZERO;
@@ -126,6 +134,15 @@ public class Order extends BaseEntity {
 
     public boolean isDelivery() {
         return fulfillmentMethod == FulfillmentMethod.DELIVERY || (deliveryLatitude != null && deliveryLongitude != null);
+    }
+
+    public boolean isDineIn() {
+        return fulfillmentMethod == FulfillmentMethod.DINE_IN;
+    }
+
+    public void seatAt(DiningTable table) {
+        this.diningTable = table;
+        this.tableNumber = table != null ? table.getTableNumber() : null;
     }
 
     public boolean isAwaitingDeliveryFee() {

@@ -5,7 +5,8 @@ public enum ResourceType {
     CATEGORY(RealtimeDestinations.CATALOG),
     EXTRA(RealtimeDestinations.CATALOG),
     INVENTORY(RealtimeDestinations.INVENTORY),
-    FEEDBACK(RealtimeDestinations.FEEDBACK);
+    FEEDBACK(RealtimeDestinations.FEEDBACK),
+    TABLE(RealtimeDestinations.TABLES);
 
     private final String destination;
 

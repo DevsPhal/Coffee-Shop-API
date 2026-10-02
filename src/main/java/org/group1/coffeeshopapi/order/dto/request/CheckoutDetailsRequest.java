@@ -8,5 +8,10 @@ public record CheckoutDetailsRequest(
         @NotNull FulfillmentMethod method,
         @Size(max = 120) String contactName,
         @Size(max = 30) String contactPhone,
-        @Size(max = 500) String address
-) {}
+        @Size(max = 500) String address,
+        @Size(max = 20) String tableNumber
+) {
+    public CheckoutDetailsRequest(FulfillmentMethod method, String contactName, String contactPhone, String address) {
+        this(method, contactName, contactPhone, address, null);
+    }
+}

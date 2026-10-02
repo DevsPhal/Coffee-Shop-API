@@ -107,6 +107,8 @@ app:
   staff-call:
     cooldown-seconds: ${APP_STAFF_CALL_COOLDOWN_SECONDS:30}
     reply-visible-minutes: ${APP_STAFF_CALL_REPLY_VISIBLE_MINUTES:60}
+  table:
+    scan-base-url: ${APP_TABLE_SCAN_BASE_URL:https://590stcafe.shop/table/}
   super-admin:
     email: ${SUPER_ADMIN_EMAIL:}
     password: ${SUPER_ADMIN_PASSWORD:}

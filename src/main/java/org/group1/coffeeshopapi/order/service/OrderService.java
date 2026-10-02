@@ -66,6 +66,8 @@ public interface OrderService {
 
     Page<OrderResponse> listOwnForCustomer(UUID customerId, OrderStatus status, Pageable pageable);
 
+    List<OrderResponse> listActiveAtTableForCustomer(String tableNumber, UUID customerId);
+
     OrderResponse selectCashOnPickup(UUID id, UUID customerId);
 
     OrderResponse pinDeliveryLocation(UUID id, UUID customerId, DeliveryLocationRequest request);

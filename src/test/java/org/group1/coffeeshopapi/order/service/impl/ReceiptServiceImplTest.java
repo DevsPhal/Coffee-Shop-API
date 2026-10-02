@@ -103,7 +103,7 @@ class ReceiptServiceImplTest {
         return new OrderResponse(
                 UUID.randomUUID(), null, null, null, null, null,
                 status, items, new BigDecimal("10.00"),
-                FulfillmentMethod.PICKUP, null, null, null, null, null,
+                FulfillmentMethod.PICKUP, null, null, null, null, null, null,
                 PaymentMethod.CASH, new BigDecimal("10.00"), Currency.USD, BigDecimal.ZERO, Currency.USD,
                 null, null, null, null,
                 null, paidAt, LocalDateTime.now(), LocalDateTime.now(),

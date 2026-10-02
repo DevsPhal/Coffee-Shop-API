@@ -16,4 +16,6 @@ public final class RealtimeDestinations {
     public static final String INVENTORY = "/topic/inventory";
 
     public static final String FEEDBACK = "/topic/feedback";
+
+    public static final String TABLES = "/topic/tables";
 }

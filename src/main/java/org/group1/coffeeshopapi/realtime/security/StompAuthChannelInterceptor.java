@@ -39,7 +39,8 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
             RealtimeDestinations.INVENTORY, STAFF_ROLES,
             RealtimeDestinations.STAFF_CALLS, STAFF_ROLES,
             RealtimeDestinations.FEEDBACK, ADMIN_ROLES,
-            RealtimeDestinations.CATALOG, Set.of());
+            RealtimeDestinations.CATALOG, Set.of(),
+            RealtimeDestinations.TABLES, Set.of());
 
     public static final String SESSION_TOKEN_ID = "tokenId";
     public static final String SESSION_TOKEN_EXPIRES_AT = "tokenExpiresAt";

@@ -8,6 +8,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.jpa.repository.Modifying;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -104,6 +105,16 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     List<Order> findPaidByHandledByInRange(
             @Param("handledBy") UUID handledBy,
             @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    @Query("select o from Order o left join fetch o.customer where o.customer.id = :customerId "
+            + "and o.diningTable.id = :tableId and o.status not in :finished order by o.createdAt desc")
+    List<Order> findActiveByCustomerIdAndTableId(
+            @Param("customerId") UUID customerId, @Param("tableId") UUID tableId,
+            @Param("finished") List<OrderStatus> finished);
+
+    @Modifying
+    @Query("update Order o set o.diningTable = null where o.diningTable.id = :tableId")
+    void detachDiningTable(@Param("tableId") UUID tableId);
 
     @Query("select o from Order o where o.paidAt >= :start and o.paidAt < :end")
     List<Order> findPaidInRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);

@@ -12,6 +12,12 @@ public record StaffCreateOrderRequest(
         List<OrderItemRequest> items,
 
         @Size(max = 500, message = "Note must not exceed 500 characters")
-        String note
+        String note,
+
+        @Size(max = 20, message = "Table number must not exceed 20 characters")
+        String tableNumber
 ) {
+    public StaffCreateOrderRequest(List<OrderItemRequest> items, String note) {
+        this(items, note, null);
+    }
 }

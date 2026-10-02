@@ -58,6 +58,8 @@ import org.group1.coffeeshopapi.realtime.ChangeType;
 import org.group1.coffeeshopapi.realtime.ResourceChangePublisher;
 import org.group1.coffeeshopapi.realtime.ResourceType;
 import org.group1.coffeeshopapi.realtime.event.OrderChangedEvent;
+import org.group1.coffeeshopapi.table.entity.DiningTable;
+import org.group1.coffeeshopapi.table.service.DiningTableService;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoice;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoiceLineItem;
 import org.group1.coffeeshopapi.telegram.service.TelegramInvoiceService;
@@ -114,11 +116,15 @@ public class OrderServiceImpl implements OrderService {
     private final BakongProperties bakongProperties;
     private final ApplicationEventPublisher eventPublisher;
     private final ResourceChangePublisher resourceChangePublisher;
+    private final DiningTableService diningTableService;
 
     @Override
     @Transactional
     public OrderResponse create(StaffCreateOrderRequest request, UUID baristaId) {
-        Order order = buildOrder(new CreateOrderRequest(request.items(), request.note()));
+        CheckoutDetailsRequest dineIn = request.tableNumber() != null
+                ? new CheckoutDetailsRequest(FulfillmentMethod.DINE_IN, null, null, null, request.tableNumber())
+                : null;
+        Order order = buildOrder(new CreateOrderRequest(request.items(), request.note(), dineIn));
         order.setHandledBy(baristaId);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.CREATED, baristaId);
@@ -342,6 +348,15 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public List<OrderResponse> listActiveAtTableForCustomer(String tableNumber, UUID customerId) {
+        DiningTable table = diningTableService.requireByNumber(tableNumber);
+        List<OrderStatus> finished = Arrays.stream(OrderStatus.values()).filter(OrderStatus::isFinished).toList();
+        return orderRepository.findActiveByCustomerIdAndTableId(customerId, table.getId(), finished).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public OrderResponse selectCashOnPickup(UUID id, UUID customerId) {
         Order order = requireDeliveryFeeQuoted(requirePending(findByCustomerForUpdate(id, customerId)));
@@ -360,6 +375,7 @@ public class OrderServiceImpl implements OrderService {
         Order order = requirePending(findByCustomerForUpdate(id, customerId));
         requireNoBakongPaymentReceived(order);
         order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
+        order.seatAt(null);
         order.setDeliveryLatitude(request.latitude());
         order.setDeliveryLongitude(request.longitude());
         order.setDeliveryAddress(request.address());
@@ -554,6 +570,9 @@ public class OrderServiceImpl implements OrderService {
         order.setContactName(delivery.contactName());
         order.setContactPhone(delivery.contactPhone());
         order.setDeliveryAddress(delivery.address());
+        if (delivery.method() == FulfillmentMethod.DINE_IN) {
+            order.seatAt(diningTableService.seatForOrder(delivery.tableNumber()));
+        }
     }
 
     private ProductVariant resolveExplicitVariant(Product product, OrderItemRequest itemRequest) {
@@ -859,6 +878,9 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void requireConsistentDelivery(Order order) {
+        if (order.isDineIn() && order.getDeliveryLatitude() != null) {
+            throw new InvalidOperationException("Dine-in orders can't have a delivery location");
+        }
         if (order.getDeliveryLatitude() != null) {
             order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
         }

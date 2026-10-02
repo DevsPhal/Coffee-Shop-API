@@ -14,7 +14,8 @@ public class SecurityConstants {
             "/api/banners/**",
             "/api/events/**",
             "/api/products/**",
-            "/api/categories/**"
+            "/api/categories/**",
+            "/api/tables/**"
     };
 
     public static final String[] PUBLIC_ENDPOINTS = {

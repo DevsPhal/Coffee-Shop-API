@@ -176,7 +176,7 @@ public class StaffCallServiceImpl implements StaffCallService {
 
     private void publish(Order order, StaffCallMessage.Type type, OpenCall call, Answer answer) {
         StaffCallMessage message = new StaffCallMessage(type, order.getId(), customerName(order),
-                order.getStatus(), order.getFulfillmentMethod(),
+                order.getStatus(), order.getFulfillmentMethod(), order.getTableNumber(),
                 call != null ? call.reason() : null, call != null ? call.note() : null,
                 call != null ? call.calledAt() : null,
                 answer != null ? answer.answeredByName() : null, answer != null ? answer.reply() : null,
@@ -187,7 +187,8 @@ public class StaffCallServiceImpl implements StaffCallService {
 
     private StaffCallResponse toResponse(Order order, OpenCall call, Answer answer, LocalDateTime nextCallAllowedAt) {
         return new StaffCallResponse(order.getId(), customerName(order), order.getStatus(),
-                order.getFulfillmentMethod(), answer != null ? StaffCallStatus.ANSWERED : StaffCallStatus.OPEN,
+                order.getFulfillmentMethod(), order.getTableNumber(),
+                answer != null ? StaffCallStatus.ANSWERED : StaffCallStatus.OPEN,
                 call.reason(), call.note(), call.calledAt(),
                 answer != null ? answer.answeredByName() : null,
                 answer != null ? answer.reply() : null,
