@@ -14,6 +14,7 @@ import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
+import org.group1.coffeeshopapi.order.dto.request.AnswerStaffCallRequest;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
 import org.group1.coffeeshopapi.order.dto.request.EstimatedTimeRequest;
@@ -180,9 +181,11 @@ public class BaristaOrderController {
     }
 
     @PostMapping("/{id}/staff-call/answer")
-    public ApiResponse<Void> answerStaffCall(@PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
-        staffCallService.answer(id, currentUser.getId());
-        return ApiResponse.of(HttpStatus.OK, "Staff call answered.", null);
+    public ApiResponse<StaffCallResponse> answerStaffCall(
+            @PathVariable UUID id, @Valid @RequestBody(required = false) AnswerStaffCallRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Staff call answered.",
+                staffCallService.answer(id, currentUser.getId(), request != null ? request.reply() : null));
     }
 
     @GetMapping("/awaiting-delivery-fee")

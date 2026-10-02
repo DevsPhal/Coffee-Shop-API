@@ -86,6 +86,13 @@ public class CustomerOrderController {
                 orderService.pinDeliveryLocation(id, currentUser.getId(), request));
     }
 
+    @GetMapping("/{id}/staff-call")
+    public ApiResponse<StaffCallResponse> currentStaffCall(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
+                staffCallService.current(id, currentUser.getId()));
+    }
+
     @PostMapping("/{id}/call-staff")
     public ApiResponse<StaffCallResponse> callStaff(
             @PathVariable UUID id, @Valid @RequestBody StaffCallRequest request,

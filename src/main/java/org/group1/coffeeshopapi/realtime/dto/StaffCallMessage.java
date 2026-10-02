@@ -17,6 +17,7 @@ public record StaffCallMessage(
         String note,
         LocalDateTime calledAt,
         String answeredByName,
+        String reply,
         LocalDateTime sentAt
 ) {
     public enum Type { CALLED, ANSWERED }

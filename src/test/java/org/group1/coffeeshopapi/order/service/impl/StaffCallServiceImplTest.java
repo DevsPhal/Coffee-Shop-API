@@ -5,6 +5,7 @@ import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.StaffCallReason;
+import org.group1.coffeeshopapi.common.enums.StaffCallStatus;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.TooManyRequestsException;
 import org.group1.coffeeshopapi.order.dto.request.StaffCallRequest;
@@ -49,6 +50,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@SuppressWarnings("unchecked")
 class StaffCallServiceImplTest {
 
     @Mock private OrderRepository orderRepository;
@@ -66,6 +68,7 @@ class StaffCallServiceImplTest {
     @BeforeEach
     void setUp() {
         ReflectionTestUtils.setField(service, "cooldownSeconds", 30L);
+        ReflectionTestUtils.setField(service, "replyVisibleMinutes", 60L);
         lenient().when(redisTemplate.opsForValue()).thenReturn(valueOps);
         lenient().when(redisTemplate.<Object, Object>opsForHash()).thenReturn(hashOps);
     }
@@ -114,23 +117,87 @@ class StaffCallServiceImplTest {
     }
 
     @Test
-    void answeringClearsTheCallAndTellsTheCustomer() {
+    void answeringClearsTheCallAndSendsTheReplyToTheCustomer() {
         Order order = order(OrderStatus.PENDING);
         UUID baristaId = UUID.randomUUID();
+        String answeredKey = RedisKeys.STAFF_CALL_ANSWERED_PREFIX + order.getId();
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(hashOps.get(RedisKeys.STAFF_CALL_OPEN, order.getId().toString()))
                 .thenReturn(LocalDateTime.now().minusMinutes(1) + "|WRONG_OR_MISSING_ITEM|No straw");
         when(hashOps.delete(RedisKeys.STAFF_CALL_OPEN, order.getId().toString())).thenReturn(1L);
         when(actorLookupService.resolve(baristaId)).thenReturn(new ActorSummary(baristaId, "Barista Dara", null));
 
-        service.answer(order.getId(), baristaId);
+        StaffCallResponse response = service.answer(order.getId(), baristaId, "  On my way with a straw  ");
 
+        assertThat(response.status()).isEqualTo(StaffCallStatus.ANSWERED);
+        assertThat(response.reply()).isEqualTo("On my way with a straw");
+        assertThat(response.answeredByName()).isEqualTo("Barista Dara");
         ArgumentCaptor<StaffCallEvent> event = ArgumentCaptor.forClass(StaffCallEvent.class);
         verify(eventPublisher).publishEvent(event.capture());
         assertThat(event.getValue().message().type()).isEqualTo(StaffCallMessage.Type.ANSWERED);
         assertThat(event.getValue().message().answeredByName()).isEqualTo("Barista Dara");
+        assertThat(event.getValue().message().reply()).isEqualTo("On my way with a straw");
         assertThat(event.getValue().customerEmail()).isEqualTo("luku@example.com");
         assertThat(event.getValue().message().reason()).isEqualTo(StaffCallReason.WRONG_OR_MISSING_ITEM);
+        ArgumentCaptor<Map<String, String>> stored = ArgumentCaptor.forClass(Map.class);
+        verify(hashOps).putAll(eq(answeredKey), stored.capture());
+        assertThat(stored.getValue()).containsEntry("reply", "On my way with a straw")
+                .containsEntry("answeredByName", "Barista Dara");
+        verify(redisTemplate).expire(answeredKey, Duration.ofMinutes(60));
+    }
+
+    @Test
+    void theCustomerCanSeeTheHandlersReplyAfterTheCallIsAnswered() {
+        Order order = order(OrderStatus.PREPARING);
+        LocalDateTime calledAt = LocalDateTime.now().minusMinutes(3);
+        LocalDateTime answeredAt = LocalDateTime.now().minusMinutes(1);
+        when(orderRepository.findByIdAndCustomerId(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(hashOps.entries(RedisKeys.STAFF_CALL_ANSWERED_PREFIX + order.getId())).thenReturn(Map.of(
+                "calledAt", calledAt.toString(), "reason", "PAYMENT_HELP",
+                "answeredAt", answeredAt.toString(), "answeredByName", "Barista Dara",
+                "reply", "Please come to the counter"));
+
+        StaffCallResponse response = service.current(order.getId(), customerId);
+
+        assertThat(response.status()).isEqualTo(StaffCallStatus.ANSWERED);
+        assertThat(response.reason()).isEqualTo(StaffCallReason.PAYMENT_HELP);
+        assertThat(response.reply()).isEqualTo("Please come to the counter");
+        assertThat(response.answeredAt()).isEqualTo(answeredAt);
+    }
+
+    @Test
+    void theCustomerSeesTheirOpenCallWithTheCooldownLeft() {
+        Order order = order(OrderStatus.PENDING);
+        when(orderRepository.findByIdAndCustomerId(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(redisTemplate.getExpire(RedisKeys.STAFF_CALL_COOLDOWN_PREFIX + customerId)).thenReturn(12L);
+        when(hashOps.get(RedisKeys.STAFF_CALL_OPEN, order.getId().toString()))
+                .thenReturn(LocalDateTime.now() + "|ORDER_DELAY|");
+
+        StaffCallResponse response = service.current(order.getId(), customerId);
+
+        assertThat(response.status()).isEqualTo(StaffCallStatus.OPEN);
+        assertThat(response.reply()).isNull();
+        assertThat(response.nextCallAllowedAt()).isAfter(LocalDateTime.now().plusSeconds(8));
+    }
+
+    @Test
+    void thereIsNothingToShowWhenStaffWasNeverCalled() {
+        Order order = order(OrderStatus.PENDING);
+        when(orderRepository.findByIdAndCustomerId(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(hashOps.entries(RedisKeys.STAFF_CALL_ANSWERED_PREFIX + order.getId())).thenReturn(Map.of());
+
+        assertThat(service.current(order.getId(), customerId)).isNull();
+    }
+
+    @Test
+    void callingAgainClearsThePreviousReply() {
+        Order order = order(OrderStatus.PENDING);
+        when(orderRepository.findByIdAndCustomerId(order.getId(), customerId)).thenReturn(Optional.of(order));
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+
+        service.call(order.getId(), customerId, paymentHelp);
+
+        verify(redisTemplate).delete(RedisKeys.STAFF_CALL_ANSWERED_PREFIX + order.getId());
     }
 
     @Test
@@ -196,7 +263,7 @@ class StaffCallServiceImplTest {
         when(orderRepository.findById(order.getId())).thenReturn(Optional.of(order));
         when(hashOps.delete(RedisKeys.STAFF_CALL_OPEN, order.getId().toString())).thenReturn(0L);
 
-        assertThatThrownBy(() -> service.answer(order.getId(), UUID.randomUUID()))
+        assertThatThrownBy(() -> service.answer(order.getId(), UUID.randomUUID(), null))
                 .isInstanceOf(InvalidOperationException.class)
                 .hasMessageContaining("answered");
         verify(eventPublisher, never()).publishEvent(any());

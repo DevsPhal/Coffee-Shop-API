@@ -16,6 +16,7 @@ public class RedisKeys {
 
     public static final String STAFF_CALL_COOLDOWN_PREFIX = "staffcall:cooldown:";
     public static final String STAFF_CALL_OPEN = "staffcall:open";
+    public static final String STAFF_CALL_ANSWERED_PREFIX = "staffcall:answered:";
 
     public static String otpKey(String purpose, String email) {
         return OTP_PREFIX + purpose.toLowerCase() + ":" + email.toLowerCase();

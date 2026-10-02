@@ -5,6 +5,7 @@ import org.group1.coffeeshopapi.common.constant.RedisKeys;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
 import org.group1.coffeeshopapi.common.enums.StaffCallReason;
+import org.group1.coffeeshopapi.common.enums.StaffCallStatus;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.exception.TooManyRequestsException;
@@ -48,6 +49,9 @@ public class StaffCallServiceImpl implements StaffCallService {
     @Value("${app.staff-call.cooldown-seconds:30}")
     private long cooldownSeconds;
 
+    @Value("${app.staff-call.reply-visible-minutes:60}")
+    private long replyVisibleMinutes;
+
     @Override
     @Transactional
     public StaffCallResponse call(UUID orderId, UUID customerId, StaffCallRequest request) {
@@ -80,10 +84,28 @@ public class StaffCallServiceImpl implements StaffCallService {
         OpenCall existing = openCall(orderId);
         OpenCall call = new OpenCall(existing != null ? existing.calledAt() : now, request.reason(), note);
         redisTemplate.opsForHash().put(RedisKeys.STAFF_CALL_OPEN, orderId.toString(), call.encode());
+        redisTemplate.delete(answeredKey(orderId));
 
         audit(order, OrderAuditAction.STAFF_CALLED, customerId);
         publish(order, StaffCallMessage.Type.CALLED, call, null);
-        return toResponse(order, call, now.plusSeconds(cooldownSeconds));
+        return toResponse(order, call, null, now.plusSeconds(cooldownSeconds));
+    }
+
+    @Override
+    public StaffCallResponse current(UUID orderId, UUID customerId) {
+        Order order = orderRepository.findByIdAndCustomerId(orderId, customerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+        LocalDateTime nextCallAllowedAt = nextCallAllowedAt(customerId);
+        OpenCall open = openCall(orderId);
+        if (open != null) {
+            return toResponse(order, open, null, nextCallAllowedAt);
+        }
+        Map<Object, Object> stored = redisTemplate.opsForHash().entries(answeredKey(orderId));
+        if (stored.isEmpty()) {
+            return null;
+        }
+        Answer answer = Answer.fromHash(stored);
+        return toResponse(order, answer.call(), answer, nextCallAllowedAt);
     }
 
     @Override
@@ -98,7 +120,7 @@ public class StaffCallServiceImpl implements StaffCallService {
                 redisTemplate.opsForHash().delete(RedisKeys.STAFF_CALL_OPEN, order.getId().toString());
                 continue;
             }
-            open.add(toResponse(order, callsById.get(order.getId()), null));
+            open.add(toResponse(order, callsById.get(order.getId()), null, null));
         }
         open.sort(Comparator.comparing(StaffCallResponse::calledAt));
         return open;
@@ -106,7 +128,7 @@ public class StaffCallServiceImpl implements StaffCallService {
 
     @Override
     @Transactional
-    public void answer(UUID orderId, UUID actorId) {
+    public StaffCallResponse answer(UUID orderId, UUID actorId, String reply) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
         OpenCall call = openCall(orderId);
@@ -115,8 +137,28 @@ public class StaffCallServiceImpl implements StaffCallService {
             throw new InvalidOperationException("No open call for this order — someone may have answered it already");
         }
 
+        LocalDateTime now = LocalDateTime.now();
+        Answer answer = new Answer(
+                call != null ? call : new OpenCall(now, StaffCallReason.OTHER, null),
+                actorLookupService.resolve(actorId).name(),
+                StringUtils.hasText(reply) ? reply.strip() : null,
+                now);
+        String key = answeredKey(orderId);
+        redisTemplate.opsForHash().putAll(key, answer.toHash());
+        redisTemplate.expire(key, Duration.ofMinutes(replyVisibleMinutes));
+
         audit(order, OrderAuditAction.STAFF_CALL_ANSWERED, actorId);
-        publish(order, StaffCallMessage.Type.ANSWERED, call, actorLookupService.resolve(actorId).name());
+        publish(order, StaffCallMessage.Type.ANSWERED, answer.call(), answer);
+        return toResponse(order, answer.call(), answer, null);
+    }
+
+    private String answeredKey(UUID orderId) {
+        return RedisKeys.STAFF_CALL_ANSWERED_PREFIX + orderId;
+    }
+
+    private LocalDateTime nextCallAllowedAt(UUID customerId) {
+        Long remaining = redisTemplate.getExpire(RedisKeys.STAFF_CALL_COOLDOWN_PREFIX + customerId);
+        return remaining != null && remaining > 0 ? LocalDateTime.now().plusSeconds(remaining) : null;
     }
 
     private OpenCall openCall(UUID orderId) {
@@ -132,18 +174,25 @@ public class StaffCallServiceImpl implements StaffCallService {
         orderAuditLogRepository.save(log);
     }
 
-    private void publish(Order order, StaffCallMessage.Type type, OpenCall call, String answeredByName) {
+    private void publish(Order order, StaffCallMessage.Type type, OpenCall call, Answer answer) {
         StaffCallMessage message = new StaffCallMessage(type, order.getId(), customerName(order),
                 order.getStatus(), order.getFulfillmentMethod(),
                 call != null ? call.reason() : null, call != null ? call.note() : null,
-                call != null ? call.calledAt() : null, answeredByName, LocalDateTime.now());
+                call != null ? call.calledAt() : null,
+                answer != null ? answer.answeredByName() : null, answer != null ? answer.reply() : null,
+                LocalDateTime.now());
         String customerEmail = order.getCustomer() != null ? order.getCustomer().getEmail() : null;
         eventPublisher.publishEvent(new StaffCallEvent(message, customerEmail));
     }
 
-    private StaffCallResponse toResponse(Order order, OpenCall call, LocalDateTime nextCallAllowedAt) {
+    private StaffCallResponse toResponse(Order order, OpenCall call, Answer answer, LocalDateTime nextCallAllowedAt) {
         return new StaffCallResponse(order.getId(), customerName(order), order.getStatus(),
-                order.getFulfillmentMethod(), call.reason(), call.note(), call.calledAt(), nextCallAllowedAt);
+                order.getFulfillmentMethod(), answer != null ? StaffCallStatus.ANSWERED : StaffCallStatus.OPEN,
+                call.reason(), call.note(), call.calledAt(),
+                answer != null ? answer.answeredByName() : null,
+                answer != null ? answer.reply() : null,
+                answer != null ? answer.answeredAt() : null,
+                nextCallAllowedAt);
     }
 
     private String customerName(Order order) {
@@ -165,6 +214,33 @@ public class StaffCallServiceImpl implements StaffCallService {
                 return new OpenCall(calledAt, StaffCallReason.OTHER, null);
             }
             return new OpenCall(calledAt, StaffCallReason.valueOf(parts[1]), parts[2].isEmpty() ? null : parts[2]);
+        }
+    }
+
+    record Answer(OpenCall call, String answeredByName, String reply, LocalDateTime answeredAt) {
+
+        Map<String, String> toHash() {
+            Map<String, String> fields = new HashMap<>();
+            fields.put("calledAt", call.calledAt().toString());
+            fields.put("reason", call.reason().name());
+            fields.put("answeredAt", answeredAt.toString());
+            if (call.note() != null) {
+                fields.put("note", call.note());
+            }
+            if (answeredByName != null) {
+                fields.put("answeredByName", answeredByName);
+            }
+            if (reply != null) {
+                fields.put("reply", reply);
+            }
+            return fields;
+        }
+
+        static Answer fromHash(Map<Object, Object> fields) {
+            OpenCall call = new OpenCall(LocalDateTime.parse((String) fields.get("calledAt")),
+                    StaffCallReason.valueOf((String) fields.get("reason")), (String) fields.get("note"));
+            return new Answer(call, (String) fields.get("answeredByName"), (String) fields.get("reply"),
+                    LocalDateTime.parse((String) fields.get("answeredAt")));
         }
     }
 }

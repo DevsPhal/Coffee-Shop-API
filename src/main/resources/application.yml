@@ -106,6 +106,7 @@ app:
     otp-resend-cooldown-seconds: ${APP_AUTH_OTP_RESEND_COOLDOWN_SECONDS:60}
   staff-call:
     cooldown-seconds: ${APP_STAFF_CALL_COOLDOWN_SECONDS:30}
+    reply-visible-minutes: ${APP_STAFF_CALL_REPLY_VISIBLE_MINUTES:60}
   super-admin:
     email: ${SUPER_ADMIN_EMAIL:}
     password: ${SUPER_ADMIN_PASSWORD:}

@@ -14,6 +14,7 @@ import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
+import org.group1.coffeeshopapi.order.dto.request.AnswerStaffCallRequest;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
 import org.group1.coffeeshopapi.order.dto.request.EstimatedTimeRequest;
@@ -160,9 +161,10 @@ public class AdminOrderController {
     }
 
     @PostMapping("/{id}/staff-call/answer")
-    public ApiResponse<Void> answerStaffCall(@PathVariable UUID id) {
-        staffCallService.answer(id, currentActor.id());
-        return ApiResponse.of(HttpStatus.OK, "Staff call answered.", null);
+    public ApiResponse<StaffCallResponse> answerStaffCall(
+            @PathVariable UUID id, @Valid @RequestBody(required = false) AnswerStaffCallRequest request) {
+        return ApiResponse.of(HttpStatus.OK, "Staff call answered.",
+                staffCallService.answer(id, currentActor.id(), request != null ? request.reply() : null));
     }
 
     @GetMapping("/awaiting-delivery-fee")

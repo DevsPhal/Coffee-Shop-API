@@ -10,7 +10,9 @@ public interface StaffCallService {
 
     StaffCallResponse call(UUID orderId, UUID customerId, StaffCallRequest request);
 
+    StaffCallResponse current(UUID orderId, UUID customerId);
+
     List<StaffCallResponse> listOpen();
 
-    void answer(UUID orderId, UUID actorId);
+    StaffCallResponse answer(UUID orderId, UUID actorId, String reply);
 }
