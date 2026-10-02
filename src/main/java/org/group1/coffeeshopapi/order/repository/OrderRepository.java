@@ -73,6 +73,15 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
     Page<Order> findAwaitingBaristaClaim(
             @Param("status") OrderStatus status, @Param("paymentMethod") PaymentMethod paymentMethod, Pageable pageable);
 
+    @Query("select o from Order o left join fetch o.customer where o.customer is not null "
+            + "and o.paymentMethod = :cash and o.paidAt is null "
+            + "and (o.status = :pending or (o.status = :preparing and o.fulfillmentMethod <> :delivery)) "
+            + "order by o.createdAt asc")
+    Page<Order> findAwaitingCashCollection(
+            @Param("cash") PaymentMethod cash, @Param("pending") OrderStatus pending,
+            @Param("preparing") OrderStatus preparing, @Param("delivery") FulfillmentMethod delivery,
+            Pageable pageable);
+
     @Query("select o from Order o left join fetch o.customer where o.status = :status "
             + "and o.customer is not null and o.deliveryFeeSetAt is null "
             + "and (o.fulfillmentMethod = :delivery or o.deliveryLatitude is not null) "

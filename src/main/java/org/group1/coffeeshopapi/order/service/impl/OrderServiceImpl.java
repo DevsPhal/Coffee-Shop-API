@@ -180,7 +180,8 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public Page<OrderResponse> listAwaitingPickup(Pageable pageable) {
-        Page<Order> orders = orderRepository.findAwaitingBaristaClaim(OrderStatus.PENDING, PaymentMethod.CASH, pageable);
+        Page<Order> orders = orderRepository.findAwaitingCashCollection(PaymentMethod.CASH, OrderStatus.PENDING,
+                OrderStatus.PREPARING, FulfillmentMethod.DELIVERY, pageable);
         return toResponsePage(orders);
     }
 
