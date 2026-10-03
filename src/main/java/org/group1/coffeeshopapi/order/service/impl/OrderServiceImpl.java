@@ -357,6 +357,14 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public List<OrderResponse> listActiveAtTable(UUID tableId) {
+        List<OrderStatus> finished = Arrays.stream(OrderStatus.values()).filter(OrderStatus::isFinished).toList();
+        return orderRepository.findActiveByTableId(tableId, finished).stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public OrderResponse selectCashOnPickup(UUID id, UUID customerId) {
         Order order = requireDeliveryFeeQuoted(requirePending(findByCustomerForUpdate(id, customerId)));

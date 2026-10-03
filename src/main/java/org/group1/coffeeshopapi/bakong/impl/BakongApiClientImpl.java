@@ -24,6 +24,11 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class BakongApiClientImpl implements BakongApiClient {
 
+    // Bakong errorCode values for check_transaction_by_md5.
+    private static final int ERROR_NOT_FOUND = 1;
+    private static final int ERROR_TRANSACTION_FAILED = 3;
+    private static final int ERROR_UNAUTHORIZED = 6;
+
     private final RestClient bakongRestClient;
     private final BakongProperties bakongProperties;
     private final BakongTokenService tokenService;
@@ -35,26 +40,36 @@ public class BakongApiClientImpl implements BakongApiClient {
         }
 
         try {
-            return interpret(call(md5Hash, tokenService.currentToken()));
+            BakongCheckTransactionResponse response = call(md5Hash, tokenService.currentToken());
+            if (!isTokenRejected(response)) {
+                return interpret(md5Hash, response);
+            }
         } catch (HttpClientErrorException.Unauthorized e) {
-            log.info("Bakong rejected the access token; attempting to renew it");
-            String renewed = tokenService.renew();
-            if (renewed == null) {
-                return BakongTransactionCheckResult.failed(
-                        "The Bakong access token has expired and could not be renewed automatically. "
-                                + "Check BAKONG_EMAIL and BAKONG_TOKEN.");
-            }
-            try {
-                return interpret(call(md5Hash, renewed));
-            } catch (HttpClientErrorException.Unauthorized retryFailure) {
-                log.error("Bakong still rejected the access token after renewal", retryFailure);
-                return BakongTransactionCheckResult.failed(
-                        "Bakong rejected the access token even after renewing it.");
-            } catch (RestClientException retryFailure) {
-                return unreachable(md5Hash, retryFailure);
-            }
+            // Renewed below.
         } catch (RestClientException e) {
             return unreachable(md5Hash, e);
+        }
+
+        log.info("Bakong rejected the access token; attempting to renew it");
+        String renewed = tokenService.renew();
+        if (renewed == null) {
+            return BakongTransactionCheckResult.failed(
+                    "The Bakong access token has expired and could not be renewed automatically. "
+                            + "Check BAKONG_EMAIL and BAKONG_TOKEN.");
+        }
+        try {
+            BakongCheckTransactionResponse response = call(md5Hash, renewed);
+            if (isTokenRejected(response)) {
+                log.error("Bakong still rejected the access token after renewal: {}", response.responseMessage());
+                return BakongTransactionCheckResult.failed("Bakong rejected the access token even after renewing it.");
+            }
+            return interpret(md5Hash, response);
+        } catch (HttpClientErrorException.Unauthorized retryFailure) {
+            log.error("Bakong still rejected the access token after renewal", retryFailure);
+            return BakongTransactionCheckResult.failed(
+                    "Bakong rejected the access token even after renewing it.");
+        } catch (RestClientException retryFailure) {
+            return unreachable(md5Hash, retryFailure);
         }
     }
 
@@ -67,18 +82,33 @@ public class BakongApiClientImpl implements BakongApiClient {
                 .body(BakongCheckTransactionResponse.class);
     }
 
-    private BakongTransactionCheckResult interpret(BakongCheckTransactionResponse response) {
+    // Bakong can answer an expired or invalid token with HTTP 200 and errorCode 6 instead of a 401.
+    private boolean isTokenRejected(BakongCheckTransactionResponse response) {
+        return response != null && response.responseCode() != 0
+                && response.errorCode() != null && response.errorCode() == ERROR_UNAUTHORIZED;
+    }
+
+    private BakongTransactionCheckResult interpret(String md5Hash, BakongCheckTransactionResponse response) {
         if (response == null) {
             return BakongTransactionCheckResult.failed("Empty response from Bakong");
         }
-        if (response.responseCode() != 0 || response.data() == null) {
+        if (response.responseCode() == 0 && response.data() != null) {
+            return BakongTransactionCheckResult.paid(
+                    response.data().hash(),
+                    parseAmount(response.data().amount()),
+                    response.data().currency(),
+                    response.responseMessage());
+        }
+        Integer errorCode = response.errorCode();
+        if (errorCode == null || errorCode == ERROR_NOT_FOUND || errorCode == ERROR_TRANSACTION_FAILED) {
             return BakongTransactionCheckResult.notPaid(response.responseMessage());
         }
-        return BakongTransactionCheckResult.paid(
-                response.data().hash(),
-                parseAmount(response.data().amount()),
-                response.data().currency(),
-                response.responseMessage());
+        // Anything else is Bakong refusing the request, not "unpaid" — surface it instead of waiting forever.
+        log.error("Bakong check_transaction_by_md5 returned errorCode={} for md5={}: {}",
+                errorCode, md5Hash, response.responseMessage());
+        return BakongTransactionCheckResult.failed(response.responseMessage() != null
+                ? "Bakong could not check the payment: " + response.responseMessage()
+                : "Bakong could not check the payment (error " + errorCode + ").");
     }
 
     private BakongTransactionCheckResult unreachable(String md5Hash, RestClientException e) {

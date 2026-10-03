@@ -6,14 +6,18 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.TableStatus;
+import org.group1.coffeeshopapi.common.properties.TableProperties;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
 import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
+import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
+import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.table.dto.request.CreateTableRequest;
 import org.group1.coffeeshopapi.table.dto.request.UpdateTableRequest;
 import org.group1.coffeeshopapi.table.dto.request.UpdateTableStatusRequest;
+import org.group1.coffeeshopapi.table.dto.response.MenuLinkResponse;
 import org.group1.coffeeshopapi.table.dto.response.TableResponse;
 import org.group1.coffeeshopapi.table.service.DiningTableService;
 import org.springframework.http.HttpStatus;
@@ -21,6 +25,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -33,6 +38,8 @@ public class AdminTableController {
     private static final int QR_IMAGE_SIZE = 512;
 
     private final DiningTableService diningTableService;
+    private final OrderService orderService;
+    private final TableProperties tableProperties;
 
     @PostMapping
     public ResponseEntity<ApiResponse<TableResponse>> create(@Valid @RequestBody CreateTableRequest request) {
@@ -48,6 +55,12 @@ public class AdminTableController {
             @RequestParam(required = false) Integer size) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
                 PageResponse.of(diningTableService.list(status, PageUtil.buildPageable(page, size))));
+    }
+
+    @GetMapping("/menu-link")
+    public ApiResponse<MenuLinkResponse> menuLink() {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
+                new MenuLinkResponse(tableProperties.getMenuScanUrl()));
     }
 
     @GetMapping("/{id}")
@@ -71,6 +84,12 @@ public class AdminTableController {
     public ApiResponse<Void> delete(@PathVariable UUID id) {
         diningTableService.delete(id);
         return ApiResponse.of(HttpStatus.OK, "Table deleted successfully.", null);
+    }
+
+    @GetMapping("/{id}/orders")
+    public ApiResponse<List<OrderResponse>> listActiveOrders(@PathVariable UUID id) {
+        diningTableService.getById(id);
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, orderService.listActiveAtTable(id));
     }
 
     @GetMapping(value = "/{id}/qr", produces = MediaType.IMAGE_PNG_VALUE)
