@@ -93,6 +93,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/barista/orders/**").hasRole("BARISTA")
                         .requestMatchers(HttpMethod.GET, "/api/barista/reports/**").hasRole("BARISTA")
                         .requestMatchers("/api/barista/attendance/**").hasRole("BARISTA")
+                        .requestMatchers("/api/barista/tables/**").hasRole("BARISTA")
                         .requestMatchers("/api/customer/**").hasRole("CUSTOMER")
                         .requestMatchers("/api/admin/**", "/api/barista/**").denyAll()
                         .anyRequest().authenticated())

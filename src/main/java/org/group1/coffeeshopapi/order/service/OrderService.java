@@ -68,6 +68,8 @@ public interface OrderService {
 
     List<OrderResponse> listActiveAtTableForCustomer(String tableNumber, UUID customerId);
 
+    List<OrderResponse> listActiveDineIn();
+
     List<OrderResponse> listActiveAtTable(UUID tableId);
 
     OrderResponse selectCashOnPickup(UUID id, UUID customerId);

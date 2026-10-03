@@ -350,10 +350,28 @@ public class OrderServiceImpl implements OrderService {
     @Override
     public List<OrderResponse> listActiveAtTableForCustomer(String tableNumber, UUID customerId) {
         DiningTable table = diningTableService.requireByNumber(tableNumber);
-        List<OrderStatus> finished = Arrays.stream(OrderStatus.values()).filter(OrderStatus::isFinished).toList();
-        return orderRepository.findActiveByCustomerIdAndTableId(customerId, table.getId(), finished).stream()
+        return orderRepository.findActiveByCustomerIdAndTableId(customerId, table.getId(), finishedStatuses()).stream()
                 .map(this::toResponse)
                 .toList();
+    }
+
+    @Override
+    public List<OrderResponse> listActiveDineIn() {
+        List<Order> orders = orderRepository.findActiveDineIn(finishedStatuses());
+        Set<UUID> actorIds = new HashSet<>();
+        for (Order order : orders) {
+            if (order.getHandledBy() != null) {
+                actorIds.add(order.getHandledBy());
+            }
+        }
+        Map<UUID, ActorSummary> actors = actorLookupService.resolveAll(actorIds);
+        return orders.stream()
+                .map(order -> orderMapper.toResponse(order, actors.get(order.getHandledBy()), distanceMeters(order)))
+                .toList();
+    }
+
+    private List<OrderStatus> finishedStatuses() {
+        return Arrays.stream(OrderStatus.values()).filter(OrderStatus::isFinished).toList();
     }
 
     @Override

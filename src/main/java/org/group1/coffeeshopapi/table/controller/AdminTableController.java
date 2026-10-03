@@ -18,13 +18,16 @@ import org.group1.coffeeshopapi.table.dto.request.CreateTableRequest;
 import org.group1.coffeeshopapi.table.dto.request.UpdateTableRequest;
 import org.group1.coffeeshopapi.table.dto.request.UpdateTableStatusRequest;
 import org.group1.coffeeshopapi.table.dto.response.MenuLinkResponse;
+import org.group1.coffeeshopapi.table.dto.response.TableActivityResponse;
 import org.group1.coffeeshopapi.table.dto.response.TableResponse;
 import org.group1.coffeeshopapi.table.service.DiningTableService;
+import org.group1.coffeeshopapi.table.service.TableActivityService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,6 +41,7 @@ public class AdminTableController {
     private static final int QR_IMAGE_SIZE = 512;
 
     private final DiningTableService diningTableService;
+    private final TableActivityService tableActivityService;
     private final OrderService orderService;
     private final TableProperties tableProperties;
 
@@ -61,6 +65,16 @@ public class AdminTableController {
     public ApiResponse<MenuLinkResponse> menuLink() {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
                 new MenuLinkResponse(tableProperties.getMenuScanUrl()));
+    }
+
+    @GetMapping("/activity")
+    public ApiResponse<List<TableActivityResponse>> listActivity(@RequestParam(required = false) TableStatus status) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, tableActivityService.list(status));
+    }
+
+    @GetMapping("/{id}/activity")
+    public ApiResponse<TableActivityResponse> getActivity(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, tableActivityService.getById(id));
     }
 
     @GetMapping("/{id}")

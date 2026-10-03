@@ -21,6 +21,7 @@ public interface OrderMapper {
     @Mapping(target = "handledByRole", source = "handledByActor.role")
     @Mapping(target = "customerId", source = "order.customer.id")
     @Mapping(target = "customerName", source = "order.customer.fullName")
+    @Mapping(target = "tableId", source = "order.diningTable.id")
     @Mapping(target = "distanceMeters", source = "distanceMeters")
     OrderResponse toResponse(Order order, ActorSummary handledByActor, BigDecimal distanceMeters);
 

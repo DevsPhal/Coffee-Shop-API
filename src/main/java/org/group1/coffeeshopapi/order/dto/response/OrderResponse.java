@@ -22,6 +22,7 @@ public record OrderResponse(
         List<OrderItemResponse> items,
         BigDecimal totalAmount,
         FulfillmentMethod fulfillmentMethod,
+        UUID tableId,
         String tableNumber,
         String deliveryAddress,
         String contactName,

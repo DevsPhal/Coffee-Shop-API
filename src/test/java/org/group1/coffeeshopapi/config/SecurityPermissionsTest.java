@@ -84,6 +84,17 @@ class SecurityPermissionsTest {
         for (String path : List.of("orders", "orders/record/pay/cash", "orders/record/complete", "orders/record/estimated-time", "attendance/check-in", "attendance/check-out")) {
             cases.add(new Access("POST", "/api/barista/" + path, BARISTA));
         }
+        for (String path : List.of("tables", "tables/record", "tables/activity", "tables/record/activity", "tables/record/qr")) {
+            cases.add(new Access("GET", "/api/admin/" + path, MANAGERS));
+        }
+        cases.add(new Access("POST", "/api/admin/tables", MANAGERS));
+        cases.add(new Access("PATCH", "/api/admin/tables/record", MANAGERS));
+        cases.add(new Access("PATCH", "/api/admin/tables/record/status", MANAGERS));
+        cases.add(new Access("DELETE", "/api/admin/tables/record", MANAGERS));
+        cases.add(new Access("GET", "/api/barista/tables", BARISTA));
+        cases.add(new Access("GET", "/api/barista/tables/record", BARISTA));
+        cases.add(new Access("PATCH", "/api/barista/tables/record/status", BARISTA));
+        cases.add(new Access("GET", "/api/customer/tables/A1/orders", CUSTOMER));
         cases.add(new Access("GET", "/api/customer/cart", CUSTOMER));
         cases.add(new Access("GET", "/api/customer/orders", CUSTOMER));
         cases.add(new Access("POST", "/api/customer/cart/checkout", CUSTOMER));
@@ -106,7 +117,7 @@ class SecurityPermissionsTest {
     }
 
     static Stream<String> publicReads() {
-        return Stream.of("/api/banners", "/api/events", "/api/products", "/api/products/record", "/api/categories");
+        return Stream.of("/api/banners", "/api/events", "/api/products", "/api/products/record", "/api/categories", "/api/tables", "/api/tables/A1");
     }
 
     @ParameterizedTest
