@@ -6,11 +6,13 @@ import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.entity.Order;
 import org.group1.coffeeshopapi.order.entity.OrderItem;
 import org.group1.coffeeshopapi.order.entity.OrderItemExtra;
+import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
 import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Mapper(componentModel = "spring")
 public interface OrderMapper {
@@ -28,6 +30,8 @@ public interface OrderMapper {
     @Mapping(target = "productId", source = "product.id")
     @Mapping(target = "productNameKh", source = "productNameKh")
     @Mapping(target = "variantName", source = "variant.name")
+    @Mapping(target = "variantId", expression = "java(chosenSizeId(item))")
+    @Mapping(target = "productImageUrl", source = "product.imageUrl")
     OrderItemResponse toItemResponse(OrderItem item);
 
     @Mapping(target = "extraId", source = "extra.id")
@@ -35,4 +39,13 @@ public interface OrderMapper {
     @Mapping(target = "price", source = "extraPrice")
     @Mapping(target = "imageUrl", source = "extra.imageUrl")
     OrderItemExtraResponse toItemExtraResponse(OrderItemExtra extra);
+
+    /** The size the customer picked, so "Reorder" can repeat it; null for products without a size choice. */
+    default UUID chosenSizeId(OrderItem item) {
+        if (item.getVariant() == null || item.getProduct() == null
+                || !ProductVariantPolicy.allowsSizeChoice(item.getProduct())) {
+            return null;
+        }
+        return item.getVariant().getId();
+    }
 }

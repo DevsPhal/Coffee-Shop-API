@@ -96,6 +96,8 @@ public class OrderServiceImpl implements OrderService {
     private static final long QR_REUSE_MIN_REMAINING_SECONDS = 60;
     private static final int MAX_PREVIOUS_QRS = 5;
     private static final long PREVIOUS_QR_GRACE_SECONDS = 30 * 60;
+    // A payment made right before the deadline can take a moment to show up in Bakong.
+    private static final long EXPIRED_QR_SETTLE_SECONDS = 60;
 
     private final OrderRepository orderRepository;
     private final OrderAuditLogRepository orderAuditLogRepository;
@@ -199,20 +201,6 @@ public class OrderServiceImpl implements OrderService {
             throw new InvalidOperationException("Order is not awaiting Bakong payment");
         }
         return toResponse(confirmBakong(order, actorId, true));
-    }
-
-    @Override
-    @Transactional
-    public OrderResponse acceptBakongPaymentFromReceipt(UUID id, UUID actorId) {
-        Order order = requirePending(findAnyForUpdate(id));
-        if (order.getPaymentMethod() != PaymentMethod.BAKONG || order.getBakongMd5Hash() == null) {
-            throw new InvalidOperationException("Order is not awaiting Bakong payment");
-        }
-        order.setHandledBy(actorId);
-        markPaid(order, actorId, true);
-        order = orderRepository.save(order);
-        recordChange(order, OrderAuditAction.BAKONG_BY_RECEIPT, actorId);
-        return toResponse(order);
     }
 
     @Override
@@ -472,6 +460,34 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public List<UUID> listExpiredBakongOrders() {
+        return orderRepository.findIdsWithExpiredBakongQr(OrderStatus.PENDING, PaymentMethod.BAKONG,
+                LocalDateTime.now().minusSeconds(EXPIRED_QR_SETTLE_SECONDS));
+    }
+
+    @Override
+    @Transactional
+    public boolean cancelExpiredBakongOrder(UUID id) {
+        Order order = orderRepository.findByIdForUpdate(id).orElse(null);
+        LocalDateTime expiredBefore = LocalDateTime.now().minusSeconds(EXPIRED_QR_SETTLE_SECONDS);
+        if (order == null || order.getStatus() != OrderStatus.PENDING || order.getCustomer() == null
+                || order.getPaymentMethod() != PaymentMethod.BAKONG || order.getBakongMd5Hash() == null
+                || order.getBakongExpiresAt() == null || order.getBakongExpiresAt().isAfter(expiredBefore)) {
+            return false;
+        }
+        // Last look at Bakong first. If it can't answer, this throws and the order stays open for the next
+        // run — a payment we couldn't check is never cancelled.
+        order = confirmBakong(order, null, true);
+        if (order.getStatus() != OrderStatus.PENDING) {
+            return false;
+        }
+        order.setStatus(OrderStatus.CANCELLED);
+        order = orderRepository.save(order);
+        recordChange(order, OrderAuditAction.CANCELLED, order.getCustomer().getId());
+        return true;
+    }
+
+    @Override
     @Transactional
     public OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId) {
         return confirmBakongPaymentForCustomer(id, customerId, false);
@@ -710,21 +726,22 @@ public class OrderServiceImpl implements OrderService {
 
         Currency wanted = currency != null ? currency : bakongProperties.getCurrency();
         LocalDateTime now = LocalDateTime.now();
+        LocalDateTime expiresAt = paymentDeadline(order, now);
+        boolean fixedDeadline = order.getCustomer() != null;
         if (order.getPaymentMethod() == PaymentMethod.BAKONG
                 && order.getBakongMd5Hash() != null
                 && order.getBakongCurrency() == wanted
                 && order.getBakongExpiresAt() != null
-                && order.getBakongExpiresAt().isAfter(now.plusSeconds(QR_REUSE_MIN_REMAINING_SECONDS))) {
+                && order.getBakongExpiresAt().isAfter(
+                        fixedDeadline ? now : now.plusSeconds(QR_REUSE_MIN_REMAINING_SECONDS))) {
             return new BakongQrResponse(order.getId(), order.getBakongQrString(), order.getBakongMd5Hash(),
                     order.getBakongAmount(), order.getBakongCurrency(), order.getBakongExpiresAt(),
                     Duration.between(now, order.getBakongExpiresAt()).getSeconds());
         }
 
         String billNumber = "ORD-" + order.getId().toString().substring(0, 8).toUpperCase();
-        BakongQrResult qr = bakongQrService.generateQr(order.getTotalAmount(), billNumber, currency);
-
-        long expiresInSeconds = bakongProperties.getExpirationMinutes() * 60;
-        LocalDateTime expiresAt = now.plusSeconds(expiresInSeconds);
+        BakongQrResult qr = bakongQrService.generateQr(order.getTotalAmount(), billNumber, currency, expiresAt);
+        long expiresInSeconds = Duration.between(now, expiresAt).getSeconds();
 
         rememberReplacedQr(order);
         order.setPaymentMethod(PaymentMethod.BAKONG);
@@ -738,6 +755,19 @@ public class OrderServiceImpl implements OrderService {
 
         return new BakongQrResponse(order.getId(), qr.qrString(), qr.md5Hash(), qr.amount(), qr.currency(),
                 expiresAt, expiresInSeconds);
+    }
+
+    // An online order gets one payment window: switching currency re-issues the QR but keeps the deadline,
+    // and once it passes the order is cancelled (see cancelExpiredBakongOrder).
+    private LocalDateTime paymentDeadline(Order order, LocalDateTime now) {
+        if (order.getCustomer() != null && order.getPaymentMethod() == PaymentMethod.BAKONG
+                && order.getBakongExpiresAt() != null) {
+            if (!order.getBakongExpiresAt().isAfter(now)) {
+                throw new InvalidOperationException("The payment time for this order has run out.");
+            }
+            return order.getBakongExpiresAt();
+        }
+        return now.plusMinutes(bakongProperties.getExpirationMinutes());
     }
 
     private Order confirmBakong(Order order, UUID performedBy, boolean promptly) {

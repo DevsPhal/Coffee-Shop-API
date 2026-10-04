@@ -39,12 +39,6 @@ public interface OrderService {
 
     OrderResponse acceptBakongPayment(UUID id, UUID actorId);
 
-    /**
-     * Staff saw the customer's bank receipt (or the money in the shop's account) and mark the order paid
-     * without asking Bakong — for when Bakong can't be checked, e.g. its daily limit is reached.
-     */
-    OrderResponse acceptBakongPaymentFromReceipt(UUID id, UUID actorId);
-
     Page<OrderResponse> listAwaitingBakongConfirmation(Pageable pageable);
 
     OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId);
@@ -94,6 +88,15 @@ public interface OrderService {
     List<UUID> listOrdersAwaitingBakongPayment();
 
     boolean confirmBakongPaymentAutomatically(UUID id);
+
+    /** Online orders still unpaid after their QR payment window closed. */
+    List<UUID> listExpiredBakongOrders();
+
+    /**
+     * Cancels an online order whose payment window has closed, after a final check with Bakong shows it
+     * wasn't paid. Throws PaymentVerificationUnavailableException when Bakong can't be checked.
+     */
+    boolean cancelExpiredBakongOrder(UUID id);
 
     OrderResponse cancelForCustomer(UUID id, UUID customerId);
 

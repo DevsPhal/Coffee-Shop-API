@@ -21,6 +21,8 @@ public record OrderItemResponse(
         SugarLevel sugarLevel,
         IceLevel iceLevel,
         MilkType milkType,
-        List<OrderItemExtraResponse> extras
+        List<OrderItemExtraResponse> extras,
+        UUID variantId,
+        String productImageUrl
 ) {
 }

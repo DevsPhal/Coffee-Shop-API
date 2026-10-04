@@ -86,7 +86,7 @@ class ReceiptServiceImplTest {
         OrderItemResponse item = new OrderItemResponse(
                 UUID.randomUUID(), UUID.randomUUID(), "Iced Coffee", "កាហ្វេទឹកកក",
                 1, new BigDecimal("1.50"), new BigDecimal("1.50"),
-                null, null, null, null, List.of());
+                null, null, null, null, List.of(), null, null);
         when(orderService.getAny(orderId))
                 .thenReturn(order(OrderStatus.COMPLETED, LocalDateTime.now(), List.of(item)));
 
@@ -107,6 +107,6 @@ class ReceiptServiceImplTest {
                 PaymentMethod.CASH, new BigDecimal("10.00"), Currency.USD, BigDecimal.ZERO, Currency.USD,
                 null, null, null, null,
                 null, paidAt, LocalDateTime.now(), LocalDateTime.now(),
-                null, null, null, null, null, false, new BigDecimal("10.00"), null);
+                null, null, null, null, null, false, new BigDecimal("10.00"), null, null);
     }
 }

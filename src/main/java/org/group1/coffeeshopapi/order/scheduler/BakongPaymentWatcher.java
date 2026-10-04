@@ -36,5 +36,17 @@ public class BakongPaymentWatcher {
                 log.warn("Could not auto-confirm Bakong payment for order {}", orderId, e);
             }
         }
+        for (UUID orderId : orderService.listExpiredBakongOrders()) {
+            try {
+                if (orderService.cancelExpiredBakongOrder(orderId)) {
+                    log.info("Cancelled order {}: its Bakong QR expired unpaid", orderId);
+                }
+            } catch (PaymentVerificationUnavailableException e) {
+                log.warn("Bakong is unreachable, not cancelling expired orders until it answers: {}", e.getMessage());
+                return;
+            } catch (RuntimeException e) {
+                log.warn("Could not cancel expired Bakong order {}", orderId, e);
+            }
+        }
     }
 }

@@ -16,8 +16,6 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -29,7 +27,8 @@ public class BakongQrServiceImpl implements BakongQrService {
     private final BakongExchangeRateService exchangeRateService;
 
     @Override
-    public BakongQrResult generateQr(BigDecimal amount, String billNumber, Currency currency) {
+    public BakongQrResult generateQr(BigDecimal amount, String billNumber, Currency currency,
+                                     LocalDateTime expiresAt) {
         if (!bakongProperties.isConfigured()) {
             throw new InvalidOperationException("Bakong payment is not configured");
         }
@@ -54,8 +53,7 @@ public class BakongQrServiceImpl implements BakongQrService {
         individualInfo.setTerminalLabel(bakongProperties.getTerminalLabel());
         individualInfo.setPurposeOfTransaction(bakongProperties.getPurposeOfTransaction());
         individualInfo.setMerchantCategoryCode(bakongProperties.getMerchantCategoryCode());
-        long expiresAtMillis =
-                System.currentTimeMillis() + Duration.ofMinutes(bakongProperties.getExpirationMinutes()).toMillis();
+        long expiresAtMillis = expiresAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         individualInfo.setExpirationTimestamp(expiresAtMillis);
 
         KHQRResponse<KHQRData> response = BakongKHQR.generateIndividual(individualInfo);
@@ -65,9 +63,6 @@ public class BakongQrServiceImpl implements BakongQrService {
                     : response.getKHQRStatus().getMessage();
             throw new InvalidOperationException("Unable to generate Bakong QR: " + message);
         }
-
-        LocalDateTime expiresAt = LocalDateTime.ofInstant(
-                Instant.ofEpochMilli(expiresAtMillis), ZoneId.systemDefault());
 
         return new BakongQrResult(
                 response.getData().getQr(), response.getData().getMd5(), resolvedCurrency, encodedAmount, expiresAt);

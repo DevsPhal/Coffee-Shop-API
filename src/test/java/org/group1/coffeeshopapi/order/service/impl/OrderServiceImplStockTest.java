@@ -138,7 +138,7 @@ class OrderServiceImplStockTest {
         assertThatThrownBy(() -> service.generateBakongQrForCustomer(order.getId(), customerId, Currency.USD))
                 .isInstanceOf(InvalidOperationException.class)
                 .hasMessageContaining("enough stock");
-        verify(bakongQrService, never()).generateQr(any(), any(), any());
+        verify(bakongQrService, never()).generateQr(any(), any(), any(), any());
     }
 
     @Test
@@ -225,7 +225,7 @@ class OrderServiceImplStockTest {
 
         assertThat(response.md5Hash()).isEqualTo("live");
         assertThat(response.expiresInSeconds()).isBetween(500L, 600L);
-        verify(bakongQrService, never()).generateQr(any(), any(), any());
+        verify(bakongQrService, never()).generateQr(any(), any(), any(), any());
     }
 
     @Test
@@ -242,7 +242,7 @@ class OrderServiceImplStockTest {
         order.setBakongExpiresAt(LocalDateTime.now().plusMinutes(10));
         when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        when(bakongQrService.generateQr(any(), any(), eq(Currency.KHR))).thenReturn(new org.group1.coffeeshopapi.bakong.dto.BakongQrResult(
+        when(bakongQrService.generateQr(any(), any(), eq(Currency.KHR), any())).thenReturn(new org.group1.coffeeshopapi.bakong.dto.BakongQrResult(
                 "khr-qr", "khr-md5", Currency.KHR, new BigDecimal("6150"), LocalDateTime.now().plusMinutes(15)));
 
         service.generateBakongQrForCustomer(order.getId(), customerId, Currency.KHR);
@@ -270,31 +270,80 @@ class OrderServiceImplStockTest {
     }
 
     @Test
-    void staffCanConfirmAQrPaymentFromTheReceiptWithoutAskingBakong() {
-        UUID baristaId = UUID.randomUUID();
-        Order order = pendingOrder(cartonOf24Cans(), 1);
-        order.setPaymentMethod(PaymentMethod.BAKONG);
-        order.setBakongMd5Hash("md5");
-        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+    void switchingCurrencyKeepsTheOrdersPaymentDeadline() {
+        UUID customerId = UUID.randomUUID();
+        Order order = expiringBakongOrder(customerId, LocalDateTime.now().plusMinutes(10));
+        LocalDateTime deadline = order.getBakongExpiresAt();
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bakongQrService.generateQr(any(), any(), eq(Currency.KHR), eq(deadline))).thenReturn(
+                new org.group1.coffeeshopapi.bakong.dto.BakongQrResult(
+                        "khr-qr", "khr-md5", Currency.KHR, new BigDecimal("6150"), deadline));
 
-        service.acceptBakongPaymentFromReceipt(order.getId(), baristaId);
+        service.generateBakongQrForCustomer(order.getId(), customerId, Currency.KHR);
 
-        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
-        assertThat(order.getHandledBy()).isEqualTo(baristaId);
-        verify(bakongApiClient, never()).checkTransactionByMd5(any());
-        verify(inventoryService).stockCutAvailable(any(StockCutRequest.class), any());
+        assertThat(order.getBakongExpiresAt()).isEqualTo(deadline);
     }
 
     @Test
-    void receiptConfirmationIsOnlyForOrdersAwaitingAQrPayment() {
-        Order order = pendingOrder(cartonOf24Cans(), 1);
-        order.setPaymentMethod(PaymentMethod.CASH);
-        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+    void noNewQrOnceThePaymentTimeHasRunOut() {
+        UUID customerId = UUID.randomUUID();
+        Order order = expiringBakongOrder(customerId, LocalDateTime.now().minusSeconds(5));
+        when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
 
-        assertThatThrownBy(() -> service.acceptBakongPaymentFromReceipt(order.getId(), UUID.randomUUID()))
-                .hasMessageContaining("not awaiting Bakong");
+        assertThatThrownBy(() -> service.generateBakongQrForCustomer(order.getId(), customerId, Currency.KHR))
+                .hasMessageContaining("run out");
+        verify(bakongQrService, never()).generateQr(any(), any(), any(), any());
+    }
+
+    @Test
+    void anExpiredUnpaidQrOrderIsCancelled() {
+        Order order = expiringBakongOrder(UUID.randomUUID(), LocalDateTime.now().minusMinutes(2));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bakongApiClient.checkTransactionByMd5("usd-md5", true)).thenReturn(BakongTransactionCheckResult.notPaid("not found"));
+
+        assertThat(service.cancelExpiredBakongOrder(order.getId())).isTrue();
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    }
+
+    @Test
+    void anExpiredQrOrderPaidJustInTimeIsConfirmedInsteadOfCancelled() {
+        Order order = expiringBakongOrder(UUID.randomUUID(), LocalDateTime.now().minusMinutes(2));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(bakongApiClient.checkTransactionByMd5("usd-md5", true))
+                .thenReturn(BakongTransactionCheckResult.paid("tx", new BigDecimal("1.50"), "USD", null));
+
+        assertThat(service.cancelExpiredBakongOrder(order.getId())).isFalse();
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+    }
+
+    @Test
+    void anExpiredQrOrderIsNotCancelledWhileBakongCannotBeChecked() {
+        Order order = expiringBakongOrder(UUID.randomUUID(), LocalDateTime.now().minusMinutes(2));
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(bakongApiClient.checkTransactionByMd5("usd-md5", true))
+                .thenReturn(BakongTransactionCheckResult.failed("daily limit"));
+
+        assertThatThrownBy(() -> service.cancelExpiredBakongOrder(order.getId()))
+                .isInstanceOf(org.group1.coffeeshopapi.common.exception.PaymentVerificationUnavailableException.class);
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+    }
+
+    private Order expiringBakongOrder(UUID customerId, LocalDateTime expiresAt) {
+        Order order = pendingOrder(cartonOf24Cans(), 1);
+        Customer customer = new Customer();
+        customer.setId(customerId);
+        order.setCustomer(customer);
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongQrString("usd-qr");
+        order.setBakongMd5Hash("usd-md5");
+        order.setBakongCurrency(Currency.USD);
+        order.setBakongExpiresAt(expiresAt);
+        return order;
     }
 
     private Product cartonOf24Cans() {

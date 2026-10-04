@@ -69,6 +69,13 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             @Param("status") OrderStatus status, @Param("paymentMethod") PaymentMethod paymentMethod,
             @Param("payableSince") LocalDateTime payableSince);
 
+    @Query("select o.id from Order o where o.status = :status and o.paymentMethod = :paymentMethod "
+            + "and o.customer is not null and o.bakongMd5Hash is not null and o.bakongExpiresAt < :expiredBefore "
+            + "order by o.createdAt")
+    List<UUID> findIdsWithExpiredBakongQr(
+            @Param("status") OrderStatus status, @Param("paymentMethod") PaymentMethod paymentMethod,
+            @Param("expiredBefore") LocalDateTime expiredBefore);
+
     @Query("select o from Order o left join fetch o.customer where o.customer is not null and o.handledBy is null "
             + "and o.status = :status and o.paymentMethod = :paymentMethod")
     Page<Order> findAwaitingBaristaClaim(
