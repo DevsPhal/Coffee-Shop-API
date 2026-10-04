@@ -126,9 +126,11 @@ public class CustomerOrderController {
 
     @PostMapping("/{id}/pay/bakong/confirm")
     public ApiResponse<OrderResponse> confirmBakongPayment(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+            @PathVariable UUID id,
+            @RequestParam(defaultValue = "false") boolean manual,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
-                orderService.confirmBakongPaymentForCustomer(id, currentUser.getId()));
+                orderService.confirmBakongPaymentForCustomer(id, currentUser.getId(), manual));
     }
 
     @GetMapping(value = "/{id}/pay/bakong/qr/image", produces = MediaType.IMAGE_PNG_VALUE)

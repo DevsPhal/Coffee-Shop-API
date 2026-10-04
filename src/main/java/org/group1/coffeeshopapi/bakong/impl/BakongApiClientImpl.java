@@ -1,6 +1,5 @@
 package org.group1.coffeeshopapi.bakong.impl;
 
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.bakong.BakongApiClient;
 import org.group1.coffeeshopapi.bakong.BakongTokenService;
@@ -10,35 +9,123 @@ import org.group1.coffeeshopapi.bakong.dto.BakongGenerateDeeplinkResponse;
 import org.group1.coffeeshopapi.bakong.dto.BakongTransactionCheckResult;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class BakongApiClientImpl implements BakongApiClient {
 
     // Bakong errorCode values for check_transaction_by_md5.
     private static final int ERROR_NOT_FOUND = 1;
     private static final int ERROR_TRANSACTION_FAILED = 3;
     private static final int ERROR_UNAUTHORIZED = 6;
+    private static final int ERROR_DAILY_LIMIT = 17;
+
+    // Bakong allows only ~100 checks a day per token, shared by every open payment screen, the POS and the
+    // background watcher. Each QR is therefore checked on one shared cadence that slows down as the QR ages:
+    // customers usually pay within the first minute or two.
+    private static final Duration PROMPT_INTERVAL = Duration.ofSeconds(10);
+    private static final Duration FRESH_QR_AGE = Duration.ofMinutes(2);
+    private static final Duration FRESH_QR_INTERVAL = Duration.ofSeconds(15);
+    private static final Duration ACTIVE_QR_AGE = Duration.ofMinutes(15);
+    private static final Duration ACTIVE_QR_INTERVAL = Duration.ofMinutes(1);
+    private static final Duration OLD_QR_INTERVAL = Duration.ofMinutes(5);
+    private static final Duration FORGET_AFTER = Duration.ofHours(3);
+    private static final ZoneId BAKONG_ZONE = ZoneId.of("Asia/Phnom_Penh");
+    private static final String DAILY_LIMIT_MESSAGE =
+            "Bakong's daily limit for payment checks has been reached, so payments can't be confirmed "
+                    + "automatically until midnight.";
 
     private final RestClient bakongRestClient;
     private final BakongProperties bakongProperties;
     private final BakongTokenService tokenService;
+    private final Clock clock;
+
+    private final Map<String, CheckState> checks = new ConcurrentHashMap<>();
+    private volatile Instant dailyLimitResetsAt;
+    private volatile Instant lastPrunedAt = Instant.EPOCH;
+
+    @Autowired
+    public BakongApiClientImpl(RestClient bakongRestClient, BakongProperties bakongProperties,
+                               BakongTokenService tokenService) {
+        this(bakongRestClient, bakongProperties, tokenService, Clock.systemUTC());
+    }
+
+    BakongApiClientImpl(RestClient bakongRestClient, BakongProperties bakongProperties,
+                        BakongTokenService tokenService, Clock clock) {
+        this.bakongRestClient = bakongRestClient;
+        this.bakongProperties = bakongProperties;
+        this.tokenService = tokenService;
+        this.clock = clock;
+    }
 
     @Override
     public BakongTransactionCheckResult checkTransactionByMd5(String md5Hash) {
+        return checkTransactionByMd5(md5Hash, false);
+    }
+
+    @Override
+    public BakongTransactionCheckResult checkTransactionByMd5(String md5Hash, boolean promptly) {
         if (!bakongProperties.isConfigured()) {
             throw new InvalidOperationException("Bakong payment is not configured");
         }
 
+        Instant now = clock.instant();
+        Instant resetsAt = dailyLimitResetsAt;
+        if (resetsAt != null && now.isBefore(resetsAt)) {
+            return BakongTransactionCheckResult.failed(DAILY_LIMIT_MESSAGE);
+        }
+        forgetOldChecks(now);
+
+        CheckState state = checks.computeIfAbsent(md5Hash, key -> new CheckState(now));
+        synchronized (state) {
+            if (state.lastResult != null
+                    && (state.lastResult.paid() || now.isBefore(state.lastCheckedAt.plus(interval(state, now, promptly))))) {
+                return state.lastResult;
+            }
+            BakongTransactionCheckResult result = askBakong(md5Hash);
+            if (dailyLimitResetsAt == null || !now.isBefore(dailyLimitResetsAt)) {
+                state.lastCheckedAt = now;
+                state.lastResult = result;
+            }
+            return result;
+        }
+    }
+
+    private Duration interval(CheckState state, Instant now, boolean promptly) {
+        if (promptly) {
+            return PROMPT_INTERVAL;
+        }
+        Duration age = Duration.between(state.firstSeenAt, now);
+        if (age.compareTo(FRESH_QR_AGE) < 0) {
+            return FRESH_QR_INTERVAL;
+        }
+        return age.compareTo(ACTIVE_QR_AGE) < 0 ? ACTIVE_QR_INTERVAL : OLD_QR_INTERVAL;
+    }
+
+    private void forgetOldChecks(Instant now) {
+        if (now.isBefore(lastPrunedAt.plus(Duration.ofMinutes(1)))) {
+            return;
+        }
+        lastPrunedAt = now;
+        checks.values().removeIf(state -> state.firstSeenAt.isBefore(now.minus(FORGET_AFTER)));
+    }
+
+    private BakongTransactionCheckResult askBakong(String md5Hash) {
         try {
             BakongCheckTransactionResponse response = call(md5Hash, tokenService.currentToken());
             if (!isTokenRejected(response)) {
@@ -100,6 +187,14 @@ public class BakongApiClientImpl implements BakongApiClient {
                     response.responseMessage());
         }
         Integer errorCode = response.errorCode();
+        if (errorCode != null && errorCode == ERROR_DAILY_LIMIT) {
+            Instant resetsAt = LocalDate.now(clock.withZone(BAKONG_ZONE)).plusDays(1)
+                    .atStartOfDay(BAKONG_ZONE).toInstant();
+            dailyLimitResetsAt = resetsAt;
+            log.error("Bakong daily request limit reached ({}); pausing payment checks until {}",
+                    response.responseMessage(), resetsAt);
+            return BakongTransactionCheckResult.failed(DAILY_LIMIT_MESSAGE);
+        }
         if (errorCode == null || errorCode == ERROR_NOT_FOUND || errorCode == ERROR_TRANSACTION_FAILED) {
             return BakongTransactionCheckResult.notPaid(response.responseMessage());
         }
@@ -190,5 +285,15 @@ public class BakongApiClientImpl implements BakongApiClient {
     private BakongDeeplinkResult deeplinkUnreachable(RestClientException e) {
         log.warn("Bakong generate_deeplink_by_qr call failed", e);
         return BakongDeeplinkResult.failed("Could not reach the Bakong API. Please try again.");
+    }
+
+    private static final class CheckState {
+        private final Instant firstSeenAt;
+        private Instant lastCheckedAt;
+        private BakongTransactionCheckResult lastResult;
+
+        private CheckState(Instant firstSeenAt) {
+            this.firstSeenAt = firstSeenAt;
+        }
     }
 }

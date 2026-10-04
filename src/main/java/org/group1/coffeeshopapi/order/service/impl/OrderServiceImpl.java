@@ -160,7 +160,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse confirmBakongPayment(UUID id, UUID baristaId) {
-        return toResponse(confirmBakong(findByHandledByForUpdate(id, baristaId), baristaId));
+        return toResponse(confirmBakong(findByHandledByForUpdate(id, baristaId), baristaId, false));
     }
 
     @Override
@@ -198,7 +198,7 @@ public class OrderServiceImpl implements OrderService {
         if (order.getPaymentMethod() != PaymentMethod.BAKONG) {
             throw new InvalidOperationException("Order is not awaiting Bakong payment");
         }
-        return toResponse(confirmBakong(order, actorId));
+        return toResponse(confirmBakong(order, actorId, true));
     }
 
     @Override
@@ -454,13 +454,19 @@ public class OrderServiceImpl implements OrderService {
                 || !hasPayableBakongQr(order)) {
             return false;
         }
-        return confirmBakong(order, null).getStatus() != OrderStatus.PENDING;
+        return confirmBakong(order, null, false).getStatus() != OrderStatus.PENDING;
     }
 
     @Override
     @Transactional
     public OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId) {
-        return toResponse(confirmBakong(findByCustomerForUpdate(id, customerId), null));
+        return confirmBakongPaymentForCustomer(id, customerId, false);
+    }
+
+    @Override
+    @Transactional
+    public OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId, boolean promptly) {
+        return toResponse(confirmBakong(findByCustomerForUpdate(id, customerId), null, promptly));
     }
 
     @Override
@@ -720,7 +726,7 @@ public class OrderServiceImpl implements OrderService {
                 expiresAt, expiresInSeconds);
     }
 
-    private Order confirmBakong(Order order, UUID performedBy) {
+    private Order confirmBakong(Order order, UUID performedBy, boolean promptly) {
         if (order.getStatus() == OrderStatus.CANCELLED) {
             throw new InvalidOperationException("Order has been cancelled");
         }
@@ -732,14 +738,14 @@ public class OrderServiceImpl implements OrderService {
         }
 
         String paidMd5 = order.getBakongMd5Hash();
-        BakongTransactionCheckResult result = bakongApiClient.checkTransactionByMd5(paidMd5);
+        BakongTransactionCheckResult result = checkBakong(paidMd5, promptly);
         if (result.failed()) {
             throw new PaymentVerificationUnavailableException(
                     result.message() != null ? result.message() : "Could not verify the payment with Bakong.");
         }
         if (!result.paid()) {
             for (String md5 : payablePreviousMd5Hashes(order)) {
-                BakongTransactionCheckResult previous = bakongApiClient.checkTransactionByMd5(md5);
+                BakongTransactionCheckResult previous = checkBakong(md5, promptly);
                 if (previous.paid()) {
                     paidMd5 = md5;
                     result = previous;
@@ -775,6 +781,12 @@ public class OrderServiceImpl implements OrderService {
             recordChange(order, OrderAuditAction.BAKONG_CONFIRMED, auditActorId);
         }
         return order;
+    }
+
+    private BakongTransactionCheckResult checkBakong(String md5, boolean promptly) {
+        return promptly
+                ? bakongApiClient.checkTransactionByMd5(md5, true)
+                : bakongApiClient.checkTransactionByMd5(md5);
     }
 
     private boolean hasPayableBakongQr(Order order) {

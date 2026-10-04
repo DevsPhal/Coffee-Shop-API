@@ -82,6 +82,9 @@ public interface OrderService {
 
     OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId);
 
+    /** {@code promptly}: the customer tapped "I've paid", so Bakong may be asked again sooner. */
+    OrderResponse confirmBakongPaymentForCustomer(UUID id, UUID customerId, boolean promptly);
+
     List<UUID> listOrdersAwaitingBakongPayment();
 
     boolean confirmBakongPaymentAutomatically(UUID id);
