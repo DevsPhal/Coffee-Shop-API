@@ -149,6 +149,12 @@ public class AdminOrderController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, response);
     }
 
+    @PostMapping("/{id}/accept-bakong/receipt")
+    public ApiResponse<OrderResponse> acceptBakongPaymentFromReceipt(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "Payment confirmed from the customer's receipt.",
+                orderService.acceptBakongPaymentFromReceipt(id, currentActor.id()));
+    }
+
     @PostMapping("/{id}/cancel")
     public ApiResponse<OrderResponse> cancel(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, "Order cancelled successfully.",

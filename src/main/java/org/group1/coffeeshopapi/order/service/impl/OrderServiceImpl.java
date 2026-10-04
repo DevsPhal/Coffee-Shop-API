@@ -202,6 +202,20 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional
+    public OrderResponse acceptBakongPaymentFromReceipt(UUID id, UUID actorId) {
+        Order order = requirePending(findAnyForUpdate(id));
+        if (order.getPaymentMethod() != PaymentMethod.BAKONG || order.getBakongMd5Hash() == null) {
+            throw new InvalidOperationException("Order is not awaiting Bakong payment");
+        }
+        order.setHandledBy(actorId);
+        markPaid(order, actorId, true);
+        order = orderRepository.save(order);
+        recordChange(order, OrderAuditAction.BAKONG_BY_RECEIPT, actorId);
+        return toResponse(order);
+    }
+
+    @Override
     public Page<OrderResponse> listAwaitingBakongConfirmation(Pageable pageable) {
         Page<Order> orders = orderRepository.findAwaitingBaristaClaim(OrderStatus.PENDING, PaymentMethod.BAKONG, pageable);
         return toResponsePage(orders);

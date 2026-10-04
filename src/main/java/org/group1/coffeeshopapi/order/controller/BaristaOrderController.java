@@ -175,6 +175,13 @@ public class BaristaOrderController {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, response);
     }
 
+    @PostMapping("/{id}/accept-bakong/receipt")
+    public ApiResponse<OrderResponse> acceptBakongPaymentFromReceipt(
+            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Payment confirmed from the customer's receipt.",
+                orderService.acceptBakongPaymentFromReceipt(id, currentUser.getId()));
+    }
+
     @GetMapping("/staff-calls")
     public ApiResponse<List<StaffCallResponse>> listStaffCalls() {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, staffCallService.listOpen());

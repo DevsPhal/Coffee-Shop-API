@@ -269,6 +269,34 @@ class OrderServiceImplStockTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
     }
 
+    @Test
+    void staffCanConfirmAQrPaymentFromTheReceiptWithoutAskingBakong() {
+        UUID baristaId = UUID.randomUUID();
+        Order order = pendingOrder(cartonOf24Cans(), 1);
+        order.setPaymentMethod(PaymentMethod.BAKONG);
+        order.setBakongMd5Hash("md5");
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.acceptBakongPaymentFromReceipt(order.getId(), baristaId);
+
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
+        assertThat(order.getHandledBy()).isEqualTo(baristaId);
+        verify(bakongApiClient, never()).checkTransactionByMd5(any());
+        verify(inventoryService).stockCutAvailable(any(StockCutRequest.class), any());
+    }
+
+    @Test
+    void receiptConfirmationIsOnlyForOrdersAwaitingAQrPayment() {
+        Order order = pendingOrder(cartonOf24Cans(), 1);
+        order.setPaymentMethod(PaymentMethod.CASH);
+        when(orderRepository.findByIdForUpdate(order.getId())).thenReturn(Optional.of(order));
+
+        assertThatThrownBy(() -> service.acceptBakongPaymentFromReceipt(order.getId(), UUID.randomUUID()))
+                .hasMessageContaining("not awaiting Bakong");
+        assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
+    }
+
     private Product cartonOf24Cans() {
         Category drinks = new Category();
         drinks.setStatus(Status.ACTIVE);

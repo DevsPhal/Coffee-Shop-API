@@ -39,6 +39,12 @@ public interface OrderService {
 
     OrderResponse acceptBakongPayment(UUID id, UUID actorId);
 
+    /**
+     * Staff saw the customer's bank receipt (or the money in the shop's account) and mark the order paid
+     * without asking Bakong — for when Bakong can't be checked, e.g. its daily limit is reached.
+     */
+    OrderResponse acceptBakongPaymentFromReceipt(UUID id, UUID actorId);
+
     Page<OrderResponse> listAwaitingBakongConfirmation(Pageable pageable);
 
     OrderResponse setDeliveryFee(UUID id, BigDecimal fee, UUID actorId);
