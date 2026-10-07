@@ -8,12 +8,15 @@ import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
 import org.group1.coffeeshopapi.common.security.CurrentActor;
+import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.product.dto.request.CreateProductRequest;
 import org.group1.coffeeshopapi.product.dto.request.SetProductDiscountRequest;
 import org.group1.coffeeshopapi.product.dto.request.UpdateProductRequest;
 import org.group1.coffeeshopapi.product.dto.response.ProductImportResponse;
 import org.group1.coffeeshopapi.product.dto.response.ProductResponse;
+import org.group1.coffeeshopapi.product.dto.response.SkuSuggestionResponse;
+import org.group1.coffeeshopapi.product.service.ProductImportService;
 import org.group1.coffeeshopapi.product.service.ProductService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -30,6 +33,7 @@ import java.util.UUID;
 public class ProductController {
 
     private final ProductService productService;
+    private final ProductImportService productImportService;
     private final CurrentActor currentActor;
 
     @PostMapping
@@ -89,9 +93,30 @@ public class ProductController {
                 productService.removeImage(id, currentActor.adminRef()));
     }
 
+    @GetMapping("/sku/generate")
+    public ApiResponse<SkuSuggestionResponse> generateSku(
+            @RequestParam UUID categoryId,
+            @RequestParam String name,
+            @RequestParam(required = false) UUID productId) {
+        return ApiResponse.of(HttpStatus.OK, "SKU generated successfully.",
+                productService.suggestSku(categoryId, name, productId));
+    }
+
+    @PostMapping("/{id}/sku/regenerate")
+    public ApiResponse<ProductResponse> regenerateSku(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, "SKU regenerated successfully.",
+                productService.regenerateSku(id, currentActor.adminRef()));
+    }
+
+    @GetMapping("/import/template")
+    public ResponseEntity<byte[]> downloadImportTemplate() {
+        return FileResponseUtil.respond(productImportService.generateTemplate(), FileResponseUtil.XLSX,
+                "product-import-template.xlsx", false);
+    }
+
     @PostMapping(value = "/import", consumes = "multipart/form-data")
     public ApiResponse<ProductImportResponse> importExcel(@RequestParam("file") MultipartFile file) {
-        ProductImportResponse response = productService.importFromExcel(file, currentActor.adminRef());
+        ProductImportResponse response = productImportService.importFromExcel(file, currentActor.adminRef());
         return ApiResponse.of(HttpStatus.OK, "Import completed.", response);
     }
 }

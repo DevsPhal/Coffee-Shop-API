@@ -4,11 +4,9 @@ import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
 import org.group1.coffeeshopapi.inventory.dto.request.StockInRequest;
 import org.group1.coffeeshopapi.inventory.dto.response.InventoryResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.StockCutResponse;
-import org.group1.coffeeshopapi.inventory.dto.response.StockInImportResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.StockMovementResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -25,8 +23,6 @@ public interface InventoryService {
     StockCutResponse stockCutAvailable(StockCutRequest request, UUID performedBy);
 
     void requireAvailable(UUID productId, BigDecimal quantity);
-
-    StockInImportResponse stockInFromExcel(MultipartFile file, UUID performedBy);
 
     Page<StockMovementResponse> listMovements(UUID productId, Pageable pageable);
 }

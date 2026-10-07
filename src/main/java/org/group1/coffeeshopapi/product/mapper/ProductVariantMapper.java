@@ -9,6 +9,8 @@ import org.mapstruct.Mapping;
 public interface ProductVariantMapper {
 
     @Mapping(target = "productId", source = "product.id")
+    @Mapping(target = "sku", expression = "java(org.group1.coffeeshopapi.product.service.ProductSkuGenerator"
+            + ".variantSku(variant.getProduct().getSku(), variant.getName()))")
     @Mapping(target = "finalPrice",
             expression = "java(variant.getProduct().getFinalPrice(variant.getPrice(), java.time.LocalDateTime.now()))")
     ProductVariantResponse toResponse(ProductVariant variant);

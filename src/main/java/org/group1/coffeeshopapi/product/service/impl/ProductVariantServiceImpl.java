@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.group1.coffeeshopapi.product.mapper.ProductVariantMapper;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
+import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
 import org.group1.coffeeshopapi.product.service.ProductVariantService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -33,6 +34,7 @@ public class ProductVariantServiceImpl implements ProductVariantService {
         if (variantRepository.existsByProductIdAndName(productId, request.name())) {
             throw new DuplicateResourceException("This product already has a variant named '" + request.name() + "'");
         }
+        ProductVariantPolicy.requireAllowed(product.getCategory().getCategoryGroup(), request.name(), product.getName());
 
         ProductVariant variant = new ProductVariant();
         variant.setProduct(product);
@@ -60,6 +62,11 @@ public class ProductVariantServiceImpl implements ProductVariantService {
             if (!request.name().equals(variant.getName())
                     && variantRepository.existsByProductIdAndName(productId, request.name())) {
                 throw new DuplicateResourceException("This product already has a variant named '" + request.name() + "'");
+            }
+            if (!request.name().equals(variant.getName())) {
+                Product product = variant.getProduct();
+                ProductVariantPolicy.requireAllowed(product.getCategory().getCategoryGroup(), request.name(),
+                        product.getName());
             }
             variant.setName(request.name());
         }

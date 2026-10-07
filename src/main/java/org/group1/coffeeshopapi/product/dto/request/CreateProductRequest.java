@@ -3,8 +3,11 @@ package org.group1.coffeeshopapi.product.dto.request;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 import org.group1.coffeeshopapi.common.enums.SellUnit;
+import org.group1.coffeeshopapi.common.enums.SkuMode;
 import org.group1.coffeeshopapi.common.enums.StockUnit;
 
 import java.math.BigDecimal;
@@ -21,9 +24,11 @@ public record CreateProductRequest(
         @Size(max = 255, message = "Description must not exceed 255 characters")
         String description,
 
-        @NotBlank(message = "SKU is required")
-        @Size(max = 255, message = "SKU must not exceed 255 characters")
+        @Size(max = ValidationPatterns.SKU_MAX_LENGTH, message = "SKU must not exceed 64 characters")
+        @Pattern(regexp = ValidationPatterns.SKU_REGEX, message = ValidationPatterns.SKU_MESSAGE)
         String sku,
+
+        SkuMode skuMode,
 
         @NotNull(message = "Stock unit is required")
         StockUnit stockUnit,

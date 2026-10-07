@@ -73,6 +73,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/users/**").hasRole("SUPER_ADMIN")
                         .requestMatchers("/api/admin/baristas/**").hasRole("ADMIN")
                         .requestMatchers("/api/admin/inventory/expenses/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/products/import/**", "/api/admin/products/sku/**",
+                                "/api/admin/inventory/stock-in/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/admin/categories/**", "/api/admin/products/**",
                                 "/api/admin/inventory/**", "/api/admin/extras/**")
                         .hasAnyRole("ADMIN", "BARISTA")

@@ -10,6 +10,7 @@ public record ProductVariantResponse(
         UUID id,
         UUID productId,
         VariantLabel name,
+        String sku,
         BigDecimal price,
         BigDecimal finalPrice,
         Integer sortOrder,

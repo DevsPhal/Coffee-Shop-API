@@ -1,6 +1,9 @@
 package org.group1.coffeeshopapi.product.service.impl;
 
+import org.group1.coffeeshopapi.category.entity.Category;
+import org.group1.coffeeshopapi.common.enums.CategoryGroup;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
+import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.product.dto.request.CreateProductVariantRequest;
 import org.group1.coffeeshopapi.product.dto.request.UpdateProductVariantRequest;
@@ -75,5 +78,22 @@ class ProductVariantServiceImplTest {
                 new UpdateProductVariantRequest(VariantLabel.MEDIUM, new BigDecimal("2.50"), null, null)))
                 .doesNotThrowAnyException();
         verify(variantRepository, never()).existsByProductIdAndName(any(), any());
+    }
+
+    @Test
+    void aSnackCannotGetADrinkSizeVariant() {
+        UUID productId = UUID.randomUUID();
+        Category snacks = new Category();
+        snacks.setCategoryGroup(CategoryGroup.SNACK);
+        Product croissant = new Product();
+        croissant.setName("Croissant");
+        croissant.setCategory(snacks);
+        when(productRepository.findById(productId)).thenReturn(Optional.of(croissant));
+
+        assertThatThrownBy(() -> service.create(productId,
+                new CreateProductVariantRequest(VariantLabel.LARGE, new BigDecimal("3.00"), null)))
+                .isInstanceOf(InvalidOperationException.class)
+                .hasMessageContaining("PIECE");
+        verify(variantRepository, never()).save(any());
     }
 }

@@ -18,6 +18,7 @@ import org.group1.coffeeshopapi.inventory.dto.response.StockInImportResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.StockMovementResponse;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.inventory.service.StockExpenseReportService;
+import org.group1.coffeeshopapi.inventory.service.StockInImportService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -37,6 +38,7 @@ public class InventoryController {
 
     private final InventoryService inventoryService;
     private final StockExpenseReportService stockExpenseReportService;
+    private final StockInImportService stockInImportService;
     private final CurrentActor currentActor;
 
     @GetMapping
@@ -75,9 +77,15 @@ public class InventoryController {
         return ApiResponse.of(HttpStatus.OK, "Stock received successfully.", response);
     }
 
+    @GetMapping("/stock-in/import/template")
+    public ResponseEntity<byte[]> downloadStockInTemplate() {
+        return FileResponseUtil.respond(stockInImportService.generateTemplate(), FileResponseUtil.XLSX,
+                "stock-in-import-template.xlsx", false);
+    }
+
     @PostMapping(value = "/stock-in/import", consumes = "multipart/form-data")
     public ApiResponse<StockInImportResponse> stockInFromExcel(@RequestParam("file") MultipartFile file) {
-        StockInImportResponse response = inventoryService.stockInFromExcel(file, currentActor.id());
+        StockInImportResponse response = stockInImportService.importFromExcel(file, currentActor.id());
         return ApiResponse.of(HttpStatus.OK, "Import completed.", response);
     }
 

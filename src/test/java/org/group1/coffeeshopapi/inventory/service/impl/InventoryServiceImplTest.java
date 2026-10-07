@@ -26,11 +26,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
-import org.group1.coffeeshopapi.inventory.dto.response.StockInImportResponse;
-import org.springframework.mock.web.MockMultipartFile;
 
-import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
@@ -195,43 +191,6 @@ class InventoryServiceImplTest {
                 .hasMessageContaining("enough stock");
         assertThatCode(() -> service.requireAvailable(product.getId(), new BigDecimal("0.5")))
                 .doesNotThrowAnyException();
-    }
-
-    @Test
-    void aBadImportRowIsReportedWithoutSinkingTheValidOnes() throws Exception {
-        Product good = product();
-        Product orphan = product();
-        when(productRepository.findBySkuIgnoreCase("GOOD")).thenReturn(Optional.of(good));
-        when(productRepository.findBySkuIgnoreCase("ORPHAN")).thenReturn(Optional.of(orphan));
-        when(inventoryRepository.findByProductIdForUpdate(good.getId()))
-                .thenReturn(Optional.of(inventoryWithQuantity(good, BigDecimal.ZERO)));
-        when(inventoryRepository.findByProductIdForUpdate(orphan.getId())).thenReturn(Optional.empty());
-
-        StockInImportResponse response = service.stockInFromExcel(workbook(
-                new String[] {"ORPHAN", "5", "1.00"}, new String[] {"GOOD", "10", "2.00"}), UUID.randomUUID());
-
-        assertThat(response.created()).isEqualTo(1);
-        assertThat(response.errors()).singleElement()
-                .satisfies(error -> assertThat(error.message()).contains("Inventory not found"));
-    }
-
-    private MockMultipartFile workbook(String[]... rows) throws Exception {
-        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            var sheet = workbook.createSheet();
-            var header = sheet.createRow(0);
-            header.createCell(0).setCellValue("sku");
-            header.createCell(1).setCellValue("quantity");
-            header.createCell(2).setCellValue("unitCost");
-            for (int i = 0; i < rows.length; i++) {
-                var row = sheet.createRow(i + 1);
-                for (int c = 0; c < rows[i].length; c++) {
-                    row.createCell(c).setCellValue(rows[i][c]);
-                }
-            }
-            workbook.write(out);
-            return new MockMultipartFile("file", "stock.xlsx",
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
-        }
     }
 
     private Product product() {

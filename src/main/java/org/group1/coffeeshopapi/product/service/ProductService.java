@@ -4,8 +4,8 @@ import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.product.dto.request.CreateProductRequest;
 import org.group1.coffeeshopapi.product.dto.request.SetProductDiscountRequest;
 import org.group1.coffeeshopapi.product.dto.request.UpdateProductRequest;
-import org.group1.coffeeshopapi.product.dto.response.ProductImportResponse;
 import org.group1.coffeeshopapi.product.dto.response.ProductResponse;
+import org.group1.coffeeshopapi.product.dto.response.SkuSuggestionResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,5 +29,6 @@ public interface ProductService {
     ProductResponse uploadImage(UUID id, MultipartFile file, Admin actorAdmin);
     ProductResponse removeImage(UUID id, Admin actorAdmin);
 
-    ProductImportResponse importFromExcel(MultipartFile file, Admin actorAdmin);
+    ProductResponse regenerateSku(UUID id, Admin actorAdmin);
+    SkuSuggestionResponse suggestSku(UUID categoryId, String name, UUID productId);
 }

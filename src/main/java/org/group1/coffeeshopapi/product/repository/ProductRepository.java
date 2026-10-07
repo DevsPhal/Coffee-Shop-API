@@ -17,7 +17,11 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     Optional<Product> findBySkuIgnoreCase(String sku);
 
     boolean existsBySkuIgnoreCaseAndIdNot(String sku, UUID id);
+
+    @Query("SELECT p.sku FROM Product p WHERE UPPER(p.sku) LIKE CONCAT(:prefix, '%')")
+    List<String> findSkusStartingWith(@Param("prefix") String prefix);
     boolean existsByCategoryId(UUID categoryId);
+    boolean existsByNameIgnoreCaseAndCategoryId(String name, UUID categoryId);
     Page<Product> findByCategoryId(UUID categoryId, Pageable pageable);
 
     Page<Product> findByStatus(Status status, Pageable pageable);

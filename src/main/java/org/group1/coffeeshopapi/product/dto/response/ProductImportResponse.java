@@ -6,6 +6,7 @@ public record ProductImportResponse(
         int totalRows,
         int created,
         int failed,
+        List<ProductImportRowResult> createdProducts,
         List<ProductImportRowError> errors
 ) {
 }

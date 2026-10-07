@@ -14,6 +14,9 @@ import org.group1.coffeeshopapi.product.mapper.ProductMapper;
 import org.group1.coffeeshopapi.product.mapper.ProductVariantMapper;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
+import org.group1.coffeeshopapi.product.service.ProductSkuGenerator;
+import org.group1.coffeeshopapi.common.enums.SkuMode;
+import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -41,6 +44,7 @@ class ProductServiceImplUpdateTest {
     @Mock private ProductVariantMapper variantMapper;
     @Mock private ProductExtraMapper productExtraMapper;
     @Mock private FileStorageService fileStorageService;
+    @Mock private ProductSkuGenerator skuGenerator;
     @InjectMocks private ProductServiceImpl service;
 
     @Test
@@ -68,13 +72,49 @@ class ProductServiceImplUpdateTest {
     }
 
     @Test
+    void manualSkuIsTrimmedAndUppercased() {
+        Product product = productWithSku("OLD-SKU");
+        stubLookups(product);
+        when(productRepository.existsBySkuIgnoreCaseAndIdNot("GT-002", product.getId())).thenReturn(false);
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.update(product.getId(), updateSkuOnly("  gt-002 "), admin());
+
+        assertThat(product.getSku()).isEqualTo("GT-002");
+    }
+
+    @Test
+    void generateModeOverridesTheTypedSkuWithARegeneratedOne() {
+        Product product = productWithSku("OLD-SKU");
+        stubLookups(product);
+        when(skuGenerator.regenerate(product)).thenReturn("FD-TEA-GT-001");
+        when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.update(product.getId(), new UpdateProductRequest(
+                null, null, null, "TYPED", SkuMode.GENERATE, null, null, null, null, null, null), admin());
+
+        assertThat(product.getSku()).isEqualTo("FD-TEA-GT-001");
+    }
+
+    @Test
+    void manualModeWithoutASkuIsRejected() {
+        Product product = productWithSku("OLD-SKU");
+        when(productRepository.findById(product.getId())).thenReturn(Optional.of(product));
+
+        assertThatThrownBy(() -> service.update(product.getId(), new UpdateProductRequest(
+                null, null, null, null, SkuMode.MANUAL, null, null, null, null, null, null), admin()))
+                .isInstanceOf(InvalidOperationException.class);
+        assertThat(product.getSku()).isEqualTo("OLD-SKU");
+    }
+
+    @Test
     void leavingSkuNullLeavesItUnchanged() {
         Product product = productWithSku("OLD-SKU");
         stubLookups(product);
         when(productRepository.save(any(Product.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         UpdateProductRequest request = new UpdateProductRequest(
-                null, null, null, null, null, null, null, null, null, null);
+                null, null, null, null, null, null, null, null, null, null, null);
         service.update(product.getId(), request, admin());
 
         assertThat(product.getSku()).isEqualTo("OLD-SKU");
@@ -90,7 +130,7 @@ class ProductServiceImplUpdateTest {
     }
 
     private UpdateProductRequest updateSkuOnly(String sku) {
-        return new UpdateProductRequest(null, null, null, sku, null, null, null, null, null, null);
+        return new UpdateProductRequest(null, null, null, sku, null, null, null, null, null, null, null);
     }
 
     private Product productWithSku(String sku) {

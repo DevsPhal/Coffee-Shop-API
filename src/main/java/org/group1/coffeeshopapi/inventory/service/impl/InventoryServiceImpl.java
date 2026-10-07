@@ -2,12 +2,6 @@ package org.group1.coffeeshopapi.inventory.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
-import org.group1.coffeeshopapi.common.exception.ApiException;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
@@ -15,8 +9,6 @@ import org.group1.coffeeshopapi.inventory.dto.request.StockInRequest;
 import org.group1.coffeeshopapi.inventory.dto.response.BatchConsumptionResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.InventoryResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.StockCutResponse;
-import org.group1.coffeeshopapi.inventory.dto.response.StockInImportResponse;
-import org.group1.coffeeshopapi.inventory.dto.response.StockInImportRowError;
 import org.group1.coffeeshopapi.inventory.dto.response.StockMovementResponse;
 import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.inventory.entity.StockBatch;
@@ -39,9 +31,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -119,91 +109,6 @@ public class InventoryServiceImpl implements InventoryService {
         expense.setAmount(quantity.multiply(unitCost));
         expense.setExpenseDate(LocalDate.now());
         stockExpenseRepository.save(expense);
-    }
-
-    @Override
-    @Transactional
-    public StockInImportResponse stockInFromExcel(MultipartFile file, UUID performedBy) {
-        if (file == null || file.isEmpty()) {
-            throw new InvalidOperationException("Excel file is required");
-        }
-
-        List<StockInImportRowError> errors = new ArrayList<>();
-        int totalRows = 0;
-        int created = 0;
-
-        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-            Sheet sheet = workbook.getSheetAt(0);
-            DataFormatter formatter = new DataFormatter();
-
-            for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
-                Row row = sheet.getRow(rowIndex);
-                if (row == null || isStockInRowEmpty(row, formatter)) {
-                    continue;
-                }
-                totalRows++;
-                int excelRowNumber = rowIndex + 1;
-
-                String sku = formatter.formatCellValue(row.getCell(0)).trim();
-                String quantityText = formatter.formatCellValue(row.getCell(1)).trim();
-                String unitCostText = formatter.formatCellValue(row.getCell(2)).trim();
-                String note = formatter.formatCellValue(row.getCell(3)).trim();
-
-                if (sku.isBlank()) {
-                    errors.add(new StockInImportRowError(excelRowNumber, sku, "sku is required"));
-                    continue;
-                }
-
-                Product product = productRepository.findBySkuIgnoreCase(sku).orElse(null);
-                if (product == null) {
-                    errors.add(new StockInImportRowError(excelRowNumber, sku, "Product not found for SKU: " + sku));
-                    continue;
-                }
-
-                BigDecimal quantity = parseDecimal(quantityText);
-                if (quantity == null || quantity.signum() <= 0) {
-                    errors.add(new StockInImportRowError(excelRowNumber, sku, "Invalid quantity: " + quantityText));
-                    continue;
-                }
-
-                BigDecimal unitCost = parseDecimal(unitCostText);
-                if (unitCost == null || unitCost.signum() < 0) {
-                    errors.add(new StockInImportRowError(excelRowNumber, sku, "Invalid unit cost: " + unitCostText));
-                    continue;
-                }
-
-                try {
-                    stockIn(new StockInRequest(product.getId(), quantity, unitCost, note.isBlank() ? null : note), performedBy);
-                    created++;
-                } catch (ApiException e) {
-                    errors.add(new StockInImportRowError(excelRowNumber, sku, e.getMessage()));
-                }
-            }
-        } catch (IOException e) {
-            throw new InvalidOperationException("Unable to read Excel file: " + e.getMessage());
-        } catch (Exception e) {
-            throw new InvalidOperationException("Invalid Excel file: " + e.getMessage());
-        }
-
-        return new StockInImportResponse(totalRows, created, errors.size(), errors);
-    }
-
-    private boolean isStockInRowEmpty(Row row, DataFormatter formatter) {
-        for (int cellIndex = 0; cellIndex < 4; cellIndex++) {
-            String value = formatter.formatCellValue(row.getCell(cellIndex));
-            if (value != null && !value.isBlank()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private BigDecimal parseDecimal(String text) {
-        try {
-            return new BigDecimal(text);
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 
     @Override

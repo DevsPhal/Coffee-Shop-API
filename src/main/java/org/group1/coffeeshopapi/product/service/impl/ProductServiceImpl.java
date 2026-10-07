@@ -8,9 +8,8 @@ import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.common.enums.DiscountType;
-import org.group1.coffeeshopapi.common.enums.SellUnit;
+import org.group1.coffeeshopapi.common.enums.SkuMode;
 import org.group1.coffeeshopapi.common.enums.Status;
-import org.group1.coffeeshopapi.common.enums.StockUnit;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.storage.FileStorageService;
 import org.group1.coffeeshopapi.extra.dto.response.ProductExtraResponse;
@@ -19,18 +18,12 @@ import org.group1.coffeeshopapi.extra.mapper.ProductExtraMapper;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
-import org.apache.poi.ss.usermodel.DataFormatter;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.ss.usermodel.WorkbookFactory;
 import org.group1.coffeeshopapi.product.dto.request.CreateProductRequest;
 import org.group1.coffeeshopapi.product.dto.request.SetProductDiscountRequest;
 import org.group1.coffeeshopapi.product.dto.request.UpdateProductRequest;
-import org.group1.coffeeshopapi.product.dto.response.ProductImportResponse;
-import org.group1.coffeeshopapi.product.dto.response.ProductImportRowError;
 import org.group1.coffeeshopapi.product.dto.response.ProductResponse;
 import org.group1.coffeeshopapi.product.dto.response.ProductVariantResponse;
+import org.group1.coffeeshopapi.product.dto.response.SkuSuggestionResponse;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.group1.coffeeshopapi.product.mapper.ProductMapper;
@@ -38,6 +31,8 @@ import org.group1.coffeeshopapi.product.mapper.ProductVariantMapper;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.product.service.ProductService;
+import org.group1.coffeeshopapi.product.service.ProductSkuGenerator;
+import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -45,11 +40,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,20 +64,24 @@ public class ProductServiceImpl implements ProductService {
     private final ProductVariantMapper variantMapper;
     private final ProductExtraMapper productExtraMapper;
     private final FileStorageService fileStorageService;
+    private final ProductSkuGenerator skuGenerator;
 
     @Override
     @Transactional
     public ProductResponse create(CreateProductRequest request, Admin actorAdmin) {
-        if (productRepository.existsBySkuIgnoreCase(request.sku())) {
+        Category category = findCategory(request.categoryId());
+        String sku = resolveSkuMode(request.skuMode(), request.sku()) == SkuMode.GENERATE
+                ? skuGenerator.generate(category, request.name())
+                : ProductSkuGenerator.normalizeManual(request.sku());
+        if (productRepository.existsBySkuIgnoreCase(sku)) {
             throw new DuplicateResourceException("A product with this SKU already exists");
         }
-        Category category = findCategory(request.categoryId());
 
         Product product = new Product();
         product.setName(request.name());
         product.setNameKh(request.nameKh());
         product.setDescription(request.description());
-        product.setSku(request.sku());
+        product.setSku(sku);
         product.setStockUnit(request.stockUnit());
         product.setSellUnit(request.sellUnit());
         product.setUnitsPerStock(request.unitsPerStock() != null ? request.unitsPerStock() : BigDecimal.ONE);
@@ -147,12 +145,6 @@ public class ProductServiceImpl implements ProductService {
         if (request.description() != null) {
             product.setDescription(request.description());
         }
-        if (request.sku() != null) {
-            if (productRepository.existsBySkuIgnoreCaseAndIdNot(request.sku(), product.getId())) {
-                throw new DuplicateResourceException("A product with this SKU already exists");
-            }
-            product.setSku(request.sku());
-        }
         if (request.stockUnit() != null) {
             product.setStockUnit(request.stockUnit());
         }
@@ -162,11 +154,28 @@ public class ProductServiceImpl implements ProductService {
         if (request.unitsPerStock() != null) {
             product.setUnitsPerStock(request.unitsPerStock());
         }
-        if (request.categoryId() != null) {
-            product.setCategory(findCategory(request.categoryId()));
+        if (request.categoryId() != null
+                && (product.getCategory() == null || !request.categoryId().equals(product.getCategory().getId()))) {
+            Category category = findCategory(request.categoryId());
+            ProductVariantPolicy.requireAllAllowed(category.getCategoryGroup(),
+                    variantRepository.findByProductIdOrderBySortOrderAscNameAsc(product.getId()).stream()
+                            .map(ProductVariant::getName).toList(),
+                    product.getName());
+            product.setCategory(category);
         }
         if (request.status() != null) {
             product.setStatus(request.status());
+        }
+        if (request.skuMode() == SkuMode.GENERATE) {
+            product.setSku(skuGenerator.regenerate(product));
+        } else if (request.sku() != null && !request.sku().isBlank()) {
+            String sku = ProductSkuGenerator.normalizeManual(request.sku());
+            if (productRepository.existsBySkuIgnoreCaseAndIdNot(sku, product.getId())) {
+                throw new DuplicateResourceException("A product with this SKU already exists");
+            }
+            product.setSku(sku);
+        } else if (request.skuMode() == SkuMode.MANUAL) {
+            throw new InvalidOperationException("SKU is required when SKU mode is MANUAL");
         }
         product.setUpdatedByAdmin(actorAdmin);
         product = productRepository.save(product);
@@ -178,6 +187,43 @@ public class ProductServiceImpl implements ProductService {
         }
 
         return toResponse(product, inventory);
+    }
+
+    @Override
+    @Transactional
+    public ProductResponse regenerateSku(UUID id, Admin actorAdmin) {
+        Product product = findById(id);
+        product.setSku(skuGenerator.regenerate(product));
+        product.setUpdatedByAdmin(actorAdmin);
+        product = productRepository.save(product);
+        return toResponse(product, findInventory(product.getId()));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SkuSuggestionResponse suggestSku(UUID categoryId, String name, UUID productId) {
+        if (name == null || name.isBlank()) {
+            throw new InvalidOperationException("Product name is required to generate a SKU");
+        }
+        Category category = findCategory(categoryId);
+        String sku;
+        if (productId != null) {
+            Product product = findById(productId);
+            Product preview = new Product();
+            preview.setName(name.trim());
+            preview.setCategory(category);
+            preview.setSku(product.getSku());
+            sku = skuGenerator.regenerate(preview);
+        } else {
+            sku = skuGenerator.generate(category, name.trim());
+        }
+        Set<VariantLabel> allowed = ProductVariantPolicy.allowedVariants(category.getCategoryGroup());
+        Map<VariantLabel, String> variantSkus = new EnumMap<>(VariantLabel.class);
+        for (VariantLabel label : allowed) {
+            variantSkus.put(label, ProductSkuGenerator.variantSku(sku, label));
+        }
+        return new SkuSuggestionResponse(sku, skuGenerator.prefix(category, name.trim()), category.getName(),
+                category.getCategoryGroup(), allowed, variantSkus);
     }
 
     @Override
@@ -265,211 +311,11 @@ public class ProductServiceImpl implements ProductService {
         return toResponse(product, findInventory(product.getId()));
     }
 
-    @Override
-    @Transactional
-    public ProductImportResponse importFromExcel(MultipartFile file, Admin actorAdmin) {
-        if (file == null || file.isEmpty()) {
-            throw new InvalidOperationException("Excel file is required");
+    private SkuMode resolveSkuMode(SkuMode requested, String sku) {
+        if (requested != null) {
+            return requested;
         }
-
-        List<ProductImportRowError> errors = new ArrayList<>();
-        Set<String> skusInFile = new HashSet<>();
-        int totalRows = 0;
-        int created = 0;
-
-        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-            Sheet sheet = workbook.getSheetAt(0);
-            DataFormatter formatter = new DataFormatter();
-
-            for (int rowIndex = 1; rowIndex <= sheet.getLastRowNum(); rowIndex++) {
-                Row row = sheet.getRow(rowIndex);
-                if (row == null || isRowEmpty(row, formatter)) {
-                    continue;
-                }
-                totalRows++;
-                int excelRowNumber = rowIndex + 1;
-
-                String name = formatter.formatCellValue(row.getCell(0)).trim();
-                String description = formatter.formatCellValue(row.getCell(1)).trim();
-                String sku = formatter.formatCellValue(row.getCell(2)).trim();
-                String unitText = formatter.formatCellValue(row.getCell(3)).trim();
-                String priceText = formatter.formatCellValue(row.getCell(4)).trim();
-                String categoryName = formatter.formatCellValue(row.getCell(5)).trim();
-                String reorderText = formatter.formatCellValue(row.getCell(6)).trim();
-                String variantsText = formatter.formatCellValue(row.getCell(7)).trim();
-                String sellUnitText = formatter.formatCellValue(row.getCell(8)).trim();
-                String unitsPerStockText = formatter.formatCellValue(row.getCell(9)).trim();
-                String nameKh = formatter.formatCellValue(row.getCell(10)).trim();
-
-                if (name.isBlank() || sku.isBlank() || unitText.isBlank() || categoryName.isBlank()) {
-                    errors.add(new ProductImportRowError(excelRowNumber, sku,
-                            "name, sku, unit and category are required"));
-                    continue;
-                }
-
-                StockUnit stockUnit;
-                try {
-                    stockUnit = StockUnit.valueOf(unitText.toUpperCase());
-                } catch (IllegalArgumentException e) {
-                    errors.add(new ProductImportRowError(excelRowNumber, sku, "Invalid unit: " + unitText));
-                    continue;
-                }
-
-                SellUnit sellUnit = SellUnit.CUP;
-                if (!sellUnitText.isBlank()) {
-                    try {
-                        sellUnit = SellUnit.valueOf(sellUnitText.toUpperCase());
-                    } catch (IllegalArgumentException e) {
-                        errors.add(new ProductImportRowError(excelRowNumber, sku, "Invalid sell unit: " + sellUnitText));
-                        continue;
-                    }
-                }
-
-                BigDecimal unitsPerStock = BigDecimal.ONE;
-                if (!unitsPerStockText.isBlank()) {
-                    unitsPerStock = parseDecimal(unitsPerStockText);
-                    if (unitsPerStock == null || unitsPerStock.signum() <= 0) {
-                        errors.add(new ProductImportRowError(excelRowNumber, sku,
-                                "Invalid units per stock: " + unitsPerStockText));
-                        continue;
-                    }
-                }
-
-                List<ParsedVariant> variants;
-                if (!variantsText.isBlank()) {
-                    try {
-                        variants = parseVariants(variantsText);
-                    } catch (IllegalArgumentException e) {
-                        errors.add(new ProductImportRowError(excelRowNumber, sku, e.getMessage()));
-                        continue;
-                    }
-                } else {
-                    BigDecimal price = parseDecimal(priceText);
-                    if (price == null || price.signum() < 0) {
-                        errors.add(new ProductImportRowError(excelRowNumber, sku, "Invalid price: " + priceText));
-                        continue;
-                    }
-                    variants = List.of(new ParsedVariant(VariantLabel.MEDIUM, price));
-                }
-
-                BigDecimal reorderLevel = BigDecimal.ZERO;
-                if (!reorderText.isBlank()) {
-                    reorderLevel = parseDecimal(reorderText);
-                    if (reorderLevel == null || reorderLevel.signum() < 0) {
-                        errors.add(new ProductImportRowError(excelRowNumber, sku, "Invalid reorder level: " + reorderText));
-                        continue;
-                    }
-                }
-
-                if (!skusInFile.add(sku.toUpperCase())) {
-                    errors.add(new ProductImportRowError(excelRowNumber, sku, "Duplicate SKU within the file"));
-                    continue;
-                }
-                if (productRepository.existsBySkuIgnoreCase(sku)) {
-                    errors.add(new ProductImportRowError(excelRowNumber, sku, "SKU already exists"));
-                    continue;
-                }
-
-                Category category = categoryRepository.findByNameIgnoreCase(categoryName).orElse(null);
-                if (category == null) {
-                    errors.add(new ProductImportRowError(excelRowNumber, sku, "Category not found: " + categoryName));
-                    continue;
-                }
-
-                Product product = new Product();
-                product.setName(name);
-                product.setNameKh(nameKh.isBlank() ? null : nameKh);
-                product.setDescription(description.isBlank() ? null : description);
-                product.setSku(sku);
-                product.setStockUnit(stockUnit);
-                product.setSellUnit(sellUnit);
-                product.setUnitsPerStock(unitsPerStock);
-                product.setCategory(category);
-                product.setCreatedByAdmin(actorAdmin);
-                product.setUpdatedByAdmin(actorAdmin);
-                product = productRepository.save(product);
-
-                for (int i = 0; i < variants.size(); i++) {
-                    ParsedVariant parsed = variants.get(i);
-                    ProductVariant variant = new ProductVariant();
-                    variant.setProduct(product);
-                    variant.setName(parsed.name());
-                    variant.setPrice(parsed.price());
-                    variant.setSortOrder(i + 1);
-                    variantRepository.save(variant);
-                }
-
-                Inventory inventory = new Inventory();
-                inventory.setProduct(product);
-                inventory.setQuantityOnHand(BigDecimal.ZERO);
-                inventory.setReorderLevel(reorderLevel);
-                inventoryRepository.save(inventory);
-
-                created++;
-            }
-        } catch (IOException e) {
-            throw new InvalidOperationException("Unable to read Excel file: " + e.getMessage());
-        } catch (Exception e) {
-            throw new InvalidOperationException("Invalid Excel file: " + e.getMessage());
-        }
-
-        return new ProductImportResponse(totalRows, created, errors.size(), errors);
-    }
-
-    private boolean isRowEmpty(Row row, DataFormatter formatter) {
-        for (int cellIndex = 0; cellIndex < 11; cellIndex++) {
-            String value = formatter.formatCellValue(row.getCell(cellIndex));
-            if (value != null && !value.isBlank()) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private record ParsedVariant(VariantLabel name, BigDecimal price) {
-    }
-
-    private List<ParsedVariant> parseVariants(String text) {
-        List<ParsedVariant> parsed = new ArrayList<>();
-        Set<VariantLabel> namesSeen = new HashSet<>();
-        for (String pair : text.split(";")) {
-            if (pair.isBlank()) {
-                continue;
-            }
-            String[] parts = pair.split(":", 2);
-            if (parts.length != 2) {
-                throw new IllegalArgumentException(
-                        "Invalid variants — expected \"name:price;name:price\", got: " + pair.trim());
-            }
-            String rawName = parts[0].trim();
-            BigDecimal variantPrice = parseDecimal(parts[1].trim());
-            VariantLabel variantName;
-            try {
-                variantName = VariantLabel.valueOf(rawName.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Invalid variant name: " + rawName
-                        + " (must be one of MEDIUM, LARGE, PIECE)");
-            }
-            if (variantPrice == null || variantPrice.signum() < 0) {
-                throw new IllegalArgumentException("Invalid variant: " + pair.trim());
-            }
-            if (!namesSeen.add(variantName)) {
-                throw new IllegalArgumentException("Duplicate variant name: " + variantName);
-            }
-            parsed.add(new ParsedVariant(variantName, variantPrice));
-        }
-        if (parsed.isEmpty()) {
-            throw new IllegalArgumentException("Variants column is blank");
-        }
-        return parsed;
-    }
-
-    private BigDecimal parseDecimal(String text) {
-        try {
-            return new BigDecimal(text);
-        } catch (NumberFormatException e) {
-            return null;
-        }
+        return sku == null || sku.isBlank() ? SkuMode.GENERATE : SkuMode.MANUAL;
     }
 
     private Product findById(UUID id) {
