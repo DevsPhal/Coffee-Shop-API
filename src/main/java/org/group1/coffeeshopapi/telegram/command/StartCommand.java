@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.exception.ApiException;
 import org.group1.coffeeshopapi.telegram.dto.TelegramMessage;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
+import org.group1.coffeeshopapi.telegram.service.TelegramLoginService;
 import org.group1.coffeeshopapi.telegram.util.TelegramFormat;
 import org.springframework.stereotype.Component;
 
@@ -21,6 +22,7 @@ public class StartCommand implements TelegramCommand {
             Send /help any time to see everything I can do.""";
 
     private final TelegramLinkService telegramLinkService;
+    private final TelegramLoginService telegramLoginService;
 
     @Override
     public String name() {
@@ -35,6 +37,11 @@ public class StartCommand implements TelegramCommand {
             return telegramLinkService.linkedUserName(chatId)
                     .map(this::welcomeBack)
                     .orElse(WELCOME_NOT_LINKED);
+        }
+
+        if (argument.trim().startsWith(TelegramLoginService.START_PREFIX)) {
+            return telegramLoginService.handleStart(
+                    argument.trim().substring(TelegramLoginService.START_PREFIX.length()), message);
         }
 
         try {

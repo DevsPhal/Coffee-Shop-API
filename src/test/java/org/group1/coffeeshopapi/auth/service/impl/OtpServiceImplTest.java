@@ -6,6 +6,7 @@ import org.group1.coffeeshopapi.common.exception.InvalidOtpException;
 import org.group1.coffeeshopapi.common.exception.TooManyRequestsException;
 import org.group1.coffeeshopapi.common.properties.OtpProperties;
 import org.group1.coffeeshopapi.mail.MailService;
+import org.group1.coffeeshopapi.telegram.exception.TelegramDeliveryException;
 import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -137,6 +138,39 @@ class OtpServiceImplTest {
 
         assertThatThrownBy(() -> service.generateAndSend(EMAIL, "Sophal", PURPOSE, null))
                 .hasMessageContaining("smtp down");
+
+        verify(redisTemplate).delete(OTP_KEY);
+        verify(redisTemplate).delete(COOLDOWN_KEY);
+    }
+
+    @Test
+    void aTelegramCodeIsSentWithTheStrictSenderSoAFailedDeliveryIsNeverReportedAsSent() {
+        when(redisTemplate.hasKey(COOLDOWN_KEY)).thenReturn(false);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(passwordEncoder.encode(any())).thenReturn("hashed-otp");
+        when(otpProperties.getOtpExpiryMinutes()).thenReturn(5);
+        when(otpProperties.getOtpResendCooldownSeconds()).thenReturn(60);
+
+        service.generateAndSendViaTelegram(EMAIL, "Sophal", PURPOSE, 555L);
+
+        verify(telegramApiClient).sendHtmlMessageOrThrow(org.mockito.ArgumentMatchers.eq(555L), anyString());
+        verify(telegramApiClient, never()).sendHtmlMessage(any(), any());
+    }
+
+    @Test
+    void aTelegramCodeThatCouldNotBeDeliveredIsForgottenSoTheUserCanRetryImmediately() {
+        when(redisTemplate.hasKey(COOLDOWN_KEY)).thenReturn(false);
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(passwordEncoder.encode(any())).thenReturn("hashed-otp");
+        when(otpProperties.getOtpExpiryMinutes()).thenReturn(5);
+        when(otpProperties.getOtpResendCooldownSeconds()).thenReturn(60);
+        org.mockito.Mockito.doThrow(new TelegramDeliveryException(TelegramDeliveryException.Reason.CHAT_UNREACHABLE,
+                        "Open @CafeBot in Telegram, tap Start"))
+                .when(telegramApiClient).sendHtmlMessageOrThrow(org.mockito.ArgumentMatchers.eq(555L), anyString());
+
+        assertThatThrownBy(() -> service.generateAndSendViaTelegram(EMAIL, "Sophal", PURPOSE, 555L))
+                .isInstanceOf(TelegramDeliveryException.class)
+                .hasMessageContaining("tap Start");
 
         verify(redisTemplate).delete(OTP_KEY);
         verify(redisTemplate).delete(COOLDOWN_KEY);

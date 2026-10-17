@@ -1,14 +1,22 @@
 package org.group1.coffeeshopapi.telegram.service;
 
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 
 public interface TelegramApiClient {
     void sendMessage(Long chatId, String text);
 
     void sendHtmlMessage(Long chatId, String html);
 
+    void sendHtmlMessageOrThrow(Long chatId, String html);
+
     void sendMessageWithButtons(Long chatId, String text);
     void sendHtmlMessageWithButtons(Long chatId, String html);
+
+    void sendHtmlMessageWithInlineKeyboard(Long chatId, String html, List<List<Map<String, String>>> keyboard);
+
+    void editMessageText(Long chatId, Long messageId, String html);
 
     void sendPhoto(Long chatId, String photoUrl, String captionHtml);
 

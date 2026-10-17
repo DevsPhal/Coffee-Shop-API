@@ -109,7 +109,7 @@ public class OtpServiceImpl implements OtpService {
         String html = "👋 Hi " + TelegramFormat.escape(fullName) + ",\n\n"
                 + "Your <b>" + TelegramFormat.escape(purpose.label()) + "</b> code is:\n\n<b>" + otp + "</b>\n\n"
                 + "It expires in " + otpProperties.getOtpExpiryMinutes() + " minutes. Never share this code with anyone.";
-        telegramApiClient.sendHtmlMessage(chatId, html);
+        telegramApiClient.sendHtmlMessageOrThrow(chatId, html);
     }
 
     @Override

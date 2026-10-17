@@ -19,10 +19,25 @@ public class TelegramProperties {
     private String webhookPath = SecurityConstants.TELEGRAM_WEBHOOK_PATH;
     private String apiBaseUrl = "https://api.telegram.org";
     private int linkCodeTtlSeconds = 300;
+    private int loginRequestTtlSeconds = 300;
+    private int loginMaxAttempts = 5;
+    private int loginAttemptWindowSeconds = 600;
     private boolean autoRegisterWebhook = true;
 
     public String apiUrl(String method) {
         return apiBaseUrl + "/bot" + botToken + "/" + method;
+    }
+
+    public boolean hasBotToken() {
+        return botToken != null && !botToken.isBlank();
+    }
+
+    public boolean hasWebhookSecret() {
+        return webhookSecret != null && !webhookSecret.isBlank();
+    }
+
+    public boolean isBotLoginConfigured() {
+        return hasBotToken() && hasWebhookSecret() && botUsername != null && !botUsername.isBlank();
     }
 
     public String fullWebhookUrl() {

@@ -6,12 +6,15 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.auth.dto.request.*;
 import org.group1.coffeeshopapi.auth.dto.response.AuthTokenResponse;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
+import org.group1.coffeeshopapi.auth.dto.response.TelegramLoginStatusResponse;
 import org.group1.coffeeshopapi.auth.dto.response.TelegramWidgetConfigResponse;
 import org.group1.coffeeshopapi.auth.service.AuthService;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.constant.SecurityConstants;
+import org.group1.coffeeshopapi.common.enums.TelegramLoginStatus;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
+import org.group1.coffeeshopapi.telegram.dto.TelegramLoginChallenge;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -62,6 +65,21 @@ public class AuthController {
             @Valid @RequestBody TelegramWidgetAuthRequest request) {
         AuthTokenResponse tokens = authService.loginViaTelegramWidget(request);
         return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, "Login successful.", tokens));
+    }
+
+    @PostMapping("/telegram/login-requests")
+    public ResponseEntity<ApiResponse<TelegramLoginChallenge>> startTelegramLogin() {
+        TelegramLoginChallenge challenge = authService.startTelegramLogin();
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(HttpStatus.CREATED,
+                "Open Telegram, press Start, then confirm the login.", challenge));
+    }
+
+    @PostMapping("/telegram/login-requests/status")
+    public ResponseEntity<ApiResponse<TelegramLoginStatusResponse>> checkTelegramLogin(
+            @Valid @RequestBody TelegramLoginStatusRequest request) {
+        TelegramLoginStatusResponse result = authService.checkTelegramLogin(request);
+        String message = result.status() == TelegramLoginStatus.APPROVED ? "Login successful." : AppConstant.SUCCESS_MESSAGE;
+        return ResponseEntity.ok(ApiResponse.of(HttpStatus.OK, message, result));
     }
 
     @PostMapping("/login/phone")

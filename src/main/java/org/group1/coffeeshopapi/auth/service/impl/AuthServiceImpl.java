@@ -6,12 +6,14 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.auth.dto.request.*;
 import org.group1.coffeeshopapi.auth.dto.response.AuthTokenResponse;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
+import org.group1.coffeeshopapi.auth.dto.response.TelegramLoginStatusResponse;
 import org.group1.coffeeshopapi.auth.service.AuthService;
 import org.group1.coffeeshopapi.auth.service.OtpService;
 import org.group1.coffeeshopapi.auth.service.TokenService;
 import org.group1.coffeeshopapi.common.enums.OtpPurpose;
 import org.group1.coffeeshopapi.common.enums.RegisterType;
 import org.group1.coffeeshopapi.common.enums.Role;
+import org.group1.coffeeshopapi.common.enums.TelegramLoginStatus;
 import org.group1.coffeeshopapi.common.enums.UserStatus;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidCredentialsException;
@@ -24,8 +26,12 @@ import org.group1.coffeeshopapi.common.util.PhoneNumberUtil;
 import org.group1.coffeeshopapi.admin.repository.AdminRepository;
 import org.group1.coffeeshopapi.barista.repository.BaristaRepository;
 import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
+import org.group1.coffeeshopapi.telegram.dto.TelegramLoginChallenge;
+import org.group1.coffeeshopapi.telegram.dto.TelegramLoginOutcome;
+import org.group1.coffeeshopapi.telegram.dto.TelegramUser;
 import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
+import org.group1.coffeeshopapi.telegram.service.TelegramLoginService;
 import org.group1.coffeeshopapi.telegram.util.TelegramAccountUtil;
 import org.group1.coffeeshopapi.telegram.util.TelegramFormat;
 import org.group1.coffeeshopapi.telegram.util.TelegramWidgetAuthVerifier;
@@ -64,6 +70,7 @@ public class AuthServiceImpl implements AuthService {
     private final TelegramLinkService telegramLinkService;
     private final TelegramProperties telegramProperties;
     private final TelegramApiClient telegramApiClient;
+    private final TelegramLoginService telegramLoginService;
 
     @Override
     @Transactional
@@ -150,34 +157,55 @@ public class AuthServiceImpl implements AuthService {
         }
 
         User user = userRepository.findByTelegramChatId(String.valueOf(request.id()))
-                .orElseGet(() -> registerCustomerViaTelegram(request));
+                .orElseGet(() -> registerCustomerViaTelegram(request.id(), request.firstName(), request.lastName(),
+                        request.username(), request.photoUrl()));
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException("This account can't log in right now");
         }
         return issueTokens(user.getId(), user.getEmail(), user.getRole());
     }
 
-    private Customer registerCustomerViaTelegram(TelegramWidgetAuthRequest request) {
-        if (request.username() == null || request.username().isBlank()) {
+    @Override
+    public TelegramLoginChallenge startTelegramLogin() {
+        return telegramLoginService.createChallenge();
+    }
+
+    @Override
+    @Transactional
+    public TelegramLoginStatusResponse checkTelegramLogin(TelegramLoginStatusRequest request) {
+        TelegramLoginOutcome outcome = telegramLoginService.checkChallenge(request.requestId(), request.pollToken());
+        if (outcome.status() != TelegramLoginStatus.APPROVED) {
+            return TelegramLoginStatusResponse.of(outcome.status());
+        }
+
+        TelegramUser telegramUser = outcome.telegramUser();
+        User user = userRepository.findByTelegramChatId(String.valueOf(telegramUser.id()))
+                .orElseGet(() -> registerCustomerViaTelegram(telegramUser.id(), telegramUser.firstName(),
+                        telegramUser.lastName(), telegramUser.username(), null));
+        requireActive(user);
+        return TelegramLoginStatusResponse.approved(issueTokens(user.getId(), user.getEmail(), user.getRole()));
+    }
+
+    private Customer registerCustomerViaTelegram(Long telegramId, String firstName, String lastName,
+                                                 String username, String photoUrl) {
+        if (username == null || username.isBlank()) {
             throw new InvalidOperationException(
                     "Please set a username in Telegram (Settings → Username) before signing in");
         }
 
         Customer customer = new Customer();
-        customer.setFullName(request.lastName() != null
-                ? request.firstName() + " " + request.lastName()
-                : request.firstName());
+        customer.setFullName(lastName != null ? firstName + " " + lastName : firstName);
         customer.setEmail(TelegramAccountUtil.placeholderEmail());
         customer.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-        customer.setAvatarUrl(request.photoUrl());
+        customer.setAvatarUrl(photoUrl);
         customer.setStatus(UserStatus.ACTIVE);
         customer.setRegisterType(RegisterType.TELEGRAM);
-        customer.setTelegramChatId(String.valueOf(request.id()));
-        customer.setTelegramUsername(request.username());
+        customer.setTelegramChatId(String.valueOf(telegramId));
+        customer.setTelegramUsername(username);
         customerRepository.saveAndFlush(customer);
         authUserSyncService.sync(customer);
 
-        telegramApiClient.sendHtmlMessageWithButtons(request.id(),
+        telegramApiClient.sendHtmlMessageWithButtons(telegramId,
                 "🎉 <b>Welcome, " + TelegramFormat.escape(TelegramFormat.titleCase(customer.getFullName())) + "!</b>\n\n"
                         + "You're now logged in — you'll get your order receipts, new event alerts, "
                         + "and reminders here from now on.");

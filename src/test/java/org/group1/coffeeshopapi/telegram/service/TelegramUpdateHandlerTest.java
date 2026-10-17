@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -34,6 +35,7 @@ class TelegramUpdateHandlerTest {
 
     @Mock private TelegramApiClient apiClient;
     @Mock private TelegramLinkService telegramLinkService;
+    @Mock private TelegramLoginService telegramLoginService;
 
     @Test
     void ignoresAnUpdateWithNoMessage() {
@@ -182,6 +184,29 @@ class TelegramUpdateHandlerTest {
         assertThat(reply.getValue()).contains("something went wrong");
     }
 
+    @Test
+    void aLoginConfirmationTapGoesToTheLoginServiceWhichAnswersItItself() {
+        TelegramUpdateHandler handler = handlerWith(fakeCommand("/menu", false, (message, argument) -> "ok"));
+        TelegramCallbackQuery tap = callbackQuery("cbq-6", "tglogin:ok:AAAAAAAAAAAAAAAAAAAAAA");
+
+        handler.handle(new TelegramUpdate(1L, null, tap));
+
+        verify(telegramLoginService).handleCallback(tap);
+        verify(apiClient, never()).answerCallbackQuery("cbq-6", null);
+        verify(apiClient, never()).sendMessageWithButtons(anyLong(), anyString());
+    }
+
+    @Test
+    void aFailingLoginConfirmationStillAnswersTheTapSoTelegramStopsSpinning() {
+        TelegramUpdateHandler handler = handlerWith();
+        TelegramCallbackQuery tap = callbackQuery("cbq-7", "tglogin:no:AAAAAAAAAAAAAAAAAAAAAA");
+        doThrow(new IllegalStateException("redis down")).when(telegramLoginService).handleCallback(tap);
+
+        handler.handle(new TelegramUpdate(1L, null, tap));
+
+        verify(apiClient).answerCallbackQuery("cbq-7", "Something went wrong. Please try again.");
+    }
+
     private TelegramMessage textMessage(String text) {
         return new TelegramMessage(1L, new TelegramChat(CHAT_ID, "private"), new TelegramUser(9L, "Test", null), text, null);
     }
@@ -192,7 +217,8 @@ class TelegramUpdateHandlerTest {
     }
 
     private TelegramUpdateHandler handlerWith(TelegramCommand... commands) {
-        return new TelegramUpdateHandler(new TelegramCommandRegistry(List.of(commands)), apiClient, telegramLinkService);
+        return new TelegramUpdateHandler(new TelegramCommandRegistry(List.of(commands)), apiClient, telegramLinkService,
+                telegramLoginService);
     }
 
     private TelegramCommand fakeCommand(String name, boolean useHtml,

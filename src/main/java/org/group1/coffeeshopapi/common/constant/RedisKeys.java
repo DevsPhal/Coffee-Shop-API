@@ -13,6 +13,8 @@ public class RedisKeys {
     public static final String TELEGRAM_LINK_CODE_PREFIX = "tg:link:";
     public static final String TELEGRAM_EVENT_REMINDER_PREFIX = "tg:event-reminder:";
     public static final String TELEGRAM_PENDING_CONTACT_PREFIX = "tg:pending-contact:";
+    public static final String TELEGRAM_LOGIN_PREFIX = "tg:login:";
+    public static final String TELEGRAM_LOGIN_ATTEMPTS_PREFIX = "tg:login-attempts:";
 
     public static final String STAFF_CALL_COOLDOWN_PREFIX = "staffcall:cooldown:";
     public static final String STAFF_CALL_OPEN = "staffcall:open";
@@ -28,5 +30,17 @@ public class RedisKeys {
 
     public static String otpCooldownKey(String purpose, String email) {
         return otpKey(purpose, email) + OTP_COOLDOWN_SUFFIX;
+    }
+
+    public static String telegramLoginKey(String requestId) {
+        return TELEGRAM_LOGIN_PREFIX + requestId;
+    }
+
+    public static String telegramLoginUserKey(String requestId) {
+        return telegramLoginKey(requestId) + ":user";
+    }
+
+    public static String telegramLoginDecisionKey(String requestId) {
+        return telegramLoginKey(requestId) + ":decision";
     }
 }

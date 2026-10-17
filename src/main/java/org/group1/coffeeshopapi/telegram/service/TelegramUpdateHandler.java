@@ -22,6 +22,7 @@ public class TelegramUpdateHandler {
     private final TelegramCommandRegistry registry;
     private final TelegramApiClient apiClient;
     private final TelegramLinkService telegramLinkService;
+    private final TelegramLoginService telegramLoginService;
 
     public void handle(TelegramUpdate update) {
         if (update.callbackQuery() != null) {
@@ -75,6 +76,16 @@ public class TelegramUpdateHandler {
     }
 
     private void handleCallbackQuery(TelegramCallbackQuery callbackQuery) {
+        if (callbackQuery.data() != null && callbackQuery.data().startsWith(TelegramLoginService.CALLBACK_PREFIX)) {
+            try {
+                telegramLoginService.handleCallback(callbackQuery);
+            } catch (Exception ex) {
+                log.error("Failed to handle Telegram login confirmation", ex);
+                apiClient.answerCallbackQuery(callbackQuery.id(), "Something went wrong. Please try again.");
+            }
+            return;
+        }
+
         apiClient.answerCallbackQuery(callbackQuery.id(), null);
 
         TelegramMessage source = callbackQuery.message();

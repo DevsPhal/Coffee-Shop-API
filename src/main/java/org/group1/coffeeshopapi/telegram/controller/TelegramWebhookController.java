@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+
 @RestController
 @RequiredArgsConstructor
 @Tag(name = "Telegram", description = "Webhook called by Telegram's servers — not intended to be invoked manually")
@@ -27,8 +30,9 @@ public class TelegramWebhookController {
     public ResponseEntity<Void> handleWebhook(
             @RequestHeader(value = SECRET_HEADER, required = false) String secretToken,
             @RequestBody TelegramUpdate update) {
-        if (properties.getWebhookSecret() == null || properties.getWebhookSecret().isBlank()
-                || !properties.getWebhookSecret().equals(secretToken)) {
+        if (!properties.hasWebhookSecret() || secretToken == null || !MessageDigest.isEqual(
+                properties.getWebhookSecret().getBytes(StandardCharsets.UTF_8),
+                secretToken.getBytes(StandardCharsets.UTF_8))) {
             throw new InvalidWebhookSecretException("Invalid webhook secret token");
         }
         updateHandler.handle(update);

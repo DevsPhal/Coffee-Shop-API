@@ -3,6 +3,8 @@ package org.group1.coffeeshopapi.auth.service;
 import org.group1.coffeeshopapi.auth.dto.request.*;
 import org.group1.coffeeshopapi.auth.dto.response.AuthTokenResponse;
 import org.group1.coffeeshopapi.auth.dto.response.LoginResponse;
+import org.group1.coffeeshopapi.auth.dto.response.TelegramLoginStatusResponse;
+import org.group1.coffeeshopapi.telegram.dto.TelegramLoginChallenge;
 
 public interface AuthService {
     void register(RegisterRequest request);
@@ -11,6 +13,10 @@ public interface AuthService {
     LoginResponse login(LoginRequest request);
 
     AuthTokenResponse loginViaTelegramWidget(TelegramWidgetAuthRequest request);
+
+    TelegramLoginChallenge startTelegramLogin();
+
+    TelegramLoginStatusResponse checkTelegramLogin(TelegramLoginStatusRequest request);
 
     LoginResponse loginViaPhone(PhoneLoginRequest request);
 

@@ -124,6 +124,9 @@ telegram:
   webhook-base-url: ${TELEGRAM_WEBHOOK_BASE_URL:}
   auto-register-webhook: ${TELEGRAM_AUTO_REGISTER_WEBHOOK:true}
   link-code-ttl-seconds: ${TELEGRAM_LINK_CODE_TTL_SECONDS:300}
+  login-request-ttl-seconds: ${TELEGRAM_LOGIN_REQUEST_TTL_SECONDS:300}
+  login-max-attempts: ${TELEGRAM_LOGIN_MAX_ATTEMPTS:5}
+  login-attempt-window-seconds: ${TELEGRAM_LOGIN_ATTEMPT_WINDOW_SECONDS:600}
 
 springdoc:
   api-docs:
