@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.telegram.service.impl;
 
 import com.sun.net.httpserver.HttpServer;
 import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
+import org.group1.coffeeshopapi.telegram.dto.TelegramProfilePhoto;
 import org.group1.coffeeshopapi.telegram.exception.TelegramDeliveryException;
 import org.group1.coffeeshopapi.telegram.exception.TelegramDeliveryException.Reason;
 import org.junit.jupiter.api.AfterEach;
@@ -157,6 +158,125 @@ class TelegramApiClientImplTest {
         assertThatCode(() -> live.sendHtmlMessageWithInlineKeyboard(555L, "confirm?",
                 List.of(List.of(Map.of("text", "OK", "callback_data", "x"))))).doesNotThrowAnyException();
         assertThat(requests).hasSize(2);
+    }
+
+    @Test
+    void theProfilePhotoLookupPicksTheBiggestAvatarSizedVersion() throws IOException {
+        TelegramApiClientImpl live = clientFor(startFakeTelegram(Map.of(
+                "/bot" + BOT_TOKEN + "/getUserProfilePhotos", json("{\"ok\":true,\"result\":{\"total_count\":1,"
+                        + "\"photos\":[[{\"file_id\":\"s\",\"file_unique_id\":\"us\",\"width\":160},"
+                        + "{\"file_id\":\"m\",\"file_unique_id\":\"um\",\"width\":320},"
+                        + "{\"file_id\":\"l\",\"file_unique_id\":\"ul\",\"width\":640},"
+                        + "{\"file_id\":\"xl\",\"file_unique_id\":\"uxl\",\"width\":1280}]]}}"))));
+
+        assertThat(live.findProfilePhoto(9001L)).contains(new TelegramProfilePhoto("l", "ul"));
+        assertThat(requests).singleElement().satisfies(request -> assertThat(request)
+                .contains("\"user_id\":9001")
+                .contains("\"limit\":1"));
+    }
+
+    @Test
+    void aUserWithoutAProfilePhotoHasNone() throws IOException {
+        TelegramApiClientImpl live = clientFor(startFakeTelegram(Map.of(
+                "/bot" + BOT_TOKEN + "/getUserProfilePhotos",
+                json("{\"ok\":true,\"result\":{\"total_count\":0,\"photos\":[]}}"))));
+
+        assertThat(live.findProfilePhoto(9001L)).isEmpty();
+    }
+
+    @Test
+    void aProfilePhotoIsDownloadedThroughTheBotFileEndpoint() throws IOException {
+        byte[] jpeg = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0x01};
+        TelegramApiClientImpl live = clientFor(startFakeTelegram(Map.of(
+                "/bot" + BOT_TOKEN + "/getFile",
+                json("{\"ok\":true,\"result\":{\"file_path\":\"photos/file_1.jpg\",\"file_size\":4}}"),
+                "/file/bot" + BOT_TOKEN + "/photos/file_1.jpg", new FakeResponse("image/jpeg", jpeg))));
+
+        assertThat(live.downloadFile("l", 1024)).containsExactly(jpeg);
+    }
+
+    @Test
+    void aProfilePhotoOverTheSizeLimitIsRefusedBeforeItIsDownloaded() throws IOException {
+        TelegramApiClientImpl live = clientFor(startFakeTelegram(Map.of(
+                "/bot" + BOT_TOKEN + "/getFile",
+                json("{\"ok\":true,\"result\":{\"file_path\":\"photos/big.jpg\",\"file_size\":9000000}}"))));
+
+        assertThatThrownBy(() -> live.downloadFile("l", 1024))
+                .satisfies(ex -> assertThat(reasonOf(ex)).isEqualTo(Reason.UNAVAILABLE));
+        assertThat(requests).hasSize(1);
+    }
+
+    @Test
+    void aDownloadThatTurnsOutBiggerThanAdvertisedIsCutOff() throws IOException {
+        TelegramApiClientImpl live = clientFor(startFakeTelegram(Map.of(
+                "/bot" + BOT_TOKEN + "/getFile", json("{\"ok\":true,\"result\":{\"file_path\":\"photos/a.jpg\"}}"),
+                "/file/bot" + BOT_TOKEN + "/photos/a.jpg", new FakeResponse("image/jpeg", new byte[2048]))));
+
+        assertThatThrownBy(() -> live.downloadFile("l", 1024))
+                .satisfies(ex -> assertThat(reasonOf(ex)).isEqualTo(Reason.UNAVAILABLE));
+    }
+
+    @Test
+    void aFailedPhotoDownloadNeverLeaksTheBotToken(CapturedOutput output) throws IOException {
+        TelegramApiClientImpl live = clientFor(startFakeTelegram(Map.of(
+                "/bot" + BOT_TOKEN + "/getFile", json("{\"ok\":true,\"result\":{\"file_path\":\"photos/gone.jpg\"}}"))));
+
+        assertThatThrownBy(() -> live.downloadFile("l", 1024))
+                .satisfies(ex -> assertThat(ex.getMessage()).doesNotContain(BOT_TOKEN));
+        assertThat(output.getAll()).doesNotContain(BOT_TOKEN);
+    }
+
+    @Test
+    void photoLookupsFailLoudlyWhenNoBotTokenIsConfigured() {
+        assertThatThrownBy(() -> client.findProfilePhoto(9001L))
+                .satisfies(ex -> assertThat(reasonOf(ex)).isEqualTo(Reason.NOT_CONFIGURED));
+    }
+
+    @Test
+    void widgetPhotosAreOnlyFetchedFromTelegramOverHttps() {
+        assertThat(TelegramApiClientImpl.telegramHostedImage("https://t.me/i/userpic/320/alice.jpg")).isNotNull();
+        assertThat(TelegramApiClientImpl.telegramHostedImage("https://cdn4.telesco.pe/file/alice.jpg")).isNotNull();
+        assertThat(TelegramApiClientImpl.telegramHostedImage("http://t.me/i/userpic/320/alice.jpg")).isNull();
+        assertThat(TelegramApiClientImpl.telegramHostedImage("https://t.me.attacker.example/a.jpg")).isNull();
+        assertThat(TelegramApiClientImpl.telegramHostedImage("https://attacker.example/t.me/a.jpg")).isNull();
+        assertThat(TelegramApiClientImpl.telegramHostedImage("https://user@t.me/a.jpg")).isNull();
+        assertThat(TelegramApiClientImpl.telegramHostedImage("https://t.me:8443/a.jpg")).isNull();
+        assertThat(TelegramApiClientImpl.telegramHostedImage("https://faket.me/a.jpg")).isNull();
+        assertThat(TelegramApiClientImpl.telegramHostedImage(null)).isNull();
+    }
+
+    @Test
+    void aWidgetPhotoUrlOutsideTelegramIsNeverRequested() throws IOException {
+        String fake = startFakeTelegram(Map.of("/a.jpg", new FakeResponse("image/jpeg", new byte[]{1})));
+        TelegramApiClientImpl live = clientFor(fake);
+
+        assertThatThrownBy(() -> live.downloadWidgetPhoto(fake + "/a.jpg", 1024))
+                .isInstanceOf(TelegramDeliveryException.class);
+        assertThat(requests).isEmpty();
+    }
+
+    private record FakeResponse(String contentType, byte[] body) {
+    }
+
+    private static FakeResponse json(String body) {
+        return new FakeResponse("application/json", body.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String startFakeTelegram(Map<String, FakeResponse> routes) throws IOException {
+        fakeTelegram = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        fakeTelegram.createContext("/", exchange -> {
+            String path = exchange.getRequestURI().getPath();
+            requests.add(path + " " + new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            FakeResponse route = routes.get(path);
+            byte[] response = route == null ? "{\"ok\":false}".getBytes(StandardCharsets.UTF_8) : route.body();
+            exchange.getResponseHeaders().add("Content-Type", route == null ? "application/json" : route.contentType());
+            exchange.sendResponseHeaders(route == null ? 404 : 200, response.length);
+            try (OutputStream out = exchange.getResponseBody()) {
+                out.write(response);
+            }
+        });
+        fakeTelegram.start();
+        return "http://127.0.0.1:" + fakeTelegram.getAddress().getPort();
     }
 
     private String startFakeTelegram(int status, String body) throws IOException {

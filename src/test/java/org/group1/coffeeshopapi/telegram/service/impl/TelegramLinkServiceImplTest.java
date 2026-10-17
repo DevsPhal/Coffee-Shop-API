@@ -7,6 +7,7 @@ import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
 import org.group1.coffeeshopapi.telegram.dto.TelegramContact;
 import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
+import org.group1.coffeeshopapi.telegram.service.TelegramProfileSyncService;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.user.repository.UserRepository;
@@ -40,6 +41,7 @@ class TelegramLinkServiceImplTest {
     @Mock private TelegramProperties properties;
     @Mock private AuthUserSyncService authUserSyncService;
     @Mock private TelegramApiClient telegramApiClient;
+    @Mock private TelegramProfileSyncService telegramProfileSyncService;
     @InjectMocks private TelegramLinkServiceImpl service;
 
     @Test
@@ -95,6 +97,7 @@ class TelegramLinkServiceImplTest {
         assertThat(invitee.getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(invitee.getTelegramChatId()).isEqualTo(CHAT_ID.toString());
         verify(redisTemplate).delete(RedisKeys.TELEGRAM_PENDING_CONTACT_PREFIX + CHAT_ID);
+        verify(telegramProfileSyncService).sync(invitee, CHAT_ID, null, null);
     }
 
     @Test

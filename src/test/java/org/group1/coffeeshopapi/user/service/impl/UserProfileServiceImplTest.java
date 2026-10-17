@@ -129,6 +129,21 @@ class UserProfileServiceImplTest {
     }
 
     @Test
+    void aHandUploadedAvatarStopsFollowingTheTelegramPhoto() {
+        User user = customer();
+        user.setAvatarUrl("telegram-copy-url");
+        user.setTelegramPhotoId("telegram-photo");
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        when(fileStorageService.uploadImage(any(MultipartFile.class), any())).thenReturn("own-photo-url");
+        when(userRepository.save(user)).thenReturn(user);
+
+        service.uploadAvatar(user.getId(), org.mockito.Mockito.mock(MultipartFile.class));
+
+        assertThat(user.getAvatarUrl()).isEqualTo("own-photo-url");
+        assertThat(user.getTelegramPhotoId()).isNull();
+    }
+
+    @Test
     void removingAnAvatarThatIsAlreadyClearIsANoOp() {
         User user = customer();
         user.setAvatarUrl(null);

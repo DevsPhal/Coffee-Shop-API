@@ -25,6 +25,9 @@ import org.group1.coffeeshopapi.telegram.exception.TelegramDeliveryException;
 import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
 import org.group1.coffeeshopapi.telegram.service.TelegramLoginService;
+import org.group1.coffeeshopapi.telegram.service.TelegramProfileSyncService;
+import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
+import org.group1.coffeeshopapi.auth.dto.request.TelegramWidgetAuthRequest;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.group1.coffeeshopapi.user.repository.UserRepository;
@@ -39,6 +42,12 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.Instant;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -60,6 +69,8 @@ import static org.mockito.Mockito.when;
 class AuthServiceImplTelegramLoginTest {
 
     private static final TelegramLoginStatusRequest POLL = new TelegramLoginStatusRequest("request-id", "poll-token");
+    private static final String BOT_TOKEN = "123456:SECRET-bot-token";
+    private static final String PHOTO_URL = "https://t.me/i/userpic/320/alice.jpg";
 
     @Mock private UserRepository userRepository;
     @Mock private CustomerRepository customerRepository;
@@ -74,7 +85,9 @@ class AuthServiceImplTelegramLoginTest {
     @Mock private TelegramLinkService telegramLinkService;
     @Mock private TelegramApiClient telegramApiClient;
     @Mock private TelegramLoginService telegramLoginService;
+    @Mock private TelegramProfileSyncService telegramProfileSyncService;
     @Spy private SuperAdminProperties superAdminProperties = new SuperAdminProperties();
+    @Spy private TelegramProperties telegramProperties = telegramProperties();
     @InjectMocks private AuthServiceImpl authService;
 
     @Test
@@ -125,6 +138,7 @@ class AuthServiceImplTelegramLoginTest {
         verify(jwtUtil).generateAccessToken("alice@example.com", "CUSTOMER");
         verify(tokenService).storeRefreshToken(existing.getId(), "refresh-token");
         verify(customerRepository, never()).saveAndFlush(any());
+        verify(telegramProfileSyncService).sync(existing, 9001L, "alice", null);
     }
 
     @Test
@@ -145,6 +159,53 @@ class AuthServiceImplTelegramLoginTest {
         assertThat(saved.getValue().getStatus()).isEqualTo(UserStatus.ACTIVE);
         assertThat(response.tokens()).isNotNull();
         verify(telegramApiClient).sendHtmlMessageWithButtons(eq(9001L), anyString());
+        verify(telegramProfileSyncService).sync(saved.getValue(), 9001L, "alice", null);
+    }
+
+    @Test
+    void aSignedWidgetLoginSyncsTheProfilePhotoFromTheSignedPhotoUrl() {
+        Customer existing = customer(UUID.randomUUID(), "alice@example.com", UserStatus.ACTIVE);
+        when(userRepository.findByTelegramChatId("9001")).thenReturn(Optional.of(existing));
+        stubTokens();
+
+        authService.loginViaTelegramWidget(signedWidgetLogin(PHOTO_URL));
+
+        verify(telegramProfileSyncService).sync(existing, 9001L, "alice", PHOTO_URL);
+    }
+
+    @Test
+    void aNewWidgetAccountNoLongerHotlinksTheTelegramPhotoUrl() {
+        when(userRepository.findByTelegramChatId("9001")).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(anyString())).thenReturn("random-hash");
+        stubTokens();
+
+        authService.loginViaTelegramWidget(signedWidgetLogin(PHOTO_URL));
+
+        ArgumentCaptor<Customer> saved = ArgumentCaptor.forClass(Customer.class);
+        verify(customerRepository).saveAndFlush(saved.capture());
+        assertThat(saved.getValue().getAvatarUrl()).isNull();
+        verify(telegramProfileSyncService).sync(saved.getValue(), 9001L, "alice", PHOTO_URL);
+    }
+
+    @Test
+    void aWidgetLoginWithATamperedPhotoUrlIsRejectedBeforeAnythingIsFetched() {
+        TelegramWidgetAuthRequest signed = signedWidgetLogin(PHOTO_URL);
+        TelegramWidgetAuthRequest tampered = new TelegramWidgetAuthRequest(signed.id(), signed.firstName(),
+                signed.lastName(), signed.username(), "https://attacker.example/x.jpg", signed.authDate(), signed.hash());
+
+        assertThatThrownBy(() -> authService.loginViaTelegramWidget(tampered))
+                .isInstanceOf(InvalidCredentialsException.class);
+        verifyNoInteractions(telegramProfileSyncService, userRepository, jwtUtil);
+    }
+
+    @Test
+    void anInactiveAccountIsRefusedWithoutSyncingItsProfile() {
+        when(userRepository.findByTelegramChatId("9001"))
+                .thenReturn(Optional.of(customer(UUID.randomUUID(), "alice@example.com", UserStatus.SUSPENDED)));
+
+        assertThatThrownBy(() -> authService.loginViaTelegramWidget(signedWidgetLogin(PHOTO_URL)))
+                .isInstanceOf(InvalidCredentialsException.class);
+        verifyNoInteractions(telegramProfileSyncService);
     }
 
     @Test
@@ -222,6 +283,28 @@ class AuthServiceImplTelegramLoginTest {
         when(jwtUtil.generateAccessToken(anyString(), anyString())).thenReturn("access-token");
         when(jwtUtil.generateRefreshToken(anyString(), anyString())).thenReturn("refresh-token");
         when(jwtUtil.getAccessExpirationMs()).thenReturn(86_400_000L);
+    }
+
+    private static TelegramProperties telegramProperties() {
+        TelegramProperties properties = new TelegramProperties();
+        properties.setBotToken(BOT_TOKEN);
+        return properties;
+    }
+
+    // Signs the payload the way Telegram's Login Widget does: HMAC-SHA256 keyed by SHA-256(bot token).
+    private static TelegramWidgetAuthRequest signedWidgetLogin(String photoUrl) {
+        long authDate = Instant.now().getEpochSecond();
+        String dataCheckString = String.join("\n", List.of("auth_date=" + authDate, "first_name=Alice", "id=9001",
+                "last_name=Smith", "photo_url=" + photoUrl, "username=alice"));
+        try {
+            Mac mac = Mac.getInstance("HmacSHA256");
+            mac.init(new SecretKeySpec(MessageDigest.getInstance("SHA-256")
+                    .digest(BOT_TOKEN.getBytes(StandardCharsets.UTF_8)), "HmacSHA256"));
+            String hash = HexFormat.of().formatHex(mac.doFinal(dataCheckString.getBytes(StandardCharsets.UTF_8)));
+            return new TelegramWidgetAuthRequest(9001L, "Alice", "Smith", "alice", photoUrl, authDate, hash);
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
     }
 
     private static Customer customer(UUID id, String email, UserStatus status) {

@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.telegram.dto.TelegramContact;
 import org.group1.coffeeshopapi.telegram.dto.TelegramLinkCodeResponse;
 import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
+import org.group1.coffeeshopapi.telegram.service.TelegramProfileSyncService;
 import org.group1.coffeeshopapi.telegram.util.TelegramCodeGenerator;
 import org.group1.coffeeshopapi.telegram.util.TelegramFormat;
 import org.group1.coffeeshopapi.user.entity.User;
@@ -33,6 +34,7 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
     private final TelegramProperties properties;
     private final AuthUserSyncService authUserSyncService;
     private final TelegramApiClient telegramApiClient;
+    private final TelegramProfileSyncService telegramProfileSyncService;
 
     @Override
     public TelegramLinkCodeResponse generateLinkCode(UUID userId) {
@@ -128,6 +130,8 @@ public class TelegramLinkServiceImpl implements TelegramLinkService {
         user.setTelegramChatId(chatId.toString());
         userRepository.save(user);
         authUserSyncService.sync(user);
+        // Linking happens in a private chat, so the chat id is the user's Telegram id.
+        telegramProfileSyncService.sync(user, chatId, null, null);
     }
 
     @Override

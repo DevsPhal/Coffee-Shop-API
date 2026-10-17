@@ -32,6 +32,7 @@ import org.group1.coffeeshopapi.telegram.dto.TelegramUser;
 import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
 import org.group1.coffeeshopapi.telegram.service.TelegramLinkService;
 import org.group1.coffeeshopapi.telegram.service.TelegramLoginService;
+import org.group1.coffeeshopapi.telegram.service.TelegramProfileSyncService;
 import org.group1.coffeeshopapi.telegram.util.TelegramAccountUtil;
 import org.group1.coffeeshopapi.telegram.util.TelegramFormat;
 import org.group1.coffeeshopapi.telegram.util.TelegramWidgetAuthVerifier;
@@ -71,6 +72,7 @@ public class AuthServiceImpl implements AuthService {
     private final TelegramProperties telegramProperties;
     private final TelegramApiClient telegramApiClient;
     private final TelegramLoginService telegramLoginService;
+    private final TelegramProfileSyncService telegramProfileSyncService;
 
     @Override
     @Transactional
@@ -158,10 +160,11 @@ public class AuthServiceImpl implements AuthService {
 
         User user = userRepository.findByTelegramChatId(String.valueOf(request.id()))
                 .orElseGet(() -> registerCustomerViaTelegram(request.id(), request.firstName(), request.lastName(),
-                        request.username(), request.photoUrl()));
+                        request.username()));
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new InvalidCredentialsException("This account can't log in right now");
         }
+        telegramProfileSyncService.sync(user, request.id(), request.username(), request.photoUrl());
         return issueTokens(user.getId(), user.getEmail(), user.getRole());
     }
 
@@ -181,13 +184,14 @@ public class AuthServiceImpl implements AuthService {
         TelegramUser telegramUser = outcome.telegramUser();
         User user = userRepository.findByTelegramChatId(String.valueOf(telegramUser.id()))
                 .orElseGet(() -> registerCustomerViaTelegram(telegramUser.id(), telegramUser.firstName(),
-                        telegramUser.lastName(), telegramUser.username(), null));
+                        telegramUser.lastName(), telegramUser.username()));
         requireActive(user);
+        telegramProfileSyncService.sync(user, telegramUser.id(), telegramUser.username(), null);
         return TelegramLoginStatusResponse.approved(issueTokens(user.getId(), user.getEmail(), user.getRole()));
     }
 
     private Customer registerCustomerViaTelegram(Long telegramId, String firstName, String lastName,
-                                                 String username, String photoUrl) {
+                                                 String username) {
         if (username == null || username.isBlank()) {
             throw new InvalidOperationException(
                     "Please set a username in Telegram (Settings → Username) before signing in");
@@ -197,7 +201,6 @@ public class AuthServiceImpl implements AuthService {
         customer.setFullName(lastName != null ? firstName + " " + lastName : firstName);
         customer.setEmail(TelegramAccountUtil.placeholderEmail());
         customer.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-        customer.setAvatarUrl(photoUrl);
         customer.setStatus(UserStatus.ACTIVE);
         customer.setRegisterType(RegisterType.TELEGRAM);
         customer.setTelegramChatId(String.valueOf(telegramId));

@@ -39,6 +39,10 @@ public abstract class User extends BaseEntity {
     @Column
     private String avatarUrl;
 
+    // Which Telegram profile photo avatarUrl was copied from; null when the avatar was uploaded by hand (or is unset).
+    @Column(length = 128)
+    private String telegramPhotoId;
+
     @Convert(converter = GenderConverter.class)
     @Column(length = 20)
     private Gender gender;

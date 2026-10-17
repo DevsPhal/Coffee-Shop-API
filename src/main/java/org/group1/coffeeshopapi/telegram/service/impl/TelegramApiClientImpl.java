@@ -1,19 +1,32 @@
 package org.group1.coffeeshopapi.telegram.service.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import lombok.extern.slf4j.Slf4j;
 import org.group1.coffeeshopapi.telegram.config.TelegramProperties;
+import org.group1.coffeeshopapi.telegram.dto.TelegramProfilePhoto;
 import org.group1.coffeeshopapi.telegram.exception.TelegramDeliveryException;
 import org.group1.coffeeshopapi.telegram.exception.TelegramDeliveryException.Reason;
 import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -30,8 +43,16 @@ public class TelegramApiClientImpl implements TelegramApiClient {
         return Map.of("text", text, "callback_data", callbackData);
     }
 
+    private static final Duration PHOTO_CONNECT_TIMEOUT = Duration.ofSeconds(3);
+    private static final Duration PHOTO_READ_TIMEOUT = Duration.ofSeconds(5);
+    private static final int AVATAR_MAX_WIDTH = 640;
+    // Telegram serves Login Widget photos from t.me and its CDN; a widget's photo_url pointing anywhere else is ignored.
+    private static final Set<String> WIDGET_PHOTO_HOSTS = Set.of("t.me", "telegram.org", "telesco.pe");
+
     private final TelegramProperties properties;
     private final RestClient restClient = RestClient.create();
+    // Profile photos are fetched while someone waits to log in, so these calls get short timeouts of their own.
+    private final RestClient photoClient = RestClient.builder().requestFactory(photoRequestFactory()).build();
 
     public TelegramApiClientImpl(TelegramProperties properties) {
         this.properties = properties;
@@ -115,6 +136,130 @@ public class TelegramApiClientImpl implements TelegramApiClient {
                 ? Map.of("callback_query_id", callbackQueryId)
                 : Map.of("callback_query_id", callbackQueryId, "text", toastText);
         call("answerCallbackQuery", null, body);
+    }
+
+    @Override
+    public Optional<TelegramProfilePhoto> findProfilePhoto(Long userId) {
+        JsonNode sizes = requireResult("getUserProfilePhotos", Map.of("user_id", userId, "limit", 1))
+                .path("photos").path(0);
+        // Each photo comes in several sizes, smallest first; keep the biggest one that is still avatar-sized.
+        JsonNode chosen = null;
+        for (JsonNode size : sizes) {
+            if (chosen == null || size.path("width").asInt() <= AVATAR_MAX_WIDTH) {
+                chosen = size;
+            }
+        }
+        if (chosen == null) {
+            return Optional.empty();
+        }
+        String fileId = chosen.path("file_id").asText(null);
+        String fileUniqueId = chosen.path("file_unique_id").asText(null);
+        return fileId == null || fileUniqueId == null
+                ? Optional.empty()
+                : Optional.of(new TelegramProfilePhoto(fileId, fileUniqueId));
+    }
+
+    @Override
+    public byte[] downloadFile(String fileId, long maxBytes) {
+        JsonNode file = requireResult("getFile", Map.of("file_id", fileId));
+        String filePath = file.path("file_path").asText(null);
+        if (filePath == null) {
+            log.warn("Telegram getFile returned no file_path");
+            throw unavailable();
+        }
+        if (file.path("file_size").asLong(0) > maxBytes) {
+            log.warn("Telegram file is {} bytes, over the {} byte limit", file.path("file_size").asLong(), maxBytes);
+            throw unavailable();
+        }
+        try {
+            return download(URI.create(properties.getApiBaseUrl() + "/file/bot" + properties.getBotToken() + "/"
+                    + filePath), maxBytes);
+        } catch (IllegalArgumentException ex) {
+            log.warn("Telegram file path could not be downloaded: {}", describe(ex));
+            throw unavailable();
+        }
+    }
+
+    @Override
+    public byte[] downloadWidgetPhoto(String photoUrl, long maxBytes) {
+        URI uri = telegramHostedImage(photoUrl);
+        if (uri == null) {
+            log.warn("Ignoring a Telegram widget photo_url that isn't served by Telegram over HTTPS");
+            throw unavailable();
+        }
+        return download(uri, maxBytes);
+    }
+
+    static URI telegramHostedImage(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        URI uri;
+        try {
+            uri = new URI(url);
+        } catch (URISyntaxException ex) {
+            return null;
+        }
+        String host = uri.getHost() == null ? null : uri.getHost().toLowerCase(Locale.ROOT);
+        boolean telegramHost = host != null && WIDGET_PHOTO_HOSTS.stream()
+                .anyMatch(allowed -> host.equals(allowed) || host.endsWith("." + allowed));
+        boolean plainHttps = "https".equalsIgnoreCase(uri.getScheme()) && uri.getUserInfo() == null
+                && (uri.getPort() == -1 || uri.getPort() == 443);
+        return telegramHost && plainHttps ? uri : null;
+    }
+
+    private byte[] download(URI uri, long maxBytes) {
+        try {
+            return photoClient.get().uri(uri).exchange((request, response) -> {
+                if (!response.getStatusCode().is2xxSuccessful()) {
+                    throw new IOException("download answered " + response.getStatusCode().value());
+                }
+                try (InputStream body = response.getBody()) {
+                    byte[] bytes = body.readNBytes(Math.toIntExact(maxBytes) + 1);
+                    if (bytes.length > maxBytes) {
+                        throw new IOException("download is larger than " + maxBytes + " bytes");
+                    }
+                    return bytes;
+                }
+            });
+        } catch (RestClientException ex) {
+            log.warn("Telegram photo download failed: {}", describe(ex));
+            throw unavailable();
+        }
+    }
+
+    // For Bot API methods whose answer we need, so a failure surfaces instead of being logged and dropped.
+    private JsonNode requireResult(String method, Map<String, ?> body) {
+        if (!properties.hasBotToken()) {
+            throw notConfigured();
+        }
+        JsonNode response;
+        try {
+            response = photoClient.post()
+                    .uri(properties.apiUrl(method))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(JsonNode.class);
+        } catch (RestClientException ex) {
+            log.warn("Telegram {} failed: {}", method, describe(ex));
+            throw unavailable();
+        }
+        if (response == null || !response.path("ok").asBoolean(false)) {
+            log.warn("Telegram {} returned no result", method);
+            throw unavailable();
+        }
+        return response.path("result");
+    }
+
+    private static ClientHttpRequestFactory photoRequestFactory() {
+        // No redirects: everything fetched here comes straight from Telegram, so a redirect is treated as a failure.
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(HttpClient.newBuilder()
+                .connectTimeout(PHOTO_CONNECT_TIMEOUT)
+                .followRedirects(HttpClient.Redirect.NEVER)
+                .build());
+        factory.setReadTimeout(PHOTO_READ_TIMEOUT);
+        return factory;
     }
 
     private void call(String method, Long chatId, Map<String, ?> body) {

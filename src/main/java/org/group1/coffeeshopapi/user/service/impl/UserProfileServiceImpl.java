@@ -111,6 +111,8 @@ public class UserProfileServiceImpl implements UserProfileService {
         String previousAvatarUrl = user.getAvatarUrl();
 
         user.setAvatarUrl(fileStorageService.uploadImage(file, IMAGE_FOLDER));
+        // A hand-picked photo: Telegram logins must leave it alone from now on.
+        user.setTelegramPhotoId(null);
         user = userRepository.save(user);
 
         if (previousAvatarUrl != null) {
@@ -127,6 +129,7 @@ public class UserProfileServiceImpl implements UserProfileService {
         if (user.getAvatarUrl() != null) {
             fileStorageService.delete(user.getAvatarUrl());
             user.setAvatarUrl(null);
+            user.setTelegramPhotoId(null);
             user = userRepository.save(user);
         }
         return userMapper.toResponse(user);

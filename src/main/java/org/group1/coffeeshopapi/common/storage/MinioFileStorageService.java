@@ -114,6 +114,11 @@ public class MinioFileStorageService implements FileStorageService {
         }
     }
 
+    @Override
+    public boolean isStoredFile(String fileUrl) {
+        return toObjectKey(fileUrl) != null;
+    }
+
     private String toObjectKey(String fileUrl) {
         if (fileUrl == null || fileUrl.isBlank()) {
             return null;
