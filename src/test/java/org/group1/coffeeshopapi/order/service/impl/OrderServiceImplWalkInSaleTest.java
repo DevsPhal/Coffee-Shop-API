@@ -6,17 +6,24 @@ import org.group1.coffeeshopapi.bakong.BakongQrService;
 import org.group1.coffeeshopapi.category.entity.Category;
 import org.group1.coffeeshopapi.common.enums.CategoryGroup;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
+import org.group1.coffeeshopapi.common.enums.IceLevel;
+import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.common.enums.SugarLevel;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
 import org.group1.coffeeshopapi.common.properties.ShopLocationProperties;
+import org.group1.coffeeshopapi.extra.entity.Extra;
+import org.group1.coffeeshopapi.extra.entity.ProductExtra;
 import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.entity.Order;
+import org.group1.coffeeshopapi.order.entity.OrderItem;
+import org.group1.coffeeshopapi.order.entity.OrderItemExtra;
 import org.group1.coffeeshopapi.order.mapper.OrderAuditLogMapper;
 import org.group1.coffeeshopapi.order.mapper.OrderMapper;
 import org.group1.coffeeshopapi.order.repository.OrderAuditLogRepository;
@@ -107,5 +114,82 @@ class OrderServiceImplWalkInSaleTest {
         assertThat(order.getDeliveryAddress()).isNull();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(order.getHandledBy()).isEqualTo(baristaId);
+    }
+
+    @Test
+    void aPosSaleKeepsEachDrinksChoicesAndChargesItsExtras() {
+        Category drinks = new Category();
+        drinks.setCategoryGroup(CategoryGroup.FRESH_DRINK);
+        Product latte = product("Iced Latte", drinks);
+        ProductVariant large = variant(latte, VariantLabel.LARGE, "3.00");
+
+        Extra shot = new Extra();
+        shot.setId(UUID.randomUUID());
+        shot.setName("Extra Shot");
+        shot.setPrice(new BigDecimal("0.50"));
+        ProductExtra attached = new ProductExtra();
+        attached.setProduct(latte);
+        attached.setExtra(shot);
+
+        Category bakery = new Category();
+        bakery.setCategoryGroup(CategoryGroup.SNACK);
+        Product croissant = product("Croissant", bakery);
+        ProductVariant piece = variant(croissant, VariantLabel.PIECE, "2.75");
+
+        when(productRepository.findById(latte.getId())).thenReturn(Optional.of(latte));
+        when(productRepository.findById(croissant.getId())).thenReturn(Optional.of(croissant));
+        when(variantRepository.findByIdAndProductId(large.getId(), latte.getId())).thenReturn(Optional.of(large));
+        when(variantRepository.findByIdAndProductId(piece.getId(), croissant.getId())).thenReturn(Optional.of(piece));
+        when(productExtraRepository.findByProductIdAndExtraIdInAndStatus(latte.getId(), List.of(shot.getId()), Status.ACTIVE))
+                .thenReturn(List.of(attached));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Exactly what the admin POS sends: every line names its size; drinks add their choices and extras.
+        StaffCreateOrderRequest request = new StaffCreateOrderRequest(List.of(
+                new OrderItemRequest(latte.getId(), 2, large.getId(), null,
+                        SugarLevel.LESS, IceLevel.NO_ICE, MilkType.EXTRA, List.of(shot.getId())),
+                new OrderItemRequest(croissant.getId(), 1, piece.getId(), null, null, null, null, null)), null);
+
+        service.create(request, UUID.randomUUID());
+
+        ArgumentCaptor<Order> saved = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(saved.capture());
+        Order order = saved.getValue();
+        assertThat(order.getItems()).hasSize(2);
+
+        OrderItem drink = order.getItems().get(0);
+        assertThat(drink.getVariant()).isSameAs(large);
+        assertThat(drink.getSugarLevel()).isEqualTo(SugarLevel.LESS);
+        assertThat(drink.getIceLevel()).isEqualTo(IceLevel.NO_ICE);
+        assertThat(drink.getMilkType()).isEqualTo(MilkType.EXTRA);
+        assertThat(drink.getExtras()).extracting(OrderItemExtra::getExtraName).containsExactly("Extra Shot");
+        assertThat(drink.getUnitPrice()).isEqualByComparingTo("3.50");
+        assertThat(drink.getSubtotal()).isEqualByComparingTo("7.00");
+
+        OrderItem snack = order.getItems().get(1);
+        assertThat(snack.getVariant()).isSameAs(piece);
+        assertThat(snack.getSugarLevel()).isNull();
+        assertThat(snack.getExtras()).isEmpty();
+        assertThat(snack.getUnitPrice()).isEqualByComparingTo("2.75");
+
+        assertThat(order.getTotalAmount()).isEqualByComparingTo("9.75");
+    }
+
+    private Product product(String name, Category category) {
+        Product product = new Product();
+        product.setId(UUID.randomUUID());
+        product.setName(name);
+        product.setCategory(category);
+        return product;
+    }
+
+    private ProductVariant variant(Product product, VariantLabel label, String price) {
+        ProductVariant variant = new ProductVariant();
+        variant.setId(UUID.randomUUID());
+        variant.setProduct(product);
+        variant.setName(label);
+        variant.setPrice(new BigDecimal(price));
+        variant.setStatus(Status.ACTIVE);
+        return variant;
     }
 }
