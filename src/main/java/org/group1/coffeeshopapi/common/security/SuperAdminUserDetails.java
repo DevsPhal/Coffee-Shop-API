@@ -1,8 +1,6 @@
 package org.group1.coffeeshopapi.common.security;
 
 import org.group1.coffeeshopapi.common.enums.Role;
-import org.group1.coffeeshopapi.common.enums.UserStatus;
-import org.group1.coffeeshopapi.user.dto.response.SuperAdminResponse;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -58,15 +56,5 @@ public class SuperAdminUserDetails implements UserDetails {
     @Override
     public boolean isEnabled() {
         return true;
-    }
-
-    public SuperAdminResponse toResponse() {
-        return SuperAdminResponse.builder()
-                .id(ID)
-                .fullName(DISPLAY_NAME)
-                .email(email)
-                .role(Role.SUPER_ADMIN)
-                .status(UserStatus.ACTIVE)
-                .build();
     }
 }

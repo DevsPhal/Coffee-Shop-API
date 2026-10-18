@@ -6,6 +6,7 @@ import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.user.entity.AuthUser;
 import org.group1.coffeeshopapi.user.entity.Customer;
 import org.group1.coffeeshopapi.user.repository.AuthUserRepository;
+import org.group1.coffeeshopapi.user.repository.SuperAdminProfileRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -25,6 +26,7 @@ import static org.mockito.Mockito.when;
 class AuthUserSyncServiceTest {
 
     @Mock private AuthUserRepository authUserRepository;
+    @Mock private SuperAdminProfileRepository superAdminProfileRepository;
     @InjectMocks private AuthUserSyncService service;
 
     @Test
@@ -68,7 +70,8 @@ class AuthUserSyncServiceTest {
     }
 
     @Test
-    void syncSuperAdminUpsertsAFixedRowForTheConfigDrivenAccount() {
+    void syncSuperAdminUpsertsAFixedRowWithTheNameTheSuperAdminChose() {
+        when(superAdminProfileRepository.displayName()).thenReturn("Sokha Chan");
         when(authUserRepository.findById(SuperAdminUserDetails.ID)).thenReturn(Optional.empty());
         when(authUserRepository.save(any(AuthUser.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -78,7 +81,7 @@ class AuthUserSyncServiceTest {
         verify(authUserRepository).save(saved.capture());
         assertThat(saved.getValue().getId()).isEqualTo(SuperAdminUserDetails.ID);
         assertThat(saved.getValue().getRole()).isEqualTo(Role.SUPER_ADMIN);
-        assertThat(saved.getValue().getName()).isEqualTo(SuperAdminUserDetails.DISPLAY_NAME);
+        assertThat(saved.getValue().getName()).isEqualTo("Sokha Chan");
         assertThat(saved.getValue().getStatus()).isEqualTo(UserStatus.ACTIVE);
     }
 

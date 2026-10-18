@@ -7,6 +7,7 @@ import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.user.entity.AuthUser;
 import org.group1.coffeeshopapi.user.entity.User;
 import org.group1.coffeeshopapi.user.repository.AuthUserRepository;
+import org.group1.coffeeshopapi.user.repository.SuperAdminProfileRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.UUID;
@@ -16,13 +17,14 @@ import java.util.UUID;
 public class AuthUserSyncService {
 
     private final AuthUserRepository authUserRepository;
+    private final SuperAdminProfileRepository superAdminProfileRepository;
 
     public void sync(User user) {
         sync(user.getId(), user.getRole(), user.getFullName(), user.getStatus());
     }
 
     public void syncSuperAdmin() {
-        sync(SuperAdminUserDetails.ID, Role.SUPER_ADMIN, SuperAdminUserDetails.DISPLAY_NAME, UserStatus.ACTIVE);
+        sync(SuperAdminUserDetails.ID, Role.SUPER_ADMIN, superAdminProfileRepository.displayName(), UserStatus.ACTIVE);
     }
 
     public void remove(UUID userId) {

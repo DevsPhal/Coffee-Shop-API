@@ -5,6 +5,7 @@ import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.user.dto.response.ActorSummary;
 import org.group1.coffeeshopapi.user.entity.User;
+import org.group1.coffeeshopapi.user.repository.SuperAdminProfileRepository;
 import org.group1.coffeeshopapi.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
@@ -19,17 +20,17 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ActorLookupService {
 
-    private static final String SUPER_ADMIN_DISPLAY_NAME = "Super Admin";
     private static final String DELETED_ACCOUNT_DISPLAY_NAME = "Deleted account";
 
     private final UserRepository userRepository;
+    private final SuperAdminProfileRepository superAdminProfileRepository;
 
     public ActorSummary resolve(UUID actorId) {
         if (actorId == null) {
             return null;
         }
         if (actorId.equals(SuperAdminUserDetails.ID)) {
-            return new ActorSummary(actorId, SUPER_ADMIN_DISPLAY_NAME, Role.SUPER_ADMIN);
+            return new ActorSummary(actorId, superAdminProfileRepository.displayName(), Role.SUPER_ADMIN);
         }
         return userRepository.findById(actorId)
                 .map(user -> toSummary(actorId, user))
@@ -48,7 +49,7 @@ public class ActorLookupService {
         Set<UUID> idsToLookUp = new LinkedHashSet<>();
         for (UUID id : distinctIds) {
             if (id.equals(SuperAdminUserDetails.ID)) {
-                resolved.put(id, new ActorSummary(id, SUPER_ADMIN_DISPLAY_NAME, Role.SUPER_ADMIN));
+                resolved.put(id, new ActorSummary(id, superAdminProfileRepository.displayName(), Role.SUPER_ADMIN));
             } else {
                 idsToLookUp.add(id);
             }

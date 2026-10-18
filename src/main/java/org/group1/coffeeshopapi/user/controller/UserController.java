@@ -20,6 +20,7 @@ import org.group1.coffeeshopapi.user.dto.request.UpdateProfileRequest;
 import org.group1.coffeeshopapi.user.dto.response.SuperAdminResponse;
 import org.group1.coffeeshopapi.user.dto.response.UserResponse;
 import org.group1.coffeeshopapi.user.mapper.UserMapper;
+import org.group1.coffeeshopapi.user.service.SuperAdminProfileService;
 import org.group1.coffeeshopapi.user.service.UserProfileService;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -46,25 +47,30 @@ public class UserController {
     private final UserMapper userMapper;
     private final TelegramLinkService telegramLinkService;
     private final UserProfileService userProfileService;
+    private final SuperAdminProfileService superAdminProfileService;
 
     @GetMapping("/me")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
             description = "data is a UserResponse for normal accounts, or a SuperAdminResponse for the super admin",
             content = @Content(schema = @Schema(oneOf = {UserResponse.class, SuperAdminResponse.class})))
     public ApiResponse<Object> me(@AuthenticationPrincipal UserDetails principal) {
-        Object profile = principal instanceof CustomUserDetails customUserDetails
-                ? userMapper.toResponse(customUserDetails.getUser())
-                : ((SuperAdminUserDetails) principal).toResponse();
+        Object profile = principal instanceof SuperAdminUserDetails superAdmin
+                ? superAdminProfileService.getProfile(superAdmin.getUsername())
+                : userMapper.toResponse(requireCustomUser(principal).getUser());
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, profile);
     }
 
     @PatchMapping("/me")
-    public ApiResponse<UserResponse> updateMe(
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "data is a UserResponse for normal accounts, or a SuperAdminResponse for the super admin",
+            content = @Content(schema = @Schema(oneOf = {UserResponse.class, SuperAdminResponse.class})))
+    public ApiResponse<Object> updateMe(
             @Valid @RequestBody UpdateProfileRequest request,
             @AuthenticationPrincipal UserDetails principal) {
-        UUID userId = requireCustomUser(principal, "Super admin's profile is fixed and cannot be edited").getId();
-        return ApiResponse.of(HttpStatus.OK, "Profile updated successfully.",
-                userProfileService.updateProfile(userId, request));
+        Object profile = principal instanceof SuperAdminUserDetails superAdmin
+                ? superAdminProfileService.updateProfile(superAdmin.getUsername(), request)
+                : userProfileService.updateProfile(requireCustomUser(principal).getId(), request);
+        return ApiResponse.of(HttpStatus.OK, "Profile updated successfully.", profile);
     }
 
     @PostMapping("/me/complete-profile")
@@ -97,23 +103,31 @@ public class UserController {
     }
 
     @PostMapping(value = "/me/avatar", consumes = "multipart/form-data")
-    public ApiResponse<UserResponse> uploadAvatar(
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "data is a UserResponse for normal accounts, or a SuperAdminResponse for the super admin",
+            content = @Content(schema = @Schema(oneOf = {UserResponse.class, SuperAdminResponse.class})))
+    public ApiResponse<Object> uploadAvatar(
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal UserDetails principal) {
-        UUID userId = requireCustomUser(principal).getId();
-        return ApiResponse.of(HttpStatus.OK, "Avatar uploaded successfully.",
-                userProfileService.uploadAvatar(userId, file));
+        Object profile = principal instanceof SuperAdminUserDetails superAdmin
+                ? superAdminProfileService.uploadAvatar(superAdmin.getUsername(), file)
+                : userProfileService.uploadAvatar(requireCustomUser(principal).getId(), file);
+        return ApiResponse.of(HttpStatus.OK, "Avatar uploaded successfully.", profile);
     }
 
     @DeleteMapping("/me/avatar")
-    public ApiResponse<UserResponse> removeAvatar(@AuthenticationPrincipal UserDetails principal) {
-        UUID userId = requireCustomUser(principal).getId();
-        return ApiResponse.of(HttpStatus.OK, "Avatar removed successfully.",
-                userProfileService.removeAvatar(userId));
+    @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200",
+            description = "data is a UserResponse for normal accounts, or a SuperAdminResponse for the super admin",
+            content = @Content(schema = @Schema(oneOf = {UserResponse.class, SuperAdminResponse.class})))
+    public ApiResponse<Object> removeAvatar(@AuthenticationPrincipal UserDetails principal) {
+        Object profile = principal instanceof SuperAdminUserDetails superAdmin
+                ? superAdminProfileService.removeAvatar(superAdmin.getUsername())
+                : userProfileService.removeAvatar(requireCustomUser(principal).getId());
+        return ApiResponse.of(HttpStatus.OK, "Avatar removed successfully.", profile);
     }
 
     private CustomUserDetails requireCustomUser(UserDetails principal) {
-        return requireCustomUser(principal, "Super admin does not have an avatar");
+        return requireCustomUser(principal, "This account has no editable profile");
     }
 
     private CustomUserDetails requireCustomUser(UserDetails principal, String message) {
