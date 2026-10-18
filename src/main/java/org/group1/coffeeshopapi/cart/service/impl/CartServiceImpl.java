@@ -82,9 +82,10 @@ public class CartServiceImpl implements CartService {
         if (stockOnHand.signum() <= 0) {
             throw new InvalidOperationException("Product '" + product.getName() + "' is out of stock");
         }
-        ProductVariantPolicy.validate(product, request.variantId(), request.sugarLevel(),
+        ProductVariant explicitVariant = resolveVariant(product.getId(), request.variantId());
+        ProductVariantPolicy.validate(product, explicitVariant, request.sugarLevel(),
                 request.iceLevel(), request.milkType());
-        ProductVariant variant = resolveEffectiveVariant(product, request.variantId());
+        ProductVariant variant = resolveEffectiveVariant(product, explicitVariant);
         Set<Extra> extras = resolveExtras(product, request.extraIds());
 
         cart.getItems().stream()
@@ -114,8 +115,9 @@ public class CartServiceImpl implements CartService {
         Cart cart = getOrCreateCart(customerId);
         CartItem item = findItem(cart, itemId);
         item.setQuantity(request.quantity());
-        if (request.variantId() != null) {
-            item.setVariant(resolveVariant(item.getProduct().getId(), request.variantId()));
+        ProductVariant requestedVariant = resolveVariant(item.getProduct().getId(), request.variantId());
+        if (requestedVariant != null) {
+            item.setVariant(requestedVariant);
         }
         if (request.sugarLevel() != null) {
             item.setSugarLevel(request.sugarLevel());
@@ -129,7 +131,7 @@ public class CartServiceImpl implements CartService {
         if (request.extraIds() != null) {
             item.setExtraSelection(resolveExtras(item.getProduct(), request.extraIds()));
         }
-        ProductVariantPolicy.validate(item.getProduct(), request.variantId(), request.sugarLevel(),
+        ProductVariantPolicy.validate(item.getProduct(), requestedVariant, request.sugarLevel(),
                 request.iceLevel(), request.milkType());
         return toResponse(cartRepository.save(cart));
     }
@@ -190,9 +192,9 @@ public class CartServiceImpl implements CartService {
         return variant;
     }
 
-    private ProductVariant resolveEffectiveVariant(Product product, UUID variantId) {
-        if (variantId != null) {
-            return resolveVariant(product.getId(), variantId);
+    private ProductVariant resolveEffectiveVariant(Product product, ProductVariant explicitVariant) {
+        if (explicitVariant != null) {
+            return explicitVariant;
         }
         List<ProductVariant> activeOptions = variantRepository
                 .findByProductIdAndStatusOrderBySortOrderAscNameAsc(product.getId(), Status.ACTIVE);

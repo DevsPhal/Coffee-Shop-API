@@ -573,7 +573,7 @@ public class OrderServiceImpl implements OrderService {
 
             ProductVariant explicitVariant = resolveExplicitVariant(product, itemRequest);
 
-            ProductVariantPolicy.validate(product, explicitVariant != null ? explicitVariant.getId() : null,
+            ProductVariantPolicy.validate(product, explicitVariant,
                     itemRequest.sugarLevel(), itemRequest.iceLevel(), itemRequest.milkType());
 
             ProductVariant variant;

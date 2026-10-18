@@ -7,16 +7,16 @@ import org.group1.coffeeshopapi.common.enums.SugarLevel;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.product.entity.Product;
+import org.group1.coffeeshopapi.product.entity.ProductVariant;
 
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.Set;
-import java.util.UUID;
 
 public final class ProductVariantPolicy {
     private ProductVariantPolicy() {}
 
-    public static void validate(Product product, UUID variantId, SugarLevel sugarLevel,
+    public static void validate(Product product, ProductVariant variant, SugarLevel sugarLevel,
             IceLevel iceLevel, MilkType milkType) {
         CategoryGroup group = product.getCategory().getCategoryGroup();
         String name = product.getName();
@@ -31,7 +31,9 @@ public final class ProductVariantPolicy {
             }
             return;
         }
-        if (variantId != null || sugarLevel != null || iceLevel != null || milkType != null) {
+        // Snacks still carry their single PIECE price option; only a size or drink option is a customization.
+        boolean sizeChosen = variant != null && !allowedVariants(group).contains(variant.getName());
+        if (sizeChosen || sugarLevel != null || iceLevel != null || milkType != null) {
             throw new InvalidOperationException(
                     "'" + name + "' doesn't support size, sugar, ice, or milk customization");
         }
