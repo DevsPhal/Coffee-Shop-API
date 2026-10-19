@@ -74,8 +74,8 @@ class BaristaOwnershipTest {
                 .andExpect(status().isOk());
         verify(attendanceService).listOwn(eq(ownId), any());
         verify(attendanceService).getCurrentOpenShift(ownId);
-        verify(attendanceService).checkIn(ownId);
-        verify(attendanceService).checkOut(ownId);
+        verify(attendanceService).checkIn(ownId, null);
+        verify(attendanceService).checkOut(ownId, null);
         verifyNoMoreInteractions(attendanceService);
     }
 

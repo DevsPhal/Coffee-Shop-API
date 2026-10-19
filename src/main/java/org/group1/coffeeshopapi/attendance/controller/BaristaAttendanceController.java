@@ -2,7 +2,9 @@ package org.group1.coffeeshopapi.attendance.controller;
 
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.attendance.dto.request.AttendanceNoteRequest;
 import org.group1.coffeeshopapi.attendance.dto.response.AttendanceResponse;
 import org.group1.coffeeshopapi.attendance.service.AttendanceService;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
@@ -23,14 +25,19 @@ public class BaristaAttendanceController {
 
     private final AttendanceService attendanceService;
 
+    // The body is optional, so a plain POST with no note still checks in or out as before.
     @PostMapping("/check-in")
-    public ApiResponse<AttendanceResponse> checkIn(@AuthenticationPrincipal CustomUserDetails currentUser) {
-        return ApiResponse.of(HttpStatus.OK, "Checked in successfully.", attendanceService.checkIn(currentUser.getId()));
+    public ApiResponse<AttendanceResponse> checkIn(@Valid @RequestBody(required = false) AttendanceNoteRequest request,
+                                                   @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Checked in successfully.",
+                attendanceService.checkIn(currentUser.getId(), noteOf(request)));
     }
 
     @PostMapping("/check-out")
-    public ApiResponse<AttendanceResponse> checkOut(@AuthenticationPrincipal CustomUserDetails currentUser) {
-        return ApiResponse.of(HttpStatus.OK, "Checked out successfully.", attendanceService.checkOut(currentUser.getId()));
+    public ApiResponse<AttendanceResponse> checkOut(@Valid @RequestBody(required = false) AttendanceNoteRequest request,
+                                                    @AuthenticationPrincipal CustomUserDetails currentUser) {
+        return ApiResponse.of(HttpStatus.OK, "Checked out successfully.",
+                attendanceService.checkOut(currentUser.getId(), noteOf(request)));
     }
 
     @GetMapping("/current")
@@ -46,5 +53,9 @@ public class BaristaAttendanceController {
             @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
                 PageResponse.of(attendanceService.listOwn(currentUser.getId(), PageUtil.buildPageable(page, size))));
+    }
+
+    private static String noteOf(AttendanceNoteRequest request) {
+        return request == null ? null : request.note();
     }
 }

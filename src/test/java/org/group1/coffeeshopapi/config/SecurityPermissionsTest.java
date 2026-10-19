@@ -66,7 +66,7 @@ class SecurityPermissionsTest {
         for (String path : List.of("inventory", "inventory/record", "inventory/low-stock", "inventory/record/movements", "products/record/variants")) {
             cases.add(new Access("GET", "/api/admin/" + path, STAFF));
         }
-        for (String path : List.of("inventory/stock-in", "inventory/stock-cut", "products/import", "products/record/image", "products/record/variants", "attendance", "orders/record/collect-cash", "orders/record/complete")) {
+        for (String path : List.of("inventory/stock-in", "inventory/stock-cut", "products/import", "products/record/image", "products/record/variants", "attendance", "attendance/check-in", "attendance/check-out", "orders/record/collect-cash", "orders/record/complete")) {
             cases.add(new Access("POST", "/api/admin/" + path, MANAGERS));
         }
         for (String path : List.of("attendance", "attendance/record/history", "orders", "orders/record", "reports/daily", "finance/daily", "finance/monthly", "finance/yearly", "bakong/exchange-rate")) {

@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.group1.coffeeshopapi.attendance.dto.request.AdminCheckInRequest;
+import org.group1.coffeeshopapi.attendance.dto.request.AdminCheckOutRequest;
 import org.group1.coffeeshopapi.attendance.dto.request.CreateAttendanceRequest;
 import org.group1.coffeeshopapi.attendance.dto.request.UpdateAttendanceRequest;
 import org.group1.coffeeshopapi.attendance.dto.response.AttendanceAuditLogResponse;
@@ -26,8 +28,8 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/admin/attendance")
 @RequiredArgsConstructor
-@Tag(name = "Admin Attendance", description = "Admin only: view every barista's attendance, backfill a missed punch, "
-        + "correct an existing record, and audit who touched what")
+@Tag(name = "Admin Attendance", description = "Admin only: view every barista's attendance, check a staff member "
+        + "in or out, backfill a missed shift, correct an existing record, and audit who touched what")
 @SecurityRequirement(name = "bearerAuth")
 public class AdminAttendanceController {
 
@@ -39,15 +41,29 @@ public class AdminAttendanceController {
             @RequestParam(required = false) UUID baristaId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
+            @RequestParam(required = false) Boolean open,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
-                PageResponse.of(attendanceService.listAll(baristaId, from, to, PageUtil.buildPageable(page, size))));
+                PageResponse.of(attendanceService.listAll(baristaId, from, to, open, PageUtil.buildPageable(page, size))));
     }
 
     @GetMapping("/{id}")
     public ApiResponse<AttendanceResponse> getById(@PathVariable UUID id) {
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, attendanceService.getById(id));
+    }
+
+    @PostMapping("/check-in")
+    public ResponseEntity<ApiResponse<AttendanceResponse>> checkIn(@Valid @RequestBody AdminCheckInRequest request) {
+        AttendanceResponse response = attendanceService.adminCheckIn(request, currentActor.id());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.of(HttpStatus.CREATED, "Staff member checked in successfully.", response));
+    }
+
+    @PostMapping("/check-out")
+    public ApiResponse<AttendanceResponse> checkOut(@Valid @RequestBody AdminCheckOutRequest request) {
+        return ApiResponse.of(HttpStatus.OK, "Staff member checked out successfully.",
+                attendanceService.adminCheckOut(request, currentActor.id()));
     }
 
     @PostMapping
