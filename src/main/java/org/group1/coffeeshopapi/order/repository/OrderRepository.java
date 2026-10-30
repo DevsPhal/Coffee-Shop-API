@@ -7,6 +7,7 @@ import org.group1.coffeeshopapi.order.entity.Order;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import jakarta.persistence.LockModeType;
@@ -18,7 +19,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface OrderRepository extends JpaRepository<Order, UUID> {
+public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecificationExecutor<Order>,
+        OrderRepositoryCustom {
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from Order o where o.id = :id")
@@ -53,13 +55,6 @@ public interface OrderRepository extends JpaRepository<Order, UUID> {
             + "where o.customer.id = :customerId and o.status = :status")
     Page<Order> findByCustomerIdAndStatus(
             @Param("customerId") UUID customerId, @Param("status") OrderStatus status, Pageable pageable);
-
-    @Query("select o from Order o left join fetch o.customer where o.status = :status")
-    Page<Order> findByStatus(@Param("status") OrderStatus status, Pageable pageable);
-
-    @Query(value = "select o from Order o left join fetch o.customer",
-            countQuery = "select count(o) from Order o")
-    Page<Order> findAllWithActors(Pageable pageable);
 
     @Query("select o.id from Order o where o.status = :status and o.paymentMethod = :paymentMethod "
             + "and o.bakongMd5Hash is not null "

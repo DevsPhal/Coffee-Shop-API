@@ -5,11 +5,13 @@ import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
+import org.group1.coffeeshopapi.order.dto.request.OrderSearchFilter;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
+import org.group1.coffeeshopapi.order.dto.response.OrderStatusSummaryResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
@@ -102,7 +104,10 @@ public interface OrderService {
 
     OrderResponse getAny(UUID id);
 
-    Page<OrderResponse> listAll(UUID baristaId, UUID customerId, OrderStatus status, Pageable pageable);
+    Page<OrderResponse> search(OrderSearchFilter filter, Pageable pageable);
+
+    /** Count and total of the matching orders for every status, including statuses with none. */
+    List<OrderStatusSummaryResponse> summarizeByStatus(OrderSearchFilter filter);
 
     OrderResponse cancelAny(UUID id, UUID actorId);
 

@@ -33,11 +33,13 @@ import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
+import org.group1.coffeeshopapi.order.dto.request.OrderSearchFilter;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongDeeplinkResponse;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderAuditLogResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
+import org.group1.coffeeshopapi.order.dto.response.OrderStatusSummaryResponse;
 import org.group1.coffeeshopapi.order.entity.Order;
 import org.group1.coffeeshopapi.order.entity.OrderAuditLog;
 import org.group1.coffeeshopapi.order.entity.OrderItem;
@@ -46,6 +48,8 @@ import org.group1.coffeeshopapi.order.mapper.OrderAuditLogMapper;
 import org.group1.coffeeshopapi.order.mapper.OrderMapper;
 import org.group1.coffeeshopapi.order.repository.OrderAuditLogRepository;
 import org.group1.coffeeshopapi.order.repository.OrderRepository;
+import org.group1.coffeeshopapi.order.repository.OrderSpecifications;
+import org.group1.coffeeshopapi.order.repository.OrderStatusTotal;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.entity.ProductVariant;
@@ -81,6 +85,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -515,22 +520,32 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public Page<OrderResponse> listAll(UUID baristaId, UUID customerId, OrderStatus status, Pageable pageable) {
-        Page<Order> orders;
-        if (baristaId != null && status != null) {
-            orders = orderRepository.findByHandledByAndStatus(baristaId, status, pageable);
-        } else if (baristaId != null) {
-            orders = orderRepository.findByHandledBy(baristaId, pageable);
-        } else if (customerId != null && status != null) {
-            orders = orderRepository.findByCustomerIdAndStatus(customerId, status, pageable);
-        } else if (customerId != null) {
-            orders = orderRepository.findByCustomerId(customerId, pageable);
-        } else if (status != null) {
-            orders = orderRepository.findByStatus(status, pageable);
-        } else {
-            orders = orderRepository.findAllWithActors(pageable);
+    public Page<OrderResponse> search(OrderSearchFilter filter, Pageable pageable) {
+        requireOrderedDates(filter);
+        return toResponsePage(orderRepository.findAll(OrderSpecifications.matching(filter), pageable));
+    }
+
+    @Override
+    public List<OrderStatusSummaryResponse> summarizeByStatus(OrderSearchFilter filter) {
+        requireOrderedDates(filter);
+        Map<OrderStatus, OrderStatusTotal> totals = new EnumMap<>(OrderStatus.class);
+        for (OrderStatusTotal total : orderRepository.totalsByStatus(OrderSpecifications.matching(filter))) {
+            totals.put(total.status(), total);
         }
-        return toResponsePage(orders);
+        return Arrays.stream(OrderStatus.values())
+                .map(status -> {
+                    OrderStatusTotal total = totals.get(status);
+                    return total != null
+                            ? new OrderStatusSummaryResponse(status, total.count(), total.totalAmount())
+                            : new OrderStatusSummaryResponse(status, 0, BigDecimal.ZERO);
+                })
+                .toList();
+    }
+
+    private void requireOrderedDates(OrderSearchFilter filter) {
+        if (filter.from() != null && filter.to() != null && filter.from().isAfter(filter.to())) {
+            throw new InvalidOperationException("The start date must be on or before the end date");
+        }
     }
 
     @Override

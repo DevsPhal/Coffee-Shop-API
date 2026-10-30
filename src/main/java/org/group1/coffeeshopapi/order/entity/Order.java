@@ -6,6 +6,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -29,7 +30,11 @@ import java.util.UUID;
 @Getter
 @Setter
 @Entity
-@Table(name = "orders")
+// Staff order lists filter by status and page newest/oldest first, so order history stays quick as it grows.
+@Table(name = "orders", indexes = {
+        @Index(name = "idx_orders_status_created_at", columnList = "status, created_at"),
+        @Index(name = "idx_orders_created_at", columnList = "created_at")
+})
 public class Order extends BaseEntity {
 
     @Column

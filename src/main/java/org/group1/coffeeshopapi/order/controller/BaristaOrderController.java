@@ -6,7 +6,10 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.Currency;
+import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
+import org.group1.coffeeshopapi.common.enums.OrderChannel;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
@@ -18,19 +21,25 @@ import org.group1.coffeeshopapi.order.dto.request.AnswerStaffCallRequest;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
 import org.group1.coffeeshopapi.order.dto.request.EstimatedTimeRequest;
+import org.group1.coffeeshopapi.order.dto.request.OrderSearchFilter;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.BakongQrResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
+import org.group1.coffeeshopapi.order.dto.response.OrderStatusSummaryResponse;
 import org.group1.coffeeshopapi.order.dto.response.StaffCallResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.order.service.ReceiptService;
 import org.group1.coffeeshopapi.order.service.StaffCallService;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -88,11 +97,35 @@ public class BaristaOrderController {
 
     @GetMapping("/all")
     public ApiResponse<PageResponse<OrderResponse>> listAll(
-            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(required = false) List<OrderStatus> status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) OrderChannel channel,
+            @RequestParam(required = false) FulfillmentMethod fulfillment,
+            @RequestParam(required = false) PaymentMethod paymentMethod,
+            @RequestParam(required = false) Sort.Direction direction,
             @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer size) {
+        OrderSearchFilter filter = new OrderSearchFilter(
+                null, null, status, search, from, to, channel, fulfillment, paymentMethod);
+        Pageable pageable = PageUtil.buildPageable(page, size, AppConstant.DEFAULT_SORT_BY,
+                direction != null ? direction.name() : null);
         return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE,
-                PageResponse.of(orderService.listAll(null, null, status, PageUtil.buildPageable(page, size))));
+                PageResponse.of(orderService.search(filter, pageable)));
+    }
+
+    @GetMapping("/all/status-summary")
+    public ApiResponse<List<OrderStatusSummaryResponse>> statusSummary(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            @RequestParam(required = false) OrderChannel channel,
+            @RequestParam(required = false) FulfillmentMethod fulfillment,
+            @RequestParam(required = false) PaymentMethod paymentMethod) {
+        OrderSearchFilter filter = new OrderSearchFilter(
+                null, null, null, search, from, to, channel, fulfillment, paymentMethod);
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, orderService.summarizeByStatus(filter));
     }
 
     @GetMapping("/all/{id}")
