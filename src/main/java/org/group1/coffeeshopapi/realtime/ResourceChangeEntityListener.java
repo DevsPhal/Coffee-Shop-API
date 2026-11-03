@@ -3,7 +3,9 @@ package org.group1.coffeeshopapi.realtime;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
+import org.group1.coffeeshopapi.banner.entity.Banner;
 import org.group1.coffeeshopapi.category.entity.Category;
+import org.group1.coffeeshopapi.event.entity.Event;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.extra.entity.ProductExtra;
 import org.group1.coffeeshopapi.feedback.entity.Feedback;
@@ -47,6 +49,8 @@ public class ResourceChangeEntityListener {
             case Product product -> publisher.record(ResourceType.PRODUCT, product.getId(), change);
             case Category category -> publisher.record(ResourceType.CATEGORY, category.getId(), change);
             case Extra extra -> publisher.record(ResourceType.EXTRA, extra.getId(), change);
+            case Banner banner -> publisher.record(ResourceType.BANNER, banner.getId(), change);
+            case Event event -> publisher.record(ResourceType.EVENT, event.getId(), change);
             case ProductVariant variant -> publisher.record(ResourceType.PRODUCT, productId(variant.getProduct()), ChangeType.UPDATED);
             case ProductExtra productExtra -> publisher.record(ResourceType.PRODUCT, productId(productExtra.getProduct()), ChangeType.UPDATED);
             case Inventory inventory -> publisher.record(ResourceType.INVENTORY, productId(inventory.getProduct()), change);

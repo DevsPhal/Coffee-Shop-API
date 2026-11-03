@@ -15,6 +15,9 @@ public final class RealtimeDestinations {
 
     public static final String INVENTORY = "/topic/inventory";
 
+    // Public twin of INVENTORY for the customer menu: stock decides how many of each item can be ordered.
+    public static final String STOCK = "/topic/stock";
+
     public static final String FEEDBACK = "/topic/feedback";
 
     public static final String TABLES = "/topic/tables";

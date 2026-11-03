@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.banner.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
@@ -13,10 +14,12 @@ import lombok.Setter;
 import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
+import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
 
 @Getter
 @Setter
 @Entity
+@EntityListeners(ResourceChangeEntityListener.class)
 @Table(name = "banners")
 public class Banner extends BaseEntity {
 

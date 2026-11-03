@@ -34,12 +34,14 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     private static final Set<String> STAFF_ROLES = Set.of("ROLE_ADMIN", "ROLE_BARISTA", "ROLE_SUPER_ADMIN");
     private static final Set<String> ADMIN_ROLES = Set.of("ROLE_ADMIN", "ROLE_SUPER_ADMIN");
 
+    // An empty role set marks a public topic: guests browsing the menu may watch it without signing in.
     private static final Map<String, Set<String>> TOPIC_ROLES = Map.of(
             RealtimeDestinations.STAFF_ORDERS, STAFF_ROLES,
             RealtimeDestinations.INVENTORY, STAFF_ROLES,
             RealtimeDestinations.STAFF_CALLS, STAFF_ROLES,
             RealtimeDestinations.FEEDBACK, ADMIN_ROLES,
             RealtimeDestinations.CATALOG, Set.of(),
+            RealtimeDestinations.STOCK, Set.of(),
             RealtimeDestinations.TABLES, Set.of());
 
     public static final String SESSION_TOKEN_ID = "tokenId";
@@ -58,7 +60,11 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
         }
         StompCommand command = accessor.getCommand();
         if (command == StompCommand.CONNECT) {
-            accessor.setUser(authenticate(accessor));
+            // No token is a guest session, limited to public topics. A token that fails is still refused,
+            // so the client knows to refresh it rather than silently losing its private queues.
+            if (accessor.getFirstNativeHeader(SecurityConstants.JWT_HEADER) != null) {
+                accessor.setUser(authenticate(accessor));
+            }
         } else if (command == StompCommand.SUBSCRIBE) {
             authorizeSubscribe(accessor.getUser(), accessor.getDestination());
         } else if (command == StompCommand.SEND) {
@@ -95,17 +101,20 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
     }
 
     private void authorizeSubscribe(Principal user, String destination) {
-        if (!(user instanceof Authentication auth) || !auth.isAuthenticated()) {
-            throw new MessageDeliveryException("Not authenticated");
-        }
         if (destination == null) {
             throw new MessageDeliveryException("Missing destination");
+        }
+        Set<String> allowedRoles = TOPIC_ROLES.get(destination);
+        if (allowedRoles != null && allowedRoles.isEmpty()) {
+            return;
+        }
+        if (!(user instanceof Authentication auth) || !auth.isAuthenticated()) {
+            throw new MessageDeliveryException("Not authenticated");
         }
         if (destination.startsWith("/user/")) {
             return;
         }
-        Set<String> allowedRoles = TOPIC_ROLES.get(destination);
-        if (allowedRoles != null && (allowedRoles.isEmpty() || hasAnyRole(auth, allowedRoles))) {
+        if (allowedRoles != null && hasAnyRole(auth, allowedRoles)) {
             return;
         }
         throw new MessageDeliveryException("Not allowed to subscribe to " + destination);

@@ -1,5 +1,7 @@
 package org.group1.coffeeshopapi.realtime.security;
 
+import io.jsonwebtoken.MalformedJwtException;
+import org.group1.coffeeshopapi.common.constant.SecurityConstants;
 import org.group1.coffeeshopapi.common.security.CustomUserDetailsService;
 import org.group1.coffeeshopapi.common.util.JwtUtil;
 import org.group1.coffeeshopapi.realtime.RealtimeDestinations;
@@ -20,8 +22,10 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class StompAuthChannelInterceptorTest {
@@ -33,8 +37,19 @@ class StompAuthChannelInterceptorTest {
     @InjectMocks private StompAuthChannelInterceptor interceptor;
 
     @Test
-    void connectWithoutATokenIsRefused() {
+    void connectWithoutATokenIsAGuestSession() {
         StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+
+        Message<?> result = interceptor.preSend(message(accessor), channel);
+
+        assertThat(StompHeaderAccessor.wrap(result).getUser()).isNull();
+    }
+
+    @Test
+    void connectWithABadTokenIsStillRefused() {
+        when(jwtUtil.extractClaims("expired")).thenThrow(new MalformedJwtException("expired"));
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.CONNECT);
+        accessor.addNativeHeader(SecurityConstants.JWT_HEADER, SecurityConstants.JWT_PREFIX + "expired");
 
         assertThatThrownBy(() -> interceptor.preSend(message(accessor), channel))
                 .isInstanceOf(MessageDeliveryException.class);
@@ -52,6 +67,7 @@ class StompAuthChannelInterceptorTest {
     @Test
     void customersOnlyGetTheCatalogAndTheirOwnQueue() {
         assertAllowed("ROLE_CUSTOMER", RealtimeDestinations.CATALOG);
+        assertAllowed("ROLE_CUSTOMER", RealtimeDestinations.STOCK);
         assertAllowed("ROLE_CUSTOMER", "/user" + RealtimeDestinations.USER_ORDERS);
         assertRefused("ROLE_CUSTOMER", RealtimeDestinations.STAFF_ORDERS);
         assertRefused("ROLE_CUSTOMER", RealtimeDestinations.INVENTORY);
@@ -61,12 +77,30 @@ class StompAuthChannelInterceptorTest {
     }
 
     @Test
-    void subscribingBeforeConnectingIsRefused() {
-        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
-        accessor.setDestination(RealtimeDestinations.CATALOG);
+    void guestsOnlyGetThePublicTopics() {
+        assertGuestAllowed(RealtimeDestinations.CATALOG);
+        assertGuestAllowed(RealtimeDestinations.STOCK);
+        assertGuestAllowed(RealtimeDestinations.TABLES);
+        assertGuestRefused("/user" + RealtimeDestinations.USER_ORDERS);
+        assertGuestRefused("/user" + RealtimeDestinations.USER_STAFF_CALLS);
+        assertGuestRefused(RealtimeDestinations.STAFF_ORDERS);
+        assertGuestRefused(RealtimeDestinations.INVENTORY);
+        assertGuestRefused(RealtimeDestinations.CATALOG + "/../orders");
+    }
 
-        assertThatThrownBy(() -> interceptor.preSend(message(accessor), channel))
+    private void assertGuestAllowed(String destination) {
+        assertThatCode(() -> interceptor.preSend(guestSubscribe(destination), channel)).doesNotThrowAnyException();
+    }
+
+    private void assertGuestRefused(String destination) {
+        assertThatThrownBy(() -> interceptor.preSend(guestSubscribe(destination), channel))
                 .isInstanceOf(MessageDeliveryException.class);
+    }
+
+    private Message<byte[]> guestSubscribe(String destination) {
+        StompHeaderAccessor accessor = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        accessor.setDestination(destination);
+        return message(accessor);
     }
 
     private void assertAllowed(String role, String destination) {

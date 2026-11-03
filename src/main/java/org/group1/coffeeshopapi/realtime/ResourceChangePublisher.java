@@ -54,11 +54,13 @@ public class ResourceChangePublisher {
     }
 
     private void send(ResourceType resource, UUID id, ChangeType change) {
-        try {
-            messagingTemplate.convertAndSend(resource.destination(),
-                    new ResourceChangeMessage(resource, id, change, LocalDateTime.now()));
-        } catch (RuntimeException ex) {
-            log.warn("Failed to push {} change for {}", resource, id, ex);
+        ResourceChangeMessage message = new ResourceChangeMessage(resource, id, change, LocalDateTime.now());
+        for (String destination : resource.destinations()) {
+            try {
+                messagingTemplate.convertAndSend(destination, message);
+            } catch (RuntimeException ex) {
+                log.warn("Failed to push {} change for {} to {}", resource, id, destination, ex);
+            }
         }
     }
 
