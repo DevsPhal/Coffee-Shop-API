@@ -8,6 +8,8 @@ import org.group1.coffeeshopapi.extra.mapper.ProductExtraMapper;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
+import org.group1.coffeeshopapi.inventory.service.InventoryService;
+import org.group1.coffeeshopapi.recipe.repository.RecipeItemRepository;
 import org.group1.coffeeshopapi.product.dto.request.UpdateProductRequest;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.mapper.ProductMapper;
@@ -45,6 +47,8 @@ class ProductServiceImplUpdateTest {
     @Mock private ProductExtraMapper productExtraMapper;
     @Mock private FileStorageService fileStorageService;
     @Mock private ProductSkuGenerator skuGenerator;
+    @Mock private InventoryService inventoryService;
+    @Mock private RecipeItemRepository recipeItemRepository;
     @InjectMocks private ProductServiceImpl service;
 
     @Test

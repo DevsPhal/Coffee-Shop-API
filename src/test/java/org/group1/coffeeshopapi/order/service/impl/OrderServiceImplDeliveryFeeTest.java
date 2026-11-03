@@ -14,7 +14,6 @@ import org.group1.coffeeshopapi.common.properties.BakongProperties;
 import org.group1.coffeeshopapi.common.properties.ShopLocationProperties;
 import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
-import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
@@ -52,6 +51,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -140,7 +140,7 @@ class OrderServiceImplDeliveryFeeTest {
 
         assertThatThrownBy(() -> service.startPreparing(order.getId(), UUID.randomUUID()))
                 .isInstanceOf(InvalidOperationException.class);
-        verify(inventoryService, never()).stockCut(any(), any());
+        verify(inventoryService, never()).deductForSale(any(), any(), any(), anyBoolean());
     }
 
     @Test

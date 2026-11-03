@@ -26,6 +26,7 @@ public class Inventory extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false, unique = true)
     private Product product;
 
+    // Both counted in the product's base unit (its sell unit, e.g. cans), never in cartons.
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal quantityOnHand = BigDecimal.ZERO;
 

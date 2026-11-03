@@ -4,6 +4,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.group1.coffeeshopapi.common.enums.StockUnit;
 import org.group1.coffeeshopapi.inventory.entity.StockExpense;
 import org.group1.coffeeshopapi.inventory.repository.StockExpenseRepository;
 import org.group1.coffeeshopapi.product.entity.Product;
@@ -34,8 +35,8 @@ class StockExpenseReportServiceImplTest {
     void reportListsEveryExpenseAndSumsTheirAmountsIntoATotalRow() throws IOException {
         when(stockExpenseRepository.findByExpenseDateGreaterThanEqualAndExpenseDateLessThan(any(), any()))
                 .thenReturn(List.of(
-                        expense("Green Tea", "10.000", "1.50", LocalDate.of(2026, 3, 2)),
-                        expense("Milk", "5.000", "2.00", LocalDate.of(2026, 3, 15))));
+                        expense("Green Tea", "10.000", "1.50", LocalDate.of(2026, 3, 2), "CAN"),
+                        expense("Milk", "5.000", "2.00", LocalDate.of(2026, 3, 15), null)));
 
         byte[] report = service.generateMonthlyReport(YearMonth.of(2026, 3));
 
@@ -48,10 +49,14 @@ class StockExpenseReportServiceImplTest {
 
             assertThat(sheet.getRow(1).getCell(1).getStringCellValue()).isEqualTo("Green Tea");
             assertThat(sheet.getRow(2).getCell(1).getStringCellValue()).isEqualTo("Milk");
+            assertThat(header.getCell(3).getStringCellValue()).isEqualTo("Unit");
+            assertThat(sheet.getRow(1).getCell(3).getStringCellValue()).isEqualTo("CAN");
+            // Recorded before expenses kept a unit: those were always in the product's stock unit.
+            assertThat(sheet.getRow(2).getCell(3).getStringCellValue()).isEqualTo("PACK");
 
             Row totalRow = sheet.getRow(4);
-            assertThat(totalRow.getCell(3).getStringCellValue()).isEqualTo("Total");
-            assertThat(totalRow.getCell(4).getNumericCellValue()).isEqualTo(25.00);
+            assertThat(totalRow.getCell(4).getStringCellValue()).isEqualTo("Total");
+            assertThat(totalRow.getCell(5).getNumericCellValue()).isEqualTo(25.00);
         }
     }
 
@@ -65,17 +70,19 @@ class StockExpenseReportServiceImplTest {
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(report))) {
             Sheet sheet = workbook.getSheetAt(0);
             Row totalRow = sheet.getRow(2);
-            assertThat(totalRow.getCell(4).getNumericCellValue()).isZero();
+            assertThat(totalRow.getCell(5).getNumericCellValue()).isZero();
         }
     }
 
-    private StockExpense expense(String productName, String quantity, String unitCost, LocalDate date) {
+    private StockExpense expense(String productName, String quantity, String unitCost, LocalDate date, String unit) {
         Product product = new Product();
         product.setName(productName);
+        product.setStockUnit(StockUnit.PACK);
 
         StockExpense expense = new StockExpense();
         expense.setProduct(product);
         expense.setQuantity(new BigDecimal(quantity));
+        expense.setUnit(unit);
         expense.setUnitCost(new BigDecimal(unitCost));
         expense.setAmount(new BigDecimal(quantity).multiply(new BigDecimal(unitCost)));
         expense.setExpenseDate(date);

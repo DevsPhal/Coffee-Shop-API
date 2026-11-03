@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.product.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
@@ -26,13 +27,15 @@ public record UpdateProductRequest(
         StockUnit stockUnit,
         SellUnit sellUnit,
 
-        @DecimalMin(value = "0.001", message = "Units per stock must be positive")
+        @DecimalMin(value = "1", message = "Units per stock must be at least 1")
+        @Digits(integer = 9, fraction = 0, message = "Units per stock must be a whole number")
         BigDecimal unitsPerStock,
 
         UUID categoryId,
         Status status,
 
         @DecimalMin(value = "0.0", message = "Reorder level must not be negative")
+        @Digits(integer = 9, fraction = 0, message = "Reorder level must be a whole number of sell units")
         BigDecimal reorderLevel
 ) {
 }

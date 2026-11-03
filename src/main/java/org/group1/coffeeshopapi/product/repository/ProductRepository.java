@@ -30,21 +30,29 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     List<Product> findByStatusOrderByNameAsc(Status status);
     List<Product> findByCategoryIdAndStatusOrderByNameAsc(UUID categoryId, Status status);
 
-    @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
-            "WHERE p.status = :status AND p.category.status = :status AND i.quantityOnHand > 0")
+    // On the menu and sellable: not an ingredient, and either its own stock or, for a recipe drink, an active size
+    // with enough of every ingredient.
+    String SELLABLE = "p.status = :status AND p.category.status = :status "
+            + "AND (p.category.categoryGroup IS NULL "
+            + "OR p.category.categoryGroup <> org.group1.coffeeshopapi.common.enums.CategoryGroup.INGREDIENT) "
+            + "AND (i.quantityOnHand > 0 OR EXISTS (SELECT v FROM ProductVariant v WHERE v.product = p "
+            + "AND v.status = org.group1.coffeeshopapi.common.enums.Status.ACTIVE "
+            + "AND EXISTS (SELECT r FROM RecipeItem r WHERE r.variant = v) "
+            + "AND NOT EXISTS (SELECT r2 FROM RecipeItem r2, Inventory ii WHERE r2.variant = v "
+            + "AND ii.product = r2.ingredient AND ii.quantityOnHand < r2.quantity)))";
+
+    @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p WHERE " + SELLABLE)
     Page<Product> findByStatusAndInStock(@Param("status") Status status, Pageable pageable);
 
-    @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
-            "WHERE p.category.id = :categoryId AND p.status = :status AND p.category.status = :status AND i.quantityOnHand > 0")
+    @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p WHERE p.category.id = :categoryId AND " + SELLABLE)
     Page<Product> findByCategoryIdAndStatusAndInStock(
             @Param("categoryId") UUID categoryId, @Param("status") Status status, Pageable pageable);
 
-    @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
-            "WHERE p.status = :status AND p.category.status = :status AND i.quantityOnHand > 0 ORDER BY p.name ASC")
+    @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p WHERE " + SELLABLE + " ORDER BY p.name ASC")
     List<Product> findByStatusAndInStockOrderByNameAsc(@Param("status") Status status);
 
-    @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p " +
-            "WHERE p.category.id = :categoryId AND p.status = :status AND p.category.status = :status AND i.quantityOnHand > 0 ORDER BY p.name ASC")
+    @Query("SELECT p FROM Product p JOIN Inventory i ON i.product = p WHERE p.category.id = :categoryId AND "
+            + SELLABLE + " ORDER BY p.name ASC")
     List<Product> findByCategoryIdAndStatusAndInStockOrderByNameAsc(
             @Param("categoryId") UUID categoryId, @Param("status") Status status);
 }

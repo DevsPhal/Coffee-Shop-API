@@ -13,7 +13,7 @@ import org.group1.coffeeshopapi.common.properties.BakongProperties;
 import org.group1.coffeeshopapi.common.properties.ShopLocationProperties;
 import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
-import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
+import org.group1.coffeeshopapi.inventory.dto.request.SaleLine;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.entity.Order;
@@ -44,8 +44,6 @@ import org.group1.coffeeshopapi.user.entity.Customer;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -90,7 +88,7 @@ class OrderServiceImplStockTest {
     @InjectMocks private OrderServiceImpl service;
 
     @Test
-    void payingCutsStockInStockUnitsNotSellUnits() {
+    void payingCutsJustTheCansSoldNotAPartOfACarton() {
         UUID barista = UUID.randomUUID();
         Order order = pendingOrder(cartonOf24Cans(), 3);
         order.setHandledBy(barista);
@@ -99,19 +97,30 @@ class OrderServiceImplStockTest {
 
         service.payCash(order.getId(), barista, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
 
-        ArgumentCaptor<StockCutRequest> cut = ArgumentCaptor.forClass(StockCutRequest.class);
-        verify(inventoryService).stockCut(cut.capture(), eq(barista));
-        assertThat(cut.getValue().quantity()).isEqualByComparingTo("0.125");
+        verify(inventoryService).deductForSale(eq(order.getId()),
+                eq(List.of(new SaleLine(order.getItems().get(0).getProduct().getId(), null, 1, 3))), eq(barista), eq(false));
+    }
+
+    @Test
+    void payingForTwoFullCartonsCutsTheFortyEightCansInThem() {
+        UUID barista = UUID.randomUUID();
+        Order order = pendingOrder(cartonOf24Cans(), 2);
+        ProductVariant carton = variant(VariantLabel.CARTON, "16.00", 24);
+        order.getItems().get(0).setVariant(carton);
+        order.setHandledBy(barista);
+        when(orderRepository.findByHandledByForUpdate(order.getId(), barista)).thenReturn(Optional.of(order));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.payCash(order.getId(), barista, new CashPaymentRequest(Currency.USD, new BigDecimal("10.00"), null));
+
+        verify(inventoryService).deductForSale(eq(order.getId()), eq(List.of(new SaleLine(
+                order.getItems().get(0).getProduct().getId(), carton.getId(), 24, 2))), eq(barista), eq(false));
     }
 
     @Test
     void placingAnOrderChecksStockForAllLinesOfTheSameProductTogether() {
         Product cans = cartonOf24Cans();
-        ProductVariant piece = new ProductVariant();
-        piece.setId(UUID.randomUUID());
-        piece.setName(VariantLabel.MEDIUM);
-        piece.setPrice(new BigDecimal("0.50"));
-        piece.setStatus(Status.ACTIVE);
+        ProductVariant piece = variant(VariantLabel.MEDIUM, "0.50", 1);
         when(productRepository.findById(cans.getId())).thenReturn(Optional.of(cans));
         when(variantRepository.findByIdAndProductId(piece.getId(), cans.getId())).thenReturn(Optional.of(piece));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -121,7 +130,27 @@ class OrderServiceImplStockTest {
                 new OrderItemRequest(cans.getId(), 12, piece.getId(), null, null, null, null, List.of())), null),
                 UUID.randomUUID());
 
-        verify(inventoryService).requireAvailable(cans.getId(), new BigDecimal("1.000"));
+        verify(inventoryService).requireAvailableForSale(List.of(
+                new SaleLine(cans.getId(), piece.getId(), 1, 12), new SaleLine(cans.getId(), piece.getId(), 1, 12)));
+    }
+
+    @Test
+    void aCartonAndLooseCansOfTheSameDrinkNeedTheirCansCombined() {
+        Product cans = cartonOf24Cans();
+        ProductVariant single = variant(VariantLabel.MEDIUM, "0.75", 1);
+        ProductVariant carton = variant(VariantLabel.CARTON, "16.00", 24);
+        when(productRepository.findById(cans.getId())).thenReturn(Optional.of(cans));
+        when(variantRepository.findByIdAndProductId(single.getId(), cans.getId())).thenReturn(Optional.of(single));
+        when(variantRepository.findByIdAndProductId(carton.getId(), cans.getId())).thenReturn(Optional.of(carton));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.create(new StaffCreateOrderRequest(List.of(
+                new OrderItemRequest(cans.getId(), 1, carton.getId(), null, null, null, null, List.of()),
+                new OrderItemRequest(cans.getId(), 3, single.getId(), null, null, null, null, List.of())), null),
+                UUID.randomUUID());
+
+        verify(inventoryService).requireAvailableForSale(List.of(
+                new SaleLine(cans.getId(), carton.getId(), 24, 1), new SaleLine(cans.getId(), single.getId(), 1, 3)));
     }
 
     @Test
@@ -133,7 +162,7 @@ class OrderServiceImplStockTest {
         order.setCustomer(customer);
         when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
         doThrow(new InvalidOperationException("'Soda Can' doesn't have enough stock left for this order"))
-                .when(inventoryService).requireAvailable(any(), any());
+                .when(inventoryService).requireAvailableForSale(any());
 
         assertThatThrownBy(() -> service.generateBakongQrForCustomer(order.getId(), customerId, Currency.USD))
                 .isInstanceOf(InvalidOperationException.class)
@@ -157,8 +186,7 @@ class OrderServiceImplStockTest {
         service.confirmBakongPaymentForCustomer(order.getId(), customerId);
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PAID);
-        verify(inventoryService).stockCutAvailable(any(StockCutRequest.class), any());
-        verify(inventoryService, never()).stockCut(any(), any());
+        verify(inventoryService).deductForSale(eq(order.getId()), any(), any(), eq(true));
     }
 
     @Test
@@ -356,6 +384,16 @@ class OrderServiceImplStockTest {
         product.setUnitsPerStock(new BigDecimal("24"));
         product.setCategory(drinks);
         return product;
+    }
+
+    private ProductVariant variant(VariantLabel label, String price, int unitsPerSale) {
+        ProductVariant variant = new ProductVariant();
+        variant.setId(UUID.randomUUID());
+        variant.setName(label);
+        variant.setPrice(new BigDecimal(price));
+        variant.setUnitsPerSale(unitsPerSale);
+        variant.setStatus(Status.ACTIVE);
+        return variant;
     }
 
     private Order pendingOrder(Product product, int quantity) {

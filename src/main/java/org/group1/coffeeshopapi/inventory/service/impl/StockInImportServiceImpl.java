@@ -5,6 +5,7 @@ import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.group1.coffeeshopapi.common.enums.QuantityUnit;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.excel.ExcelSheetReader;
 import org.group1.coffeeshopapi.common.excel.ExcelTemplateWriter;
@@ -85,16 +86,17 @@ public class StockInImportServiceImpl implements StockInImportService {
                     })
                     .toList();
             writer.referenceSheet(PRODUCT_SHEET,
-                    new String[] {"SKU", "Product", "Category", "Stock Unit", "On Hand", "Reorder Level",
-                            "Sell Unit", "Units Per Stock", "Status"},
+                    new String[] {"SKU", "Product", "Category", "Stock Unit", "On Hand (Sell Units)",
+                            "Reorder Level (Sell Units)", "Sell Unit", "Units Per Stock", "Status"},
                     productRows);
 
             writer.guideSheet("Stock-in import — how to fill this file", List.of(
                     "Fill one delivery line per row on the 'Stock In' sheet, starting at row 2. Do not rename, move or delete the header row.",
                     "Red headers marked * are required, grey headers are optional, blue headers are filled automatically. Hover over a header to see its help note.",
                     "Pick the SKU from the dropdown. The Product column then shows the product name and its stock unit so you can double-check.",
-                    "Quantity and Unit Cost are in the product's STOCK unit (PACK, BOX, CARTON or PIECE), not per cup or plate.",
-                    "Each row creates a stock batch (used for FIFO costing), a STOCK_IN movement and a stock expense of Quantity x Unit Cost.",
+                    "Quantity and Unit Cost are in the product's STOCK unit (PACK, BOX, CARTON or PIECE), not per cup or can.",
+                    "Stock is counted in the SELL unit: each stock unit received adds Units Per Stock sell units, e.g. 2 CARTONs of 24 add 48 CANs. The result must be a whole number of sell units.",
+                    "Each row creates a stock batch (used for FIFO costing, at the cost of one sell unit), a STOCK_IN movement and a stock expense of Quantity x Unit Cost.",
                     "The same SKU may appear on several rows, e.g. two deliveries at different costs.",
                     "Products not listed on the Products sheet must be created first (one by one or with the product import template).",
                     "Upload the file to the stock-in import. Each valid row is saved on its own; invalid rows are listed with their Excel row number and reason, so fix and re-upload only those rows.",
@@ -163,12 +165,14 @@ public class StockInImportServiceImpl implements StockInImportService {
                 }
 
                 try {
-                    inventoryService.stockIn(new StockInRequest(product.getId(), quantity, unitCost,
-                            note.isBlank() ? null : note), performedBy);
+                    inventoryService.stockIn(new StockInRequest(product.getId(), quantity, QuantityUnit.PURCHASE,
+                            unitCost, note.isBlank() ? null : note), performedBy);
                     BigDecimal amount = quantity.multiply(unitCost);
                     totalCost = totalCost.add(amount);
                     received.add(new StockInImportRowResult(excelRowNumber, product.getId(), product.getSku(),
-                            product.getName(), quantity, product.getStockUnit(), unitCost, amount));
+                            product.getName(), quantity, product.getStockUnit(),
+                            product.toBaseUnits(quantity, QuantityUnit.PURCHASE).stripTrailingZeros(),
+                            product.getSellUnit(), unitCost, amount));
                 } catch (ApiException e) {
                     errors.add(new StockInImportRowError(excelRowNumber, sku, e.getMessage()));
                 }

@@ -23,12 +23,13 @@ public class StockBatch extends BaseEntity {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
+    // Quantities and cost are per base unit (one can), so a $12.50 carton of 24 is 24 at $0.520833.
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal quantity;
 
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal remainingQuantity;
 
-    @Column(nullable = false, precision = 12, scale = 2)
+    @Column(nullable = false, precision = 14, scale = 6)
     private BigDecimal unitCost;
 }

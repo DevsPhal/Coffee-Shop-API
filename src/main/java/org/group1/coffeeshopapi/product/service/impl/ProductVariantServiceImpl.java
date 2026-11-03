@@ -13,6 +13,7 @@ import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
 import org.group1.coffeeshopapi.product.service.ProductVariantService;
+import org.group1.coffeeshopapi.recipe.repository.RecipeItemRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class ProductVariantServiceImpl implements ProductVariantService {
     private final ProductVariantRepository variantRepository;
     private final ProductRepository productRepository;
     private final ProductVariantMapper variantMapper;
+    private final RecipeItemRepository recipeItemRepository;
 
     @Override
     @Transactional
@@ -40,6 +42,9 @@ public class ProductVariantServiceImpl implements ProductVariantService {
         variant.setProduct(product);
         variant.setName(request.name());
         variant.setPrice(request.price());
+        variant.setUnitsPerSale(request.unitsPerSale() != null
+                ? request.unitsPerSale()
+                : ProductVariantPolicy.defaultUnitsPerSale(product, request.name()));
         variant.setSortOrder(request.sortOrder());
 
         return variantMapper.toResponse(variantRepository.save(variant));
@@ -67,11 +72,17 @@ public class ProductVariantServiceImpl implements ProductVariantService {
                 Product product = variant.getProduct();
                 ProductVariantPolicy.requireAllowed(product.getCategory().getCategoryGroup(), request.name(),
                         product.getName());
+                if (request.unitsPerSale() == null) {
+                    variant.setUnitsPerSale(ProductVariantPolicy.defaultUnitsPerSale(product, request.name()));
+                }
             }
             variant.setName(request.name());
         }
         if (request.price() != null) {
             variant.setPrice(request.price());
+        }
+        if (request.unitsPerSale() != null) {
+            variant.setUnitsPerSale(request.unitsPerSale());
         }
         if (request.sortOrder() != null) {
             variant.setSortOrder(request.sortOrder());
@@ -86,7 +97,9 @@ public class ProductVariantServiceImpl implements ProductVariantService {
     @Override
     @Transactional
     public void delete(UUID productId, UUID id) {
-        variantRepository.delete(findByIdAndProduct(productId, id));
+        ProductVariant variant = findByIdAndProduct(productId, id);
+        recipeItemRepository.deleteByVariantId(variant.getId());
+        variantRepository.delete(variant);
     }
 
     private Product findProduct(UUID productId) {

@@ -13,7 +13,12 @@ public record ProductVariantResponse(
         String sku,
         BigDecimal price,
         BigDecimal finalPrice,
+        Integer unitsPerSale,
         Integer sortOrder,
-        Status status
+        Status status,
+        // How many can be sold right now; null where it wasn't worked out.
+        Integer availableQuantity,
+        // Sold from a recipe's ingredients rather than the product's own stock.
+        boolean recipeBased
 ) {
 }

@@ -83,8 +83,8 @@ public class ProductImportServiceImpl implements ProductImportService {
             writer.listValidation(sheet, SELL_UNIT.templateIndex(), names(SellUnit.values()));
             writer.decimalValidation(sheet, PRICE.templateIndex(), "0", true);
             writer.decimalValidation(sheet, LARGE_PRICE.templateIndex(), "0", true);
-            writer.decimalValidation(sheet, UNITS_PER_STOCK.templateIndex(), "0", false);
-            writer.decimalValidation(sheet, REORDER_LEVEL.templateIndex(), "0", true);
+            writer.wholeNumberValidation(sheet, UNITS_PER_STOCK.templateIndex(), "1");
+            writer.wholeNumberValidation(sheet, REORDER_LEVEL.templateIndex(), "0");
 
             List<Object[]> categoryRows = categories.stream()
                     .map(category -> new Object[] {
@@ -92,8 +92,10 @@ public class ProductImportServiceImpl implements ProductImportService {
                             category.getCategoryGroup() != null ? category.getCategoryGroup().name() : "",
                             ProductVariantPolicy.allowedVariants(category.getCategoryGroup()).stream()
                                     .map(Enum::name).collect(Collectors.joining(", ")),
-                            ProductVariantPolicy.allowsSizeChoice(category.getCategoryGroup())
-                                    ? "Price = MEDIUM, Large Price = LARGE" : "Price = per PIECE, no Large Price",
+                            category.getCategoryGroup() == CategoryGroup.INGREDIENT
+                                    ? "No price: used up by recipes"
+                                    : ProductVariantPolicy.allowsSizeChoice(category.getCategoryGroup())
+                                            ? "Price = MEDIUM, Large Price = LARGE" : "Price = per PIECE, no Large Price",
                             defaultSellUnit(category.getCategoryGroup()).name(),
                             skuGenerator.categoryPrefix(category) + "...",
                             category.getStatus().name()})
@@ -268,21 +270,27 @@ public class ProductImportServiceImpl implements ProductImportService {
         BigDecimal unitsPerStock = BigDecimal.ONE;
         if (!unitsPerStockText.isBlank()) {
             unitsPerStock = ExcelSheetReader.parseDecimal(unitsPerStockText);
-            if (unitsPerStock == null || unitsPerStock.signum() <= 0) {
-                problems.add("Units Per Stock must be a number greater than 0, got '" + unitsPerStockText + "'");
+            if (unitsPerStock == null || unitsPerStock.compareTo(BigDecimal.ONE) < 0 || !isWhole(unitsPerStock)) {
+                problems.add("Units Per Stock must be a whole number of 1 or more, got '" + unitsPerStockText + "'");
             }
         }
 
         BigDecimal reorderLevel = BigDecimal.ZERO;
         if (!reorderText.isBlank()) {
             reorderLevel = ExcelSheetReader.parseDecimal(reorderText);
-            if (reorderLevel == null || reorderLevel.signum() < 0) {
-                problems.add("Reorder Level must be a number of 0 or more, got '" + reorderText + "'");
+            if (reorderLevel == null || reorderLevel.signum() < 0 || !isWhole(reorderLevel)) {
+                problems.add("Reorder Level must be a whole number of 0 or more, got '" + reorderText + "'");
             }
         }
 
         Map<VariantLabel, BigDecimal> variants = new LinkedHashMap<>();
-        if (!variantsText.isBlank()) {
+        if (group == CategoryGroup.INGREDIENT) {
+            // Ingredients are only stocked and used up by recipes, so they have no price.
+            if (!priceText.isBlank() || !largePriceText.isBlank() || !variantsText.isBlank()) {
+                problems.add("'" + category.getName() + "' is an ingredient category — leave Price, Large Price "
+                        + "and Variants blank");
+            }
+        } else if (!variantsText.isBlank()) {
             parseVariants(variantsText, variants, problems);
         } else {
             BigDecimal price = ExcelSheetReader.parseDecimal(priceText);
@@ -312,6 +320,12 @@ public class ProductImportServiceImpl implements ProductImportService {
                             : "Variant " + label + " is not allowed for '" + category.getName() + "' ("
                                     + ProductVariantPolicy.describe(group) + "); allowed: " + allowed);
                 }
+            }
+        }
+        for (VariantLabel label : variants.keySet()) {
+            if (label.isMultiUnit() && (stockUnit == null || !label.name().equals(stockUnit.name()))) {
+                problems.add("Variant " + label + " sells a whole stock unit, so Stock Unit must be " + label
+                        + " — add other pack sizes on the product page");
             }
         }
 
@@ -367,6 +381,7 @@ public class ProductImportServiceImpl implements ProductImportService {
             variant.setProduct(product);
             variant.setName(entry.getKey());
             variant.setPrice(entry.getValue());
+            variant.setUnitsPerSale(ProductVariantPolicy.defaultUnitsPerSale(product, entry.getKey()));
             variant.setSortOrder(sortOrder++);
             variantRepository.save(variant);
         }
@@ -380,6 +395,9 @@ public class ProductImportServiceImpl implements ProductImportService {
     }
 
     private static SellUnit defaultSellUnit(CategoryGroup group) {
+        if (group == CategoryGroup.INGREDIENT) {
+            return SellUnit.GRAM;
+        }
         return ProductVariantPolicy.allowsSizeChoice(group) ? SellUnit.CUP : SellUnit.PIECE;
     }
 
@@ -387,6 +405,10 @@ public class ProductImportServiceImpl implements ProductImportService {
         if (value.length() > MAX_TEXT_LENGTH) {
             problems.add(column.header() + " must not exceed " + MAX_TEXT_LENGTH + " characters");
         }
+    }
+
+    private static boolean isWhole(BigDecimal value) {
+        return value.stripTrailingZeros().scale() <= 0;
     }
 
     private static String blankToNull(String value) {

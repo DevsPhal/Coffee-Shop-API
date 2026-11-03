@@ -18,6 +18,8 @@ import org.group1.coffeeshopapi.extra.mapper.ProductExtraMapper;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
+import org.group1.coffeeshopapi.inventory.service.InventoryService;
+import org.group1.coffeeshopapi.inventory.service.VariantStock;
 import org.group1.coffeeshopapi.product.dto.request.CreateProductRequest;
 import org.group1.coffeeshopapi.product.dto.request.SetProductDiscountRequest;
 import org.group1.coffeeshopapi.product.dto.request.UpdateProductRequest;
@@ -33,6 +35,7 @@ import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.product.service.ProductService;
 import org.group1.coffeeshopapi.product.service.ProductSkuGenerator;
 import org.group1.coffeeshopapi.product.service.ProductVariantPolicy;
+import org.group1.coffeeshopapi.recipe.repository.RecipeItemRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -65,6 +68,8 @@ public class ProductServiceImpl implements ProductService {
     private final ProductExtraMapper productExtraMapper;
     private final FileStorageService fileStorageService;
     private final ProductSkuGenerator skuGenerator;
+    private final InventoryService inventoryService;
+    private final RecipeItemRepository recipeItemRepository;
 
     @Override
     @Transactional
@@ -108,8 +113,11 @@ public class ProductServiceImpl implements ProductService {
     @Override
     public ProductResponse getOrderableById(UUID id) {
         Product product = findById(id);
-        Inventory inventory = findInventory(product.getId());
-        if (!product.isAvailableForSale() || inventory.getQuantityOnHand().signum() <= 0) {
+        // Sold out means no size can be sold: no stock of its own, or not enough ingredients for its recipe.
+        boolean sellable = product.isAvailableForSale() && inventoryService.variantStock(
+                        variantRepository.findByProductIdAndStatusOrderBySortOrderAscNameAsc(product.getId(), Status.ACTIVE))
+                .values().stream().anyMatch(stock -> stock.available() > 0);
+        if (!sellable) {
             throw new ResourceNotFoundException("Product not found: " + id);
         }
         return toResponsePage(new PageImpl<>(List.of(product)), true).getContent().get(0);
@@ -234,7 +242,12 @@ public class ProductServiceImpl implements ProductService {
         if (inventory.getQuantityOnHand().compareTo(BigDecimal.ZERO) > 0) {
             throw new InvalidOperationException("Cannot delete a product that still has stock on hand");
         }
+        if (recipeItemRepository.existsByIngredientId(product.getId())) {
+            throw new InvalidOperationException("'" + product.getName() + "' is used in a recipe — take it out of "
+                    + "those recipes first");
+        }
         String imageUrl = product.getImageUrl();
+        recipeItemRepository.deleteByProductId(product.getId());
         inventoryRepository.delete(inventory);
         productRepository.delete(product);
         productRepository.flush();
@@ -334,9 +347,10 @@ public class ProductServiceImpl implements ProductService {
     }
 
     private ProductResponse toResponse(Product product, Inventory inventory) {
-        List<ProductVariantResponse> variants = variantRepository
-                .findByProductIdOrderBySortOrderAscNameAsc(product.getId()).stream()
-                .map(variantMapper::toResponse)
+        List<ProductVariant> productVariants = variantRepository.findByProductIdOrderBySortOrderAscNameAsc(product.getId());
+        Map<UUID, VariantStock> stock = inventoryService.variantStock(productVariants);
+        List<ProductVariantResponse> variants = productVariants.stream()
+                .map(variant -> variantMapper.toResponse(variant, stock.get(variant.getId())))
                 .toList();
         List<ProductExtraResponse> extras = productExtraRepository
                 .findByProductIdOrderBySortOrderAscId(product.getId()).stream()
@@ -352,9 +366,10 @@ public class ProductServiceImpl implements ProductService {
         List<ProductVariant> variants = orderableOnly
                 ? variantRepository.findByProductIdInAndStatusOrderBySortOrderAscNameAsc(productIds, Status.ACTIVE)
                 : variantRepository.findByProductIdInOrderBySortOrderAscNameAsc(productIds);
+        Map<UUID, VariantStock> stock = inventoryService.variantStock(variants);
         for (ProductVariant variant : variants) {
             variantsByProduct.computeIfAbsent(variant.getProduct().getId(), id -> new ArrayList<>())
-                    .add(variantMapper.toResponse(variant));
+                    .add(variantMapper.toResponse(variant, stock.get(variant.getId())));
         }
 
         Map<UUID, List<ProductExtraResponse>> extrasByProduct = new HashMap<>();

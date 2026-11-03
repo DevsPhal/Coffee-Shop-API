@@ -29,7 +29,7 @@ import java.util.List;
 public class StockExpenseReportServiceImpl implements StockExpenseReportService {
 
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-    private static final String[] HEADERS = {"Date", "Product", "Quantity", "Unit Cost", "Amount"};
+    private static final String[] HEADERS = {"Date", "Product", "Quantity", "Unit", "Unit Cost", "Amount"};
 
     private final StockExpenseRepository stockExpenseRepository;
 
@@ -57,16 +57,17 @@ public class StockExpenseReportServiceImpl implements StockExpenseReportService 
                 row.createCell(0).setCellValue(expense.getExpenseDate().format(DATE_FORMAT));
                 row.createCell(1).setCellValue(expense.getProduct().getName());
                 row.createCell(2).setCellValue(expense.getQuantity().doubleValue());
-                writeMoneyCell(row.createCell(3), expense.getUnitCost(), moneyStyle);
-                writeMoneyCell(row.createCell(4), expense.getAmount(), moneyStyle);
+                row.createCell(3).setCellValue(unitOf(expense));
+                writeMoneyCell(row.createCell(4), expense.getUnitCost(), moneyStyle);
+                writeMoneyCell(row.createCell(5), expense.getAmount(), moneyStyle);
                 total = total.add(expense.getAmount());
             }
 
             Row totalRow = sheet.createRow(rowIndex + 1);
-            Cell totalLabelCell = totalRow.createCell(3);
+            Cell totalLabelCell = totalRow.createCell(4);
             totalLabelCell.setCellValue("Total");
             totalLabelCell.setCellStyle(headerStyle);
-            writeMoneyCell(totalRow.createCell(4), total, moneyStyle);
+            writeMoneyCell(totalRow.createCell(5), total, moneyStyle);
 
             for (int i = 0; i < HEADERS.length; i++) {
                 sheet.autoSizeColumn(i);
@@ -78,6 +79,14 @@ public class StockExpenseReportServiceImpl implements StockExpenseReportService 
         } catch (IOException e) {
             throw new InvalidOperationException("Unable to generate expense report: " + e.getMessage());
         }
+    }
+
+    // Expenses recorded before units were kept were all in the product's stock unit.
+    private static String unitOf(StockExpense expense) {
+        if (expense.getUnit() != null) {
+            return expense.getUnit();
+        }
+        return expense.getProduct().getStockUnit() != null ? expense.getProduct().getStockUnit().name() : "";
     }
 
     private void writeMoneyCell(Cell cell, BigDecimal amount, CellStyle style) {

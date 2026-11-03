@@ -28,8 +28,12 @@ public class StockExpense extends BaseEntity {
     @JoinColumn(name = "stock_movement_id", nullable = false)
     private StockMovement stockMovement;
 
+    // What was bought, as entered: quantity and unit cost are in `unit` (e.g. 2 CARTON at $12.50), unlike stock.
     @Column(nullable = false, precision = 12, scale = 3)
     private BigDecimal quantity;
+
+    @Column(length = 20)
+    private String unit;
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal unitCost;

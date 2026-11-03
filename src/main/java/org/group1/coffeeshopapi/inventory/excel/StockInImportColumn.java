@@ -19,7 +19,8 @@ public enum StockInImportColumn implements ExcelColumn {
     QUANTITY("Quantity", true, true, 1, Set.of("qty", "quantityreceived"), 12,
             "Number > 0, in the product's Stock Unit",
             "How much stock you received, counted in the product's stock unit (see the Products sheet). "
-                    + "Example: 3 means 3 PACKs for a product whose stock unit is PACK.",
+                    + "Example: 3 means 3 CARTONs for a product whose stock unit is CARTON; with 24 CANs per "
+                    + "CARTON that adds 72 CANs to stock.",
             "3"),
     UNIT_COST("Unit Cost", true, true, 2, Set.of("cost", "costperunit", "purchaseprice"), 12,
             "Number >= 0 in USD, per stock unit",

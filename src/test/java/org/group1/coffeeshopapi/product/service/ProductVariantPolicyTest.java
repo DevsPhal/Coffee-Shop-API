@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.product.service;
 
 import org.group1.coffeeshopapi.category.entity.Category;
 import org.group1.coffeeshopapi.common.enums.CategoryGroup;
+import org.group1.coffeeshopapi.common.enums.StockUnit;
 import org.group1.coffeeshopapi.common.enums.SugarLevel;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
@@ -9,6 +10,9 @@ import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
+
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -66,6 +70,43 @@ class ProductVariantPolicyTest {
                 SugarLevel.LESS, null, null))
                 .isInstanceOf(InvalidOperationException.class)
                 .hasMessageContaining("only supports a size choice");
+    }
+
+    @Test
+    void cansCanAlsoBeSoldByTheCarton() {
+        Product cola = product("Cola", CategoryGroup.BEVERAGE);
+
+        assertThatCode(() -> ProductVariantPolicy.requireAllowed(CategoryGroup.BEVERAGE, VariantLabel.CARTON, "Cola"))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> ProductVariantPolicy.validate(cola, variant(VariantLabel.CARTON), null, null, null))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void snacksCanBeSoldByTheBox() {
+        Product cookies = product("Cookies", CategoryGroup.SNACK);
+
+        assertThatCode(() -> ProductVariantPolicy.validate(cookies, variant(VariantLabel.BOX), null, null, null))
+                .doesNotThrowAnyException();
+    }
+
+    @Test
+    void freshDrinksAreNeverSoldByThePack() {
+        assertThatThrownBy(() -> ProductVariantPolicy.requireAllowed(CategoryGroup.FRESH_DRINK, VariantLabel.PACK,
+                "Iced Latte"))
+                .isInstanceOf(InvalidOperationException.class);
+    }
+
+    @Test
+    void aPackNamedAfterTheStockUnitHoldsAWholeStockUnit() {
+        Product cola = product("Cola", CategoryGroup.BEVERAGE);
+        cola.setStockUnit(StockUnit.CARTON);
+        cola.setUnitsPerStock(new BigDecimal("24"));
+
+        assertThat(ProductVariantPolicy.defaultUnitsPerSale(cola, VariantLabel.CARTON)).isEqualTo(24);
+        assertThat(ProductVariantPolicy.defaultUnitsPerSale(cola, VariantLabel.MEDIUM)).isEqualTo(1);
+        assertThatThrownBy(() -> ProductVariantPolicy.defaultUnitsPerSale(cola, VariantLabel.BOX))
+                .isInstanceOf(InvalidOperationException.class);
     }
 
     private Product product(String name, CategoryGroup group) {

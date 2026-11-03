@@ -1,6 +1,7 @@
 package org.group1.coffeeshopapi.product.dto.request;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
@@ -36,13 +37,15 @@ public record CreateProductRequest(
         @NotNull(message = "Sell unit is required")
         SellUnit sellUnit,
 
-        @DecimalMin(value = "0.001", message = "Units per stock must be positive")
+        @DecimalMin(value = "1", message = "Units per stock must be at least 1")
+        @Digits(integer = 9, fraction = 0, message = "Units per stock must be a whole number")
         BigDecimal unitsPerStock,
 
         @NotNull(message = "Category is required")
         UUID categoryId,
 
         @DecimalMin(value = "0.0", message = "Reorder level must not be negative")
+        @Digits(integer = 9, fraction = 0, message = "Reorder level must be a whole number of sell units")
         BigDecimal reorderLevel
 ) {
 }

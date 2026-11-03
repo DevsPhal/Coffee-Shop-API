@@ -11,6 +11,10 @@ import org.group1.coffeeshopapi.extra.mapper.ProductExtraMapper;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
+import org.group1.coffeeshopapi.inventory.service.InventoryService;
+import org.group1.coffeeshopapi.inventory.service.VariantStock;
+import org.group1.coffeeshopapi.product.entity.ProductVariant;
+import org.group1.coffeeshopapi.recipe.repository.RecipeItemRepository;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.mapper.ProductMapper;
 import org.group1.coffeeshopapi.product.mapper.ProductVariantMapper;
@@ -49,6 +53,8 @@ class ProductServiceImplOrderableTest {
     @Mock private ProductVariantMapper variantMapper;
     @Mock private ProductExtraMapper productExtraMapper;
     @Mock private FileStorageService fileStorageService;
+    @Mock private InventoryService inventoryService;
+    @Mock private RecipeItemRepository recipeItemRepository;
     @InjectMocks private ProductServiceImpl service;
 
     @Test
@@ -120,6 +126,14 @@ class ProductServiceImplOrderableTest {
         Inventory inventory = new Inventory();
         inventory.setProduct(product);
         inventory.setQuantityOnHand(new BigDecimal(quantity));
-        when(inventoryRepository.findByProductId(product.getId())).thenReturn(Optional.of(inventory));
+        org.mockito.Mockito.lenient().when(inventoryRepository.findByProductId(product.getId()))
+                .thenReturn(Optional.of(inventory));
+        ProductVariant size = new ProductVariant();
+        size.setId(UUID.randomUUID());
+        size.setProduct(product);
+        org.mockito.Mockito.lenient().when(variantRepository.findByProductIdAndStatusOrderBySortOrderAscNameAsc(
+                product.getId(), Status.ACTIVE)).thenReturn(List.of(size));
+        org.mockito.Mockito.lenient().when(inventoryService.variantStock(anyList()))
+                .thenReturn(java.util.Map.of(size.getId(), new VariantStock(new BigDecimal(quantity).intValue(), false)));
     }
 }

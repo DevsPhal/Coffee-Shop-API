@@ -94,6 +94,7 @@ public class ProductSkuGenerator {
             case FRESH_DRINK -> "FD";
             case BEVERAGE -> "BV";
             case SNACK -> "SN";
+            case INGREDIENT -> "IN";
         };
     }
 

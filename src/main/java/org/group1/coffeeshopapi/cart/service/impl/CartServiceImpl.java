@@ -21,8 +21,8 @@ import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.extra.entity.ProductExtra;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
-import org.group1.coffeeshopapi.inventory.entity.Inventory;
-import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
+import org.group1.coffeeshopapi.inventory.service.InventoryService;
+import org.group1.coffeeshopapi.inventory.service.VariantStock;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -58,7 +58,7 @@ public class CartServiceImpl implements CartService {
     private final ProductRepository productRepository;
     private final ProductVariantRepository variantRepository;
     private final ProductExtraRepository productExtraRepository;
-    private final InventoryRepository inventoryRepository;
+    private final InventoryService inventoryService;
     private final CustomerRepository customerRepository;
     private final OrderService orderService;
 
@@ -76,16 +76,15 @@ public class CartServiceImpl implements CartService {
         if (!product.isAvailableForSale()) {
             throw new InvalidOperationException("Product '" + product.getName() + "' is not available");
         }
-        BigDecimal stockOnHand = inventoryRepository.findByProductId(product.getId())
-                .map(Inventory::getQuantityOnHand)
-                .orElse(BigDecimal.ZERO);
-        if (stockOnHand.signum() <= 0) {
-            throw new InvalidOperationException("Product '" + product.getName() + "' is out of stock");
-        }
         ProductVariant explicitVariant = resolveVariant(product.getId(), request.variantId());
         ProductVariantPolicy.validate(product, explicitVariant, request.sugarLevel(),
                 request.iceLevel(), request.milkType());
         ProductVariant variant = resolveEffectiveVariant(product, explicitVariant);
+        // Its own stock, or enough ingredients for its recipe; checkout checks the whole order again.
+        VariantStock stock = inventoryService.variantStock(List.of(variant)).get(variant.getId());
+        if (stock == null || stock.available() <= 0) {
+            throw new InvalidOperationException("Product '" + product.getName() + "' is out of stock");
+        }
         Set<Extra> extras = resolveExtras(product, request.extraIds());
 
         cart.getItems().stream()

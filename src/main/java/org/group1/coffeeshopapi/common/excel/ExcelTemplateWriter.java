@@ -115,6 +115,13 @@ public final class ExcelTemplateWriter implements AutoCloseable {
                 "Enter a number " + (inclusive ? ">= " : "> ") + minimum);
     }
 
+    public void wholeNumberValidation(Sheet sheet, int columnIndex, String minimum) {
+        DataValidationHelper helper = sheet.getDataValidationHelper();
+        addValidation(sheet, helper, helper.createIntegerConstraint(
+                        DataValidationConstraint.OperatorType.GREATER_OR_EQUAL, minimum, null), columnIndex,
+                "Enter a whole number >= " + minimum);
+    }
+
     public void formulaColumn(Sheet sheet, int columnIndex, String formulaWithRowToken) {
         for (int rowIndex = 1; rowIndex <= TEMPLATE_ROWS; rowIndex++) {
             Row row = sheet.getRow(rowIndex);

@@ -120,7 +120,7 @@ class ProductImportServiceImplTest {
 
         ProductImportResponse response = service.importFromExcel(file(
                 row("Croissant", "Pastry", "", "1.80", "2.20", "PIECE", "", "", ""),
-                row("", "Juice", "", "abc", "", "BAG", "", "", ""),
+                row("", "Juice", "", "abc", "", "CRATE", "", "", ""),
                 row("Mocha", "Coffee", "", "2.00", "", "PACK", "", "", ""),
                 row("Muffin", "Pastry", "SN-MUF-1", "1.50", "", "PIECE", "", "", "")), admin());
 
@@ -130,7 +130,7 @@ class ProductImportServiceImplTest {
         assertThat(response.errors().get(0).rowNumber()).isEqualTo(2);
         assertThat(response.errors().get(0).message()).contains("Large Price only applies to drink categories");
         assertThat(response.errors().get(1).message())
-                .contains("Name is required", "Category 'Juice' does not exist", "Stock Unit 'BAG'", "Price must be");
+                .contains("Name is required", "Category 'Juice' does not exist", "Stock Unit 'CRATE'", "Price must be");
         assertThat(response.errors().get(2).message()).contains("already exists in category 'Coffee'");
     }
 

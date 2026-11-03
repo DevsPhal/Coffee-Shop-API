@@ -15,7 +15,6 @@ import org.group1.coffeeshopapi.common.properties.BakongProperties;
 import org.group1.coffeeshopapi.common.properties.ShopLocationProperties;
 import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
-import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.entity.Order;
@@ -50,6 +49,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -91,7 +91,7 @@ class OrderServiceImplFulfillmentFlowTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PREPARING);
         assertThat(order.getHandledBy()).isEqualTo(actorId);
         assertThat(order.getPaidAt()).isNull();
-        verify(inventoryService).stockCut(any(StockCutRequest.class), eq(actorId));
+        verify(inventoryService).deductForSale(any(), any(), eq(actorId), eq(false));
     }
 
     @Test
@@ -117,7 +117,7 @@ class OrderServiceImplFulfillmentFlowTest {
         assertThatThrownBy(() -> service.startPreparing(order.getId(), UUID.randomUUID()))
                 .isInstanceOf(InvalidOperationException.class)
                 .hasMessageContaining("not paid");
-        verify(inventoryService, never()).stockCut(any(), any());
+        verify(inventoryService, never()).deductForSale(any(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -131,7 +131,7 @@ class OrderServiceImplFulfillmentFlowTest {
         service.startPreparing(order.getId(), UUID.randomUUID());
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PREPARING);
-        verify(inventoryService, never()).stockCut(any(), any());
+        verify(inventoryService, never()).deductForSale(any(), any(), any(), anyBoolean());
     }
 
     @Test
@@ -147,7 +147,7 @@ class OrderServiceImplFulfillmentFlowTest {
 
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PREPARING);
         assertThat(order.getPaidAt()).isNotNull();
-        verify(inventoryService, never()).stockCut(any(), any());
+        verify(inventoryService, never()).deductForSale(any(), any(), any(), anyBoolean());
     }
 
     @Test

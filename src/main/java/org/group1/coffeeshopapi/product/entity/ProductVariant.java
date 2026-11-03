@@ -16,6 +16,7 @@ import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.realtime.ResourceChangeEntityListener;
+import org.hibernate.annotations.ColumnDefault;
 
 import java.math.BigDecimal;
 
@@ -38,6 +39,11 @@ public class ProductVariant extends BaseEntity {
 
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price = BigDecimal.ZERO;
+
+    // Base units (the product's sell unit) one sale of this variant takes out of stock: 1 can, or 24 for a carton.
+    @ColumnDefault("1")
+    @Column(nullable = false)
+    private Integer unitsPerSale = 1;
 
     @Column
     private Integer sortOrder;

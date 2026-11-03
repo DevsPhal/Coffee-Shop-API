@@ -13,7 +13,6 @@ import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.Status;
-import org.group1.coffeeshopapi.common.enums.StockStrategy;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.exception.PaymentVerificationUnavailableException;
@@ -26,7 +25,7 @@ import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.extra.entity.ProductExtra;
 import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
-import org.group1.coffeeshopapi.inventory.dto.request.StockCutRequest;
+import org.group1.coffeeshopapi.inventory.dto.request.SaleLine;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
@@ -87,7 +86,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -631,12 +629,18 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void requireStockAvailable(Order order) {
-        Map<UUID, BigDecimal> neededByProduct = new LinkedHashMap<>();
-        for (OrderItem item : order.getItems()) {
-            neededByProduct.merge(item.getProduct().getId(),
-                    item.getProduct().toStockQuantity(item.getQuantity()), BigDecimal::add);
-        }
-        neededByProduct.forEach(inventoryService::requireAvailable);
+        inventoryService.requireAvailableForSale(saleLines(order));
+    }
+
+    // How stock sees the order: each line uses its size's recipe, or that many of the product (a carton counts 24 cans).
+    private static List<SaleLine> saleLines(Order order) {
+        return order.getItems().stream()
+                .map(item -> new SaleLine(item.getProduct().getId(),
+                        item.getVariant() != null ? item.getVariant().getId() : null,
+                        item.getVariant() != null && item.getVariant().getUnitsPerSale() != null
+                                ? item.getVariant().getUnitsPerSale() : 1,
+                        item.getQuantity()))
+                .toList();
     }
 
     private void applyFulfillmentDetails(Order order, CheckoutDetailsRequest delivery) {
@@ -914,17 +918,8 @@ public class OrderServiceImpl implements OrderService {
     }
 
     private void cutStockForOrder(Order order, UUID stockActorId, boolean capToAvailable) {
+        inventoryService.deductForSale(order.getId(), saleLines(order), stockActorId, capToAvailable);
         for (OrderItem item : order.getItems()) {
-            StockCutRequest cut = new StockCutRequest(
-                    item.getProduct().getId(),
-                    item.getProduct().toStockQuantity(item.getQuantity()),
-                    StockStrategy.FIFO,
-                    "Sold in order " + order.getId());
-            if (capToAvailable) {
-                inventoryService.stockCutAvailable(cut, stockActorId);
-            } else {
-                inventoryService.stockCut(cut, stockActorId);
-            }
             for (OrderItemExtra orderItemExtra : item.getExtras()) {
                 deductExtraStock(orderItemExtra.getExtra(), item.getQuantity());
             }

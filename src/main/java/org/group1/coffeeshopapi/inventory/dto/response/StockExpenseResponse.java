@@ -11,6 +11,7 @@ public record StockExpenseResponse(
         String productName,
         UUID stockMovementId,
         BigDecimal quantity,
+        String unit,
         BigDecimal unitCost,
         BigDecimal amount,
         LocalDate expenseDate,

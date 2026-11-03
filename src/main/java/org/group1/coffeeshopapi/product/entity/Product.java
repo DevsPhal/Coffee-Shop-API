@@ -14,7 +14,9 @@ import lombok.Setter;
 import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.category.entity.Category;
 import org.group1.coffeeshopapi.common.entity.BaseEntity;
+import org.group1.coffeeshopapi.common.enums.CategoryGroup;
 import org.group1.coffeeshopapi.common.enums.DiscountType;
+import org.group1.coffeeshopapi.common.enums.QuantityUnit;
 import org.group1.coffeeshopapi.common.enums.SellUnit;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.StockUnit;
@@ -108,13 +110,28 @@ public class Product extends BaseEntity {
         return discounted.max(BigDecimal.ZERO).setScale(2, RoundingMode.HALF_UP);
     }
 
-    public BigDecimal toStockQuantity(int sellQuantity) {
-        BigDecimal perStock = unitsPerStock != null && unitsPerStock.signum() > 0 ? unitsPerStock : BigDecimal.ONE;
-        return BigDecimal.valueOf(sellQuantity).divide(perStock, 3, RoundingMode.HALF_UP)
-                .max(new BigDecimal("0.001"));
+    // Stock is counted in base units (the sell unit, e.g. cans); one stock unit (a carton) holds unitsPerStock of them.
+    public BigDecimal baseUnitsPer(QuantityUnit unit) {
+        if (unit == QuantityUnit.BASE || unitsPerStock == null || unitsPerStock.signum() <= 0) {
+            return BigDecimal.ONE;
+        }
+        return unitsPerStock;
+    }
+
+    public BigDecimal toBaseUnits(BigDecimal quantity, QuantityUnit unit) {
+        return quantity.multiply(baseUnitsPer(unit));
+    }
+
+    public String unitName(QuantityUnit unit) {
+        Enum<?> name = unit == QuantityUnit.BASE ? sellUnit : stockUnit;
+        return name != null ? name.name() : null;
     }
 
     public boolean isAvailableForSale() {
-        return status == Status.ACTIVE && category != null && category.getStatus() == Status.ACTIVE;
+        return status == Status.ACTIVE && category != null && category.getStatus() == Status.ACTIVE && !isIngredient();
+    }
+
+    public boolean isIngredient() {
+        return category != null && category.getCategoryGroup() == CategoryGroup.INGREDIENT;
     }
 }
