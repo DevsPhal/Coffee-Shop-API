@@ -10,6 +10,7 @@ import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderChannel;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
+import org.group1.coffeeshopapi.common.enums.ReceiptLanguage;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
@@ -89,9 +90,10 @@ public class BaristaOrderController {
     }
 
     @GetMapping(value = "/{id}/invoice", produces = MediaType.APPLICATION_PDF_VALUE)
-    public ResponseEntity<byte[]> getInvoice(@PathVariable UUID id) {
+    public ResponseEntity<byte[]> getInvoice(
+            @PathVariable UUID id, @RequestParam(defaultValue = "EN") ReceiptLanguage language) {
         orderService.getAny(id);
-        byte[] pdf = receiptService.generateInvoicePdf(id);
+        byte[] pdf = receiptService.generateInvoicePdf(id, language);
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "invoice-" + id + ".pdf", true);
     }
 

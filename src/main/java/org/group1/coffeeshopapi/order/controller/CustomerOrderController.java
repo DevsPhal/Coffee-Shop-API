@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.common.enums.ReceiptLanguage;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
 import org.group1.coffeeshopapi.common.response.PageResponse;
@@ -73,7 +74,7 @@ public class CustomerOrderController {
     public ResponseEntity<byte[]> getInvoice(
             @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
         orderService.getOwnForCustomer(id, currentUser.getId());
-        byte[] pdf = receiptService.generateInvoicePdf(id);
+        byte[] pdf = receiptService.generateInvoicePdf(id, ReceiptLanguage.EN);
         return FileResponseUtil.respond(pdf, MediaType.APPLICATION_PDF, "invoice-" + id + ".pdf", true);
     }
 

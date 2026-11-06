@@ -4,6 +4,7 @@ import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderChannel;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
+import org.group1.coffeeshopapi.common.enums.ReceiptLanguage;
 import org.group1.coffeeshopapi.common.filter.JwtAuthFilter;
 import org.group1.coffeeshopapi.common.properties.CorsProperties;
 import org.group1.coffeeshopapi.common.security.CurrentActor;
@@ -139,5 +140,29 @@ class OrderListControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(orderService);
+    }
+
+    @Test
+    void invoiceIsPrintedInEnglishUnlessStaffPickKhmer() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        when(receiptService.generateInvoicePdf(any(), any())).thenReturn(new byte[]{1});
+
+        mvc.perform(get("/api/admin/orders/{id}/invoice", orderId).with(user("admin").roles("ADMIN")))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/barista/orders/{id}/invoice", orderId).with(user("barista").roles("BARISTA"))
+                        .param("language", "KH"))
+                .andExpect(status().isOk());
+
+        verify(receiptService).generateInvoicePdf(orderId, ReceiptLanguage.EN);
+        verify(receiptService).generateInvoicePdf(orderId, ReceiptLanguage.KH);
+    }
+
+    @Test
+    void rejectsAnInvoiceLanguageThatCannotBePrinted() throws Exception {
+        mvc.perform(get("/api/admin/orders/{id}/invoice", UUID.randomUUID()).with(user("admin").roles("ADMIN"))
+                        .param("language", "FR"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(receiptService);
     }
 }
