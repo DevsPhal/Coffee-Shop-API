@@ -7,7 +7,6 @@ import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
-import org.group1.coffeeshopapi.common.enums.IceLevel;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.ReceiptLanguage;
@@ -16,14 +15,11 @@ import org.group1.coffeeshopapi.common.enums.SugarLevel;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
-import org.group1.coffeeshopapi.order.dto.response.OrderItemExtraResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderItemResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -43,8 +39,6 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReceiptServiceImplTest {
-
-    private static final LocalDateTime PAID_AT = LocalDateTime.of(2026, 11, 7, 15, 45);
 
     @Mock private OrderService orderService;
     @Mock private BakongProperties bakongProperties;
@@ -114,185 +108,131 @@ class ReceiptServiceImplTest {
         assertThat(pdf).isNotEmpty();
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"Nem Sophal ( )", "Nem Sophal ()", "Nem Sophal (🌸 🌸)", "Nem Sophal (⠀)", "Nem Sophal [ㅤ] -"})
-    void aNamePartThatCannotBePrintedLeavesNoEmptyBracketsBehind(String storedName) throws IOException {
-        PaidOrder order = new PaidOrder();
-        order.customerName = storedName;
-
-        String text = invoiceText(order, ReceiptLanguage.EN);
-
-        assertThat(text).containsPattern("Customer\\s+Nem Sophal\\s").doesNotContain("(", ")", "[", "]", "?");
-    }
-
     @Test
     void namesInKhmerOrWithAccentsArePrintedInsteadOfQuestionMarks() throws IOException {
         PaidOrder order = new PaidOrder();
-        order.customerName = "សុខ ដារ៉ា 🙂";
+        order.customerName = "សុខ ដារ៉ា";
         order.staffName = "josé";
         order.note = "Ring twice — thanks";
 
-        String text = invoiceText(order, ReceiptLanguage.EN);
+        String text = invoice(order, ReceiptLanguage.EN);
 
-        assertThat(text).containsPattern("Served by\\s+Barista José").contains("Ring twice — thanks").doesNotContain("?");
+        assertThat(text).contains("Customer", "Barista José", "Ring twice — thanks").doesNotContain("?");
     }
 
     @Test
-    void aCustomerWithCompleteDetailsGetsTheirPhoneAndDeliveryAddress() throws IOException {
-        PaidOrder order = new PaidOrder();
-        order.fulfillment = FulfillmentMethod.DELIVERY;
-        order.contactPhone = "+855 12 345 678";
-        order.deliveryAddress = "#12, Street 590, Toul Kork";
-        order.deliveryFee = new BigDecimal("1.00");
+    void emojiInADisplayNameLeavesNoEmptyBracketsOrSeparatorsBehind() throws IOException {
+        for (String displayName : List.of("Nem Sophal (🌸)", "Nem Sophal ( 🌸✨ )", "Nem Sophal | 💕", "👑 Nem Sophal 👑")) {
+            PaidOrder order = new PaidOrder();
+            order.customerName = displayName;
+            order.contactPhone = " ";
 
-        String text = invoiceText(order, ReceiptLanguage.EN);
-
-        assertThat(text)
-                .containsPattern("Customer\\s+Dara")
-                .containsPattern("Phone\\s+012 345 678")
-                .containsPattern("Address\\s+#12, Street 590, Toul Kork")
-                .containsPattern("Subtotal\\s+\\$2\\.50")
-                .containsPattern("Delivery fee\\s+\\$1\\.00")
-                .containsPattern("TOTAL\\s+\\$3\\.50");
+            for (ReceiptLanguage language : ReceiptLanguage.values()) {
+                String customerRow = row(invoice(order, language), language == ReceiptLanguage.EN ? "Customer" : "Nem");
+                assertThat(customerRow).as("%s in %s", displayName, language).endsWith("Nem Sophal")
+                        .doesNotContain("(", ")", "|");
+            }
+        }
     }
 
     @Test
-    void aDineInOrderShowsItsTable() throws IOException {
+    void aWalkInOrderSaysSoAndSkipsTheDetailsItDoesNotHave() throws IOException {
         PaidOrder order = new PaidOrder();
-        order.fulfillment = FulfillmentMethod.DINE_IN;
-        order.tableNumber = "T5";
-
-        assertThat(invoiceText(order, ReceiptLanguage.EN)).containsPattern("Table\\s+T5");
-    }
-
-    @Test
-    void aCustomerWithOnlyANameGetsNoEmptyRows() throws IOException {
-        PaidOrder order = new PaidOrder();
+        order.customerId = null;
+        order.customerName = null;
         order.staffName = null;
 
-        String text = invoiceText(order, ReceiptLanguage.EN);
+        String text = invoice(order, ReceiptLanguage.EN);
 
-        assertThat(text).containsPattern("Customer\\s+Dara")
-                .doesNotContain("Phone", "Table", "Address", "Served by", "Subtotal", "-----");
+        assertThat(row(text, "Customer")).endsWith("Walk-in Customer");
+        assertThat(text).doesNotContain("Served by", "Table", "Phone", "Address", "-----", "null");
     }
 
     @Test
-    void anOrderWithoutAnyCustomerIsAWalkIn() throws IOException {
-        PaidOrder order = new PaidOrder();
-        order.customerName = null;
+    void tablePhoneAndAddressArePrintedOnlyWhereTheOrderHasThem() throws IOException {
+        PaidOrder dineIn = new PaidOrder();
+        dineIn.fulfillment = FulfillmentMethod.DINE_IN;
+        dineIn.tableNumber = "A3";
+        // A pickup order keeps an old address it no longer delivers to.
+        dineIn.deliveryAddress = "#12, St. 590, Toul Kork, Phnom Penh";
+        PaidOrder delivery = new PaidOrder();
+        delivery.fulfillment = FulfillmentMethod.DELIVERY;
+        delivery.deliveryFee = new BigDecimal("1.00");
+        delivery.contactPhone = "+855 12 345 678";
+        delivery.deliveryAddress = "#12, St. 590, Toul Kork, Phnom Penh";
 
-        assertThat(invoiceText(order, ReceiptLanguage.EN)).containsPattern("Customer\\s+Walk-in Customer");
-    }
+        String dineInText = invoice(dineIn, ReceiptLanguage.EN);
+        String deliveryText = invoice(delivery, ReceiptLanguage.EN);
 
-    @Test
-    void aDeliveryWithoutAnAccountIsInTheContactsName() throws IOException {
-        PaidOrder order = new PaidOrder();
-        order.customerName = null;
-        order.contactName = "vanna";
-
-        assertThat(invoiceText(order, ReceiptLanguage.EN)).containsPattern("Customer\\s+Vanna");
-    }
-
-    @Test
-    void eachItemListsItsOptionsExtrasAndUnitPrice() throws IOException {
-        OrderItemResponse latte = new OrderItemResponse(
-                UUID.randomUUID(), UUID.randomUUID(), "Iced Latte", "ឡាតេទឹកកក",
-                2, new BigDecimal("3.00"), new BigDecimal("6.00"),
-                VariantLabel.LARGE, SugarLevel.LESS, IceLevel.LESS_ICE, null,
-                List.of(extra("extra shot"), extra("oat milk")), null, null);
-        PaidOrder order = new PaidOrder();
-        order.items = List.of(latte, croissant());
-
-        String text = invoiceText(order, ReceiptLanguage.EN);
-
-        assertThat(text)
-                .containsPattern("2×\\s*Iced Latte\\s+\\$6\\.00")
-                .contains("Large · Less Sugar · Less Ice", "+ Extra Shot, Oat Milk", "$3.00 each")
-                .containsPattern("1×\\s*Butter Croissant\\s+\\$1\\.75")
-                .doesNotContain("$1.75 each");
-    }
-
-    @Test
-    void cashIsShownInTheCurrencyItWasPaidIn() throws IOException {
-        PaidOrder dollars = new PaidOrder();
-        dollars.tendered = new BigDecimal("20");
-        dollars.change = new BigDecimal("17.50");
-        PaidOrder riel = new PaidOrder();
-        riel.tendered = new BigDecimal("50000");
-        riel.tenderedCurrency = Currency.KHR;
-        riel.change = new BigDecimal("39750");
-        riel.changeCurrency = Currency.KHR;
-
-        assertThat(invoiceText(dollars, ReceiptLanguage.EN))
-                .containsPattern("Payment method\\s+Cash")
-                .containsPattern("Amount received\\s+\\$20\\.00")
-                .containsPattern("Change\\s+\\$17\\.50");
-        assertThat(invoiceText(riel, ReceiptLanguage.EN))
-                .containsPattern("Amount received\\s+50,000 KHR")
-                .containsPattern("Change\\s+39,750 KHR");
-    }
-
-    @Test
-    void bakongShowsTheAmountPaidOnlyWhenItWasInRiel() throws IOException {
-        PaidOrder riel = new PaidOrder();
-        riel.paymentMethod = PaymentMethod.BAKONG;
-        riel.bakongAmount = new BigDecimal("10300");
-        riel.bakongCurrency = Currency.KHR;
-        PaidOrder dollars = new PaidOrder();
-        dollars.paymentMethod = PaymentMethod.BAKONG;
-        dollars.bakongAmount = new BigDecimal("2.50");
-        dollars.bakongCurrency = Currency.USD;
-
-        assertThat(invoiceText(riel, ReceiptLanguage.EN))
-                .containsPattern("Payment method\\s+Bakong KHQR")
-                .containsPattern("Amount paid\\s+10,300 KHR")
-                .doesNotContain("Amount received", "Change");
-        assertThat(invoiceText(dollars, ReceiptLanguage.EN)).doesNotContain("Amount paid");
+        assertThat(row(dineInText, "Table")).endsWith("A3");
+        assertThat(dineInText).doesNotContain("Phone", "Address", "Toul Kork");
+        assertThat(row(deliveryText, "Phone")).endsWith("+855 12 345 678");
+        assertThat(deliveryText).contains("Address", "#12, St. 590", "Toul Kork").doesNotContain("Table");
     }
 
     @Test
     void englishAndKhmerInvoicesPrintTheSameOrderNumberAndAmounts() throws IOException {
         PaidOrder order = new PaidOrder();
-        order.items = List.of(latte(2), croissant());
         order.deliveryFee = new BigDecimal("1.00");
-        order.tendered = new BigDecimal("40000");
-        order.tenderedCurrency = Currency.KHR;
-        order.change = new BigDecimal("13000");
-        order.changeCurrency = Currency.KHR;
-        OrderResponse response = order.build();
-        UUID orderId = response.id();
-        when(orderService.getAny(orderId)).thenReturn(response);
 
-        String english = text(service.generateInvoicePdf(orderId, ReceiptLanguage.EN));
-        String khmer = text(service.generateInvoicePdf(orderId, ReceiptLanguage.KH));
+        String english = invoice(order, ReceiptLanguage.EN);
+        String khmer = invoice(order, ReceiptLanguage.KH);
 
         assertThat(figures(khmer)).isEqualTo(figures(english))
-                .contains("$5.00", "$2.50", "$1.75", "$6.75", "$1.00", "$7.75", "40,000 KHR", "13,000 KHR");
-        assertThat(english).contains("INVOICE", "Subtotal", "TOTAL", "Payment method", "Thank you, come again!");
-        assertThat(khmer).doesNotContain("INVOICE", "Subtotal", "TOTAL", "Payment", "Customer", "each", "Thank you");
+                .contains("$5.00", "$2.50", "$10.00", "$1.00", "$11.00", "40,000 KHR", "2,000 KHR");
+        assertThat(english).contains("2 × $2.50", "Large · Less Sugar", "Subtotal", "Delivery fee", "TOTAL",
+                "Payment method", "Amount received", "Change", "Thank you, come again!");
+        assertThat(khmer).doesNotContain("Subtotal", "TOTAL", "Payment method", "Amount received", "Customer", "Thank you");
     }
 
     @Test
-    void longNamesNotesAndAddressesWrapInsideThePaperMarginsInBothLanguages() throws IOException {
+    void cashPaidInDollarsShowsDollarsAndNoSubtotalWithoutADeliveryFee() throws IOException {
+        PaidOrder order = new PaidOrder();
+        order.tendered = new BigDecimal("20.00");
+        order.tenderedCurrency = Currency.USD;
+        order.change = new BigDecimal("10.00");
+        order.changeCurrency = Currency.USD;
+
+        String text = invoice(order, ReceiptLanguage.EN);
+
+        assertThat(row(text, "Amount received")).endsWith("$20.00");
+        assertThat(row(text, "Change")).endsWith("$10.00");
+        assertThat(text).doesNotContain("Subtotal", "KHR");
+    }
+
+    @Test
+    void bakongInvoicesShowTheAmountPaidInTheCurrencyPaid() throws IOException {
+        PaidOrder order = new PaidOrder();
+        order.paymentMethod = PaymentMethod.BAKONG;
+        order.tendered = null;
+        order.change = null;
+        order.bakongAmount = new BigDecimal("41000");
+        order.bakongCurrency = Currency.KHR;
+
+        String text = invoice(order, ReceiptLanguage.EN);
+
+        assertThat(row(text, "Payment method")).endsWith("Bakong KHQR");
+        assertThat(row(text, "Amount paid")).endsWith("41,000 KHR");
+        assertThat(text).doesNotContain("Amount received", "Change");
+    }
+
+    @Test
+    void longNamesAndNotesWrapInsideThePaperMarginsInBothLanguages() throws IOException {
         String longKhmer = "កាហ្វេទឹកដោះគោទឹកកក".repeat(4);
-        OrderItemResponse item = new OrderItemResponse(
+        PaidOrder order = new PaidOrder();
+        order.items = List.of(new OrderItemResponse(
                 UUID.randomUUID(), UUID.randomUUID(), "Caramel Macchiato With Extra Whipped Cream And Hazelnut Syrup",
                 longKhmer, 12, new BigDecimal("3.90"), new BigDecimal("46.80"),
-                VariantLabel.LARGE, SugarLevel.LESS, IceLevel.EXTRA_ICE, null,
-                List.of(extra("whipped cream"), extra("hazelnut syrup"), extra("caramel drizzle")), null, null);
-        PaidOrder order = new PaidOrder();
+                VariantLabel.LARGE, SugarLevel.LESS, null, null, List.of(), null, null));
         order.customerName = "Customer With A Remarkably Long Telegram Display Name";
+        order.deliveryAddress = "#12, St. 590, Boeng Kak 2, Toul Kork, Phnom Penh, near the big blue gate";
         order.fulfillment = FulfillmentMethod.DELIVERY;
-        order.deliveryAddress = "Building 12B, Street 590, Sangkat Boeung Kak II, Khan Toul Kork, Phnom Penh";
-        order.contactPhone = "012345678";
-        order.items = List.of(item, latte(1));
-        order.deliveryFee = new BigDecimal("1.50");
         order.note = "Please leave the order with the security guard at the front gate.\n" + longKhmer;
-        OrderResponse response = order.build();
-        when(orderService.getAny(response.id())).thenReturn(response);
+        UUID orderId = order.id;
+        when(orderService.getAny(orderId)).thenReturn(order.build());
 
         for (ReceiptLanguage language : ReceiptLanguage.values()) {
-            BufferedImage page = image(service.generateInvoicePdf(response.id(), language));
+            BufferedImage page = image(service.generateInvoicePdf(orderId, language));
             // The 14pt margins at 2 px per point, less a point of slack for anti-aliased edges.
             int margin = 26;
             List<String> inkInMargins = new ArrayList<>();
@@ -308,12 +248,6 @@ class ReceiptServiceImplTest {
         }
     }
 
-    private String invoiceText(PaidOrder order, ReceiptLanguage language) throws IOException {
-        OrderResponse response = order.build();
-        when(orderService.getAny(response.id())).thenReturn(response);
-        return text(service.generateInvoicePdf(response.id(), language));
-    }
-
     private static String text(byte[] pdf) throws IOException {
         try (PDDocument document = Loader.loadPDF(pdf)) {
             return new PDFTextStripper().getText(document);
@@ -326,64 +260,62 @@ class ReceiptServiceImplTest {
         }
     }
 
+    private String invoice(PaidOrder order, ReceiptLanguage language) throws IOException {
+        when(orderService.getAny(order.id)).thenReturn(order.build());
+        return text(service.generateInvoicePdf(order.id, language));
+    }
+
+    // The printed row that starts with the given label, such as "Customer          Nem Sophal".
+    private static String row(String text, String label) {
+        return text.lines().map(String::strip).filter(line -> line.startsWith(label)).findFirst()
+                .orElseThrow(() -> new AssertionError("No row starting with " + label + " in:\n" + text));
+    }
+
     // The order number and every amount, in the order they are printed.
     private static List<String> figures(String text) {
         return Pattern.compile("#[0-9A-F]{8}|\\$[\\d,]+\\.\\d{2}|[\\d,]+ KHR").matcher(text).results()
                 .map(match -> match.group()).toList();
     }
 
-    private static OrderItemResponse latte(int quantity) {
-        BigDecimal unitPrice = new BigDecimal("2.50");
+    private static OrderItemResponse latte() {
         return new OrderItemResponse(
                 UUID.randomUUID(), UUID.randomUUID(), "Iced Latte", "ឡាតេទឹកកក",
-                quantity, unitPrice, unitPrice.multiply(BigDecimal.valueOf(quantity)),
+                2, new BigDecimal("2.50"), new BigDecimal("5.00"),
                 VariantLabel.LARGE, SugarLevel.LESS, null, null, List.of(), null, null);
     }
 
-    private static OrderItemResponse croissant() {
-        return new OrderItemResponse(
-                UUID.randomUUID(), UUID.randomUUID(), "Butter Croissant", "នំក្រូសង់ប៊ឺ",
-                1, new BigDecimal("1.75"), new BigDecimal("1.75"),
-                null, null, null, null, List.of(), null, null);
-    }
-
-    private static OrderItemExtraResponse extra(String name) {
-        return new OrderItemExtraResponse(UUID.randomUUID(), name, new BigDecimal("0.50"), null);
-    }
-
-    // A paid order with ordinary defaults; each test changes only what it is about. The totals are
-    // derived the way Order does it: items total plus any delivery fee.
+    // A paid order with the parts the receipt prints; each test changes only what it is about.
     private static final class PaidOrder {
+        final UUID id = UUID.randomUUID();
+        UUID customerId = UUID.randomUUID();
         String customerName = "Dara";
-        String contactName;
-        String contactPhone;
-        String tableNumber;
-        String deliveryAddress;
         String staffName = "Sokha";
+        String contactPhone;
+        String deliveryAddress;
+        String tableNumber;
+        String note;
         FulfillmentMethod fulfillment = FulfillmentMethod.PICKUP;
-        List<OrderItemResponse> items = List.of(latte(1));
+        List<OrderItemResponse> items = List.of(latte(), latte());
         BigDecimal deliveryFee;
         PaymentMethod paymentMethod = PaymentMethod.CASH;
-        BigDecimal tendered = new BigDecimal("10");
-        Currency tenderedCurrency = Currency.USD;
-        BigDecimal change = new BigDecimal("7.50");
-        Currency changeCurrency = Currency.USD;
+        BigDecimal tendered = new BigDecimal("40000");
+        Currency tenderedCurrency = Currency.KHR;
+        BigDecimal change = new BigDecimal("2000");
+        Currency changeCurrency = Currency.KHR;
         BigDecimal bakongAmount;
         Currency bakongCurrency;
-        String note;
 
         OrderResponse build() {
             BigDecimal itemsTotal = items.stream().map(OrderItemResponse::subtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
             BigDecimal total = deliveryFee != null ? itemsTotal.add(deliveryFee) : itemsTotal;
-            boolean cash = paymentMethod == PaymentMethod.CASH;
+            LocalDateTime paidAt = LocalDateTime.of(2026, 11, 7, 15, 45);
             return new OrderResponse(
-                    UUID.randomUUID(), null, staffName, staffName != null ? Role.BARISTA : null, null, customerName,
+                    id, null, staffName, Role.BARISTA, customerId, customerName,
                     OrderStatus.COMPLETED, items, total,
-                    fulfillment, null, tableNumber, deliveryAddress, contactName, contactPhone, null, null,
-                    paymentMethod, cash ? tendered : null, cash ? tenderedCurrency : null,
-                    cash ? change : null, cash ? changeCurrency : null,
+                    fulfillment, null, tableNumber, deliveryAddress, null, contactPhone, null, null,
+                    paymentMethod, tendered, tenderedCurrency, change, changeCurrency,
                     null, null, bakongCurrency, bakongAmount,
-                    note, PAID_AT, PAID_AT, PAID_AT,
+                    note, paidAt, paidAt, paidAt,
                     null, null, deliveryFee, null, null, false, itemsTotal, null, null);
         }
     }

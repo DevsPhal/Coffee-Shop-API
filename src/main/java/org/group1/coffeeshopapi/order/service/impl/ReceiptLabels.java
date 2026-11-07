@@ -14,8 +14,8 @@ import java.util.Locale;
 
 /**
  * The fixed wording printed on a receipt, in the language staff picked. Only these words change
- * between languages: names, amounts and dates come from the same order either way. The Khmer terms
- * match the ones the admin dashboard already uses.
+ * between languages: names, amounts and dates come from the same order either way. The Khmer terms,
+ * and the English drink options, match the ones the admin dashboard already uses.
  */
 final class ReceiptLabels {
 
@@ -60,6 +60,10 @@ final class ReceiptLabels {
         return pick("Served by", "បម្រើដោយ");
     }
 
+    String table() {
+        return pick("Table", "តុ");
+    }
+
     String customer() {
         return pick("Customer", "អតិថិជន");
     }
@@ -68,20 +72,12 @@ final class ReceiptLabels {
         return pick("Walk-in Customer", "អតិថិជនទូទៅ");
     }
 
-    String table() {
-        return pick("Table", "តុ");
-    }
-
     String phone() {
-        return pick("Phone", "ទូរស័ព្ទ");
+        return pick("Phone", "លេខទូរស័ព្ទ");
     }
 
     String address() {
         return pick("Address", "អាសយដ្ឋាន");
-    }
-
-    String unitPrice(String price) {
-        return khmer() ? "តម្លៃឯកតា " + price : price + " each";
     }
 
     String subtotal() {
