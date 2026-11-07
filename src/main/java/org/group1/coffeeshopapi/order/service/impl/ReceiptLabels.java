@@ -36,33 +36,52 @@ final class ReceiptLabels {
         return language == ReceiptLanguage.KH;
     }
 
-    String orderNumber(String code) {
-        return pick("Order #", "លេខបញ្ជាទិញ៖ #") + code;
+    String title(boolean invoice) {
+        return invoice ? pick("INVOICE", "វិក្កយបត្រ") : pick("RECEIPT", "បង្កាន់ដៃ");
     }
 
-    String date(LocalDateTime at) {
-        String value;
-        if (at == null) {
-            value = "-";
-        } else if (khmer()) {
-            value = at.getDayOfMonth() + " " + KHMER_MONTHS[at.getMonthValue() - 1] + " " + at.getYear()
+    String orderNumber() {
+        return pick("Order No.", "លេខបញ្ជាទិញ");
+    }
+
+    String date() {
+        return pick("Date", "កាលបរិច្ឆេទ");
+    }
+
+    String formatDate(LocalDateTime at) {
+        if (khmer()) {
+            return at.getDayOfMonth() + " " + KHMER_MONTHS[at.getMonthValue() - 1] + " " + at.getYear()
                     + " ម៉ោង " + at.format(TIME_24H);
-        } else {
-            value = at.format(ENGLISH_DATE);
         }
-        return field("Date", "កាលបរិច្ឆេទ") + value;
+        return at.format(ENGLISH_DATE);
     }
 
     String servedBy() {
-        return field("Served By", "បម្រើដោយ");
+        return pick("Served by", "បម្រើដោយ");
     }
 
     String customer() {
-        return field("Customer", "អតិថិជន");
+        return pick("Customer", "អតិថិជន");
     }
 
     String walkInCustomer() {
         return pick("Walk-in Customer", "អតិថិជនទូទៅ");
+    }
+
+    String table() {
+        return pick("Table", "តុ");
+    }
+
+    String phone() {
+        return pick("Phone", "ទូរស័ព្ទ");
+    }
+
+    String address() {
+        return pick("Address", "អាសយដ្ឋាន");
+    }
+
+    String unitPrice(String price) {
+        return khmer() ? "តម្លៃឯកតា " + price : price + " each";
     }
 
     String subtotal() {
@@ -70,23 +89,30 @@ final class ReceiptLabels {
     }
 
     String deliveryFee() {
-        return pick("Delivery Fee", "ថ្លៃដឹកជញ្ជូន");
+        return pick("Delivery fee", "ថ្លៃដឹកជញ្ជូន");
     }
 
     String total() {
         return pick("TOTAL", "សរុប");
     }
 
-    String paymentMethod(PaymentMethod method) {
-        String value = method == null ? "-" : switch (method) {
+    String paymentMethod() {
+        return pick("Payment method", "វិធីបង់ប្រាក់");
+    }
+
+    String payment(PaymentMethod method) {
+        return switch (method) {
             case CASH -> pick("Cash", "សាច់ប្រាក់");
             case BAKONG -> "Bakong KHQR";
         };
-        return field("Payment Method", "វិធីបង់ប្រាក់") + value;
     }
 
-    String tendered() {
-        return pick("Tendered", "ប្រាក់ទទួល");
+    String amountReceived() {
+        return pick("Amount received", "ប្រាក់ទទួល");
+    }
+
+    String amountPaid() {
+        return pick("Amount paid", "ប្រាក់បានបង់");
     }
 
     String change() {
@@ -94,7 +120,7 @@ final class ReceiptLabels {
     }
 
     String note() {
-        return field("Note", "កំណត់ចំណាំ");
+        return pick("Note", "កំណត់ចំណាំ");
     }
 
     String thanks() {
@@ -122,39 +148,34 @@ final class ReceiptLabels {
     }
 
     String sugar(SugarLevel level) {
-        return pick(readable(level.name()) + " sugar", switch (level) {
-            case ZERO -> "គ្មានស្ករ";
-            case LESS -> "ស្ករតិច";
-            case NORMAL -> "ស្ករធម្មតា";
-            case EXTRA -> "ស្ករច្រើន";
-        });
+        return switch (level) {
+            case ZERO -> pick("No Sugar", "គ្មានស្ករ");
+            case LESS -> pick("Less Sugar", "ស្ករតិច");
+            case NORMAL -> pick("Normal Sugar", "ស្ករធម្មតា");
+            case EXTRA -> pick("Extra Sugar", "ស្ករច្រើន");
+        };
     }
 
     String ice(IceLevel level) {
-        return pick(readable(level.name()), switch (level) {
-            case NO_ICE -> "គ្មានទឹកកក";
-            case LESS_ICE -> "ទឹកកកតិច";
-            case NORMAL -> "ទឹកកកធម្មតា";
-            case EXTRA_ICE -> "ទឹកកកច្រើន";
-        });
+        return switch (level) {
+            case NO_ICE -> pick("No Ice", "គ្មានទឹកកក");
+            case LESS_ICE -> pick("Less Ice", "ទឹកកកតិច");
+            case NORMAL -> pick("Normal Ice", "ទឹកកកធម្មតា");
+            case EXTRA_ICE -> pick("Extra Ice", "ទឹកកកច្រើន");
+        };
     }
 
     String milk(MilkType type) {
-        return pick(readable(type.name()) + " milk", switch (type) {
-            case NONE -> "គ្មានទឹកដោះគោ";
-            case LESS -> "ទឹកដោះគោតិច";
-            case NORMAL -> "ទឹកដោះគោធម្មតា";
-            case EXTRA -> "ទឹកដោះគោច្រើន";
-        });
+        return switch (type) {
+            case NONE -> pick("No Milk", "គ្មានទឹកដោះគោ");
+            case LESS -> pick("Less Milk", "ទឹកដោះគោតិច");
+            case NORMAL -> pick("Normal Milk", "ទឹកដោះគោធម្មតា");
+            case EXTRA -> pick("Extra Milk", "ទឹកដោះគោច្រើន");
+        };
     }
 
     private String pick(String english, String khmer) {
         return khmer() ? khmer : english;
-    }
-
-    // A label followed by its value; Khmer writes the colon as "៖".
-    private String field(String english, String khmer) {
-        return khmer() ? khmer + "៖ " : english + ": ";
     }
 
     private static String readable(String enumName) {
