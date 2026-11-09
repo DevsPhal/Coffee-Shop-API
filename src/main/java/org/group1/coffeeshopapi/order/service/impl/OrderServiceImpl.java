@@ -11,6 +11,7 @@ import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.common.enums.OrderType;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
@@ -126,10 +127,22 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse create(StaffCreateOrderRequest request, UUID baristaId) {
-        CheckoutDetailsRequest dineIn = request.tableNumber() != null
-                ? new CheckoutDetailsRequest(FulfillmentMethod.DINE_IN, null, null, null, request.tableNumber())
+        OrderType orderType = request.orderType();
+        String tableNumber = request.tableNumber() != null && !request.tableNumber().isBlank()
+                ? request.tableNumber()
                 : null;
-        Order order = buildOrder(new CreateOrderRequest(request.items(), request.note(), dineIn));
+        if (orderType == OrderType.TAKE_AWAY && tableNumber != null) {
+            throw new InvalidOperationException("A take-away order can't have a table");
+        }
+        Order order = buildOrder(new CreateOrderRequest(request.items(), request.note(), null));
+        // POS orders are never delivered: no delivery fee, address or contact. The fulfillment method mirrors
+        // the order type so the queue, filters and reports treat them like any other dine-in or pickup order.
+        order.setOrderType(orderType);
+        order.setFulfillmentMethod(orderType.fulfillmentMethod());
+        order.setDeliveryFee(null);
+        if (tableNumber != null) {
+            order.seatAt(diningTableService.seatForOrder(tableNumber));
+        }
         order.setHandledBy(baristaId);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.CREATED, baristaId);

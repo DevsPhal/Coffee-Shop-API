@@ -5,6 +5,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.rendering.ImageType;
 import org.apache.pdfbox.rendering.PDFRenderer;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.group1.coffeeshopapi.common.enums.OrderType;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
@@ -173,6 +174,7 @@ class ReceiptServiceImplTest {
     @Test
     void englishAndKhmerInvoicesPrintTheSameOrderNumberAndAmounts() throws IOException {
         PaidOrder order = new PaidOrder();
+        order.fulfillment = FulfillmentMethod.DELIVERY;
         order.deliveryFee = new BigDecimal("1.00");
 
         String english = invoice(order, ReceiptLanguage.EN);
@@ -183,6 +185,40 @@ class ReceiptServiceImplTest {
         assertThat(english).contains("2 × $2.50", "Large · Less Sugar", "Subtotal", "Delivery fee", "TOTAL",
                 "Payment method", "Amount received", "Change", "Thank you, come again!");
         assertThat(khmer).doesNotContain("Subtotal", "TOTAL", "Payment method", "Amount received", "Customer", "Thank you");
+    }
+
+    @Test
+    void aPosReceiptPrintsTheOrderTypeAndNoDeliveryFee() throws IOException {
+        PaidOrder takeAway = new PaidOrder();
+        takeAway.customerId = null;
+        takeAway.customerName = null;
+        takeAway.orderType = OrderType.TAKE_AWAY;
+        // POS orders saved before order types existed still carry a $0.00 fee.
+        takeAway.deliveryFee = BigDecimal.ZERO;
+        PaidOrder dineIn = new PaidOrder();
+        dineIn.customerId = null;
+        dineIn.customerName = null;
+        dineIn.orderType = OrderType.DINE_IN;
+        dineIn.fulfillment = FulfillmentMethod.DINE_IN;
+        dineIn.tableNumber = "A3";
+
+        String takeAwayText = invoice(takeAway, ReceiptLanguage.EN);
+        String dineInText = invoice(dineIn, ReceiptLanguage.EN);
+        String khmer = invoice(takeAway, ReceiptLanguage.KH);
+
+        assertThat(row(takeAwayText, "Order type")).endsWith("Take away");
+        assertThat(takeAwayText).doesNotContain("Delivery fee", "Subtotal", "Table");
+        assertThat(row(dineInText, "Order type")).endsWith("Dine in");
+        assertThat(row(dineInText, "Table")).endsWith("A3");
+        // PDF text extraction can't read Khmer glyphs, so check the English labels were replaced.
+        assertThat(khmer).doesNotContain("Order type", "Take away", "Delivery fee", "Subtotal");
+    }
+
+    @Test
+    void anOnlineOrderHasNoOrderTypeRow() throws IOException {
+        String text = invoice(new PaidOrder(), ReceiptLanguage.EN);
+
+        assertThat(text).doesNotContain("Order type");
     }
 
     @Test
@@ -295,6 +331,7 @@ class ReceiptServiceImplTest {
         String tableNumber;
         String note;
         FulfillmentMethod fulfillment = FulfillmentMethod.PICKUP;
+        OrderType orderType;
         List<OrderItemResponse> items = List.of(latte(), latte());
         BigDecimal deliveryFee;
         PaymentMethod paymentMethod = PaymentMethod.CASH;
@@ -312,7 +349,7 @@ class ReceiptServiceImplTest {
             return new OrderResponse(
                     id, null, staffName, Role.BARISTA, customerId, customerName,
                     OrderStatus.COMPLETED, items, total,
-                    fulfillment, null, tableNumber, deliveryAddress, null, contactPhone, null, null,
+                    fulfillment, orderType, null, tableNumber, deliveryAddress, null, contactPhone, null, null,
                     paymentMethod, tendered, tenderedCurrency, change, changeCurrency,
                     null, null, bakongCurrency, bakongAmount,
                     note, paidAt, paidAt, paidAt,
@@ -328,7 +365,7 @@ class ReceiptServiceImplTest {
         return new OrderResponse(
                 UUID.randomUUID(), null, null, null, null, null,
                 status, items, new BigDecimal("10.00"),
-                FulfillmentMethod.PICKUP, null, null, null, null, null, null, null,
+                FulfillmentMethod.PICKUP, null, null, null, null, null, null, null, null,
                 PaymentMethod.CASH, new BigDecimal("10.00"), Currency.USD, BigDecimal.ZERO, Currency.USD,
                 null, null, null, null,
                 null, paidAt, LocalDateTime.now(), LocalDateTime.now(),

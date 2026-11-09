@@ -17,6 +17,7 @@ import org.group1.coffeeshopapi.common.entity.BaseEntity;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.common.enums.OrderType;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.table.entity.DiningTable;
 import org.group1.coffeeshopapi.user.entity.Customer;
@@ -57,6 +58,11 @@ public class Order extends BaseEntity {
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private FulfillmentMethod fulfillmentMethod = FulfillmentMethod.PICKUP;
+
+    // Set only on POS (walk-in) orders; online orders leave it null and use fulfillmentMethod alone.
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private OrderType orderType;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "dining_table_id")
