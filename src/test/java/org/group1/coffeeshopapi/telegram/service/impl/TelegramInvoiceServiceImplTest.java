@@ -81,11 +81,40 @@ class TelegramInvoiceServiceImplTest {
 
         OrderInvoice invoice = new OrderInvoice(UUID.randomUUID(), List.of(lineItem()), null,
                 new BigDecimal("14.50"), PaymentMethod.BAKONG, Currency.USD, new BigDecimal("14.50"),
-                null, null, null, null, LocalDateTime.now());
+                null, null, null, null, LocalDateTime.now(), null);
         service.sendInvoice(customerId, invoice);
 
         String message = capturedMessage();
-        assertThat(message).doesNotContain("Tendered").doesNotContain("Change");
+        assertThat(message).doesNotContain("Tendered").doesNotContain("Change").doesNotContain("Total (KHR)");
+    }
+
+    @Test
+    void rielCashInvoiceShowsTheRoundedRielTotalAndTheRate() {
+        UUID customerId = UUID.randomUUID();
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customerWithChat()));
+
+        // $14.50 at 4,100 is 59,450 riel; the last two digits (50) round down to 59,400.
+        OrderInvoice invoice = new OrderInvoice(UUID.randomUUID(), List.of(lineItem()), null,
+                new BigDecimal("14.50"), PaymentMethod.CASH, null, null, new BigDecimal("60000"), Currency.KHR,
+                new BigDecimal("600"), Currency.KHR, LocalDateTime.now(), new BigDecimal("4100.0000"));
+        service.sendInvoice(customerId, invoice);
+
+        String message = capturedMessage();
+        assertThat(message).contains("Total (KHR): 59400 KHR (1 USD = 4100 KHR)");
+        assertThat(message).contains("<b>Total: $14.50</b>");
+    }
+
+    @Test
+    void rielKhqrInvoiceShowsTheAmountItCollected() {
+        UUID customerId = UUID.randomUUID();
+        when(customerRepository.findById(customerId)).thenReturn(Optional.of(customerWithChat()));
+
+        OrderInvoice invoice = new OrderInvoice(UUID.randomUUID(), List.of(lineItem()), null,
+                new BigDecimal("14.50"), PaymentMethod.BAKONG, Currency.KHR, new BigDecimal("59400"),
+                null, null, null, null, LocalDateTime.now(), new BigDecimal("4100"));
+        service.sendInvoice(customerId, invoice);
+
+        assertThat(capturedMessage()).contains("Total (KHR): 59400 KHR (1 USD = 4100 KHR)");
     }
 
     @Test
@@ -104,7 +133,7 @@ class TelegramInvoiceServiceImplTest {
             BigDecimal amountTendered, Currency tenderedCurrency, BigDecimal changeDue, Currency changeCurrency) {
         return new OrderInvoice(UUID.randomUUID(), List.of(lineItem()), null, new BigDecimal("14.50"),
                 PaymentMethod.CASH, null, null, amountTendered, tenderedCurrency, changeDue, changeCurrency,
-                LocalDateTime.now());
+                LocalDateTime.now(), null);
     }
 
     private OrderInvoiceLineItem lineItem() {

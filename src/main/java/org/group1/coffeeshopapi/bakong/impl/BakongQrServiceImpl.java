@@ -12,10 +12,10 @@ import org.group1.coffeeshopapi.bakong.dto.BakongQrResult;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
+import org.group1.coffeeshopapi.common.util.KhrConversion;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 
@@ -38,7 +38,12 @@ public class BakongQrServiceImpl implements BakongQrService {
 
         Currency resolvedCurrency = currency != null ? currency : bakongProperties.getCurrency();
         KHQRCurrency khqrCurrency = toKhqrCurrency(resolvedCurrency);
-        BigDecimal encodedAmount = resolvedCurrency == Currency.KHR ? toKhr(amount) : amount;
+        BigDecimal rate = resolvedCurrency == Currency.KHR ? exchangeRateService.getCurrentRate() : null;
+        // A KHR QR asks for the riel total rounded to the nearest 100, the same figure the receipt prints.
+        BigDecimal encodedAmount = resolvedCurrency == Currency.KHR ? KhrConversion.fromUsd(amount, rate) : amount;
+        if (encodedAmount.signum() <= 0) {
+            throw new InvalidOperationException("The amount is too small to pay in KHR; use a USD QR instead");
+        }
 
         IndividualInfo individualInfo = new IndividualInfo();
         individualInfo.setBakongAccountId(bakongProperties.getAccountId());
@@ -64,16 +69,8 @@ public class BakongQrServiceImpl implements BakongQrService {
             throw new InvalidOperationException("Unable to generate Bakong QR: " + message);
         }
 
-        return new BakongQrResult(
-                response.getData().getQr(), response.getData().getMd5(), resolvedCurrency, encodedAmount, expiresAt);
-    }
-
-    private BigDecimal toKhr(BigDecimal usdAmount) {
-        BigDecimal rate = exchangeRateService.getCurrentRate();
-        if (rate == null || rate.signum() <= 0) {
-            throw new InvalidOperationException("Bakong USD-to-KHR exchange rate is not configured");
-        }
-        return usdAmount.multiply(rate).setScale(0, RoundingMode.HALF_UP);
+        return new BakongQrResult(response.getData().getQr(), response.getData().getMd5(), resolvedCurrency,
+                encodedAmount, expiresAt, rate);
     }
 
     private KHQRCurrency toKhqrCurrency(Currency currency) {

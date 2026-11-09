@@ -253,6 +253,57 @@ class ReceiptServiceImplTest {
     }
 
     @Test
+    void cashInRielPrintsTheRoundedRielTotalAndTheRateSoTheChangeAddsUp() throws IOException {
+        PaidOrder order = new PaidOrder();
+        order.tendered = new BigDecimal("45000");
+        order.tenderedCurrency = Currency.KHR;
+        order.change = new BigDecimal("4000");
+        order.changeCurrency = Currency.KHR;
+        order.exchangeRate = new BigDecimal("4100.0000");
+
+        String text = invoice(order, ReceiptLanguage.EN);
+
+        assertThat(row(text, "TOTAL")).endsWith("$10.00");
+        assertThat(row(text, "Total in KHR")).endsWith("41,000 KHR");
+        assertThat(row(text, "Exchange rate")).endsWith("1 USD = 4,100 KHR");
+        assertThat(row(text, "Amount received")).endsWith("45,000 KHR");
+        assertThat(row(text, "Change")).endsWith("4,000 KHR");
+    }
+
+    @Test
+    void theRielTotalOnTheReceiptFollowsTheNearest100Rule() throws IOException {
+        PaidOrder roundsUp = new PaidOrder();
+        roundsUp.fulfillment = FulfillmentMethod.DELIVERY;
+        roundsUp.deliveryFee = new BigDecimal("0.19");   // $10.19 = 41,779 riel -> 41,800
+        roundsUp.exchangeRate = new BigDecimal("4100");
+        PaidOrder roundsDown = new PaidOrder();
+        roundsDown.fulfillment = FulfillmentMethod.DELIVERY;
+        roundsDown.deliveryFee = new BigDecimal("0.50");  // $10.50 = 43,050 riel -> 43,000
+        roundsDown.exchangeRate = new BigDecimal("4100");
+
+        assertThat(row(invoice(roundsUp, ReceiptLanguage.EN), "Total in KHR")).endsWith("41,800 KHR");
+        assertThat(row(invoice(roundsDown, ReceiptLanguage.EN), "Total in KHR")).endsWith("43,000 KHR");
+    }
+
+    @Test
+    void aRielKhqrReceiptShowsTheRateNextToTheAmountPaid() throws IOException {
+        PaidOrder order = new PaidOrder();
+        order.paymentMethod = PaymentMethod.BAKONG;
+        order.tendered = null;
+        order.change = null;
+        order.bakongAmount = new BigDecimal("41000");
+        order.bakongCurrency = Currency.KHR;
+        order.exchangeRate = new BigDecimal("4100");
+
+        String text = invoice(order, ReceiptLanguage.EN);
+        String khmer = invoice(order, ReceiptLanguage.KH);
+
+        assertThat(row(text, "Amount paid")).endsWith("41,000 KHR");
+        assertThat(row(text, "Exchange rate")).endsWith("1 USD = 4,100 KHR");
+        assertThat(khmer).contains("1 USD = 4,100 KHR").doesNotContain("Exchange rate");
+    }
+
+    @Test
     void longNamesAndNotesWrapInsideThePaperMarginsInBothLanguages() throws IOException {
         String longKhmer = "កាហ្វេទឹកដោះគោទឹកកក".repeat(4);
         PaidOrder order = new PaidOrder();
@@ -341,6 +392,7 @@ class ReceiptServiceImplTest {
         Currency changeCurrency = Currency.KHR;
         BigDecimal bakongAmount;
         Currency bakongCurrency;
+        BigDecimal exchangeRate;
 
         OrderResponse build() {
             BigDecimal itemsTotal = items.stream().map(OrderItemResponse::subtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -353,7 +405,7 @@ class ReceiptServiceImplTest {
                     paymentMethod, tendered, tenderedCurrency, change, changeCurrency,
                     null, null, bakongCurrency, bakongAmount,
                     note, paidAt, paidAt, paidAt,
-                    null, null, deliveryFee, null, null, false, itemsTotal, null, null);
+                    null, null, deliveryFee, null, null, false, itemsTotal, null, null, exchangeRate);
         }
     }
 
@@ -369,6 +421,6 @@ class ReceiptServiceImplTest {
                 PaymentMethod.CASH, new BigDecimal("10.00"), Currency.USD, BigDecimal.ZERO, Currency.USD,
                 null, null, null, null,
                 null, paidAt, LocalDateTime.now(), LocalDateTime.now(),
-                null, null, null, null, null, false, new BigDecimal("10.00"), null, null);
+                null, null, null, null, null, false, new BigDecimal("10.00"), null, null, null);
     }
 }

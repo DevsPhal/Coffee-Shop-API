@@ -25,6 +25,9 @@ public record OrderInvoice(
         BigDecimal changeDue,
         Currency changeCurrency,
 
-        LocalDateTime paidAt
+        LocalDateTime paidAt,
+
+        // KHR per USD used for the riel amounts above; null when the order involved no riel.
+        BigDecimal exchangeRate
 ) {
 }

@@ -17,6 +17,7 @@ import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.ReceiptLanguage;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
+import org.group1.coffeeshopapi.common.util.KhrConversion;
 import org.group1.coffeeshopapi.order.dto.response.OrderItemExtraResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderItemResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -36,6 +37,8 @@ import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
@@ -259,6 +262,13 @@ public class ReceiptServiceImpl implements ReceiptService {
         }
         lines.add(ReceiptLine.field(labels.paymentMethod(), labels.payment(method)));
         if (method == PaymentMethod.CASH) {
+            // Paid or changed in riel: print the riel total (rounded to the nearest 100) and the rate, so the
+            // riel received and the change add up on paper.
+            if (order.exchangeRate() != null && order.totalAmount() != null) {
+                lines.add(ReceiptLine.twoColumn(labels.totalKhr(),
+                        khr(KhrConversion.fromUsd(order.totalAmount(), order.exchangeRate())), FONT_BOLD, BODY_SIZE, 0));
+                lines.add(ReceiptLine.twoColumn(labels.exchangeRate(), rate(order.exchangeRate()), FONT, SMALL_SIZE, 0));
+            }
             if (order.amountTendered() != null) {
                 lines.add(ReceiptLine.twoColumn(labels.amountReceived(),
                         money(order.amountTendered(), order.amountTenderedCurrency()), FONT, BODY_SIZE, 0));
@@ -270,7 +280,16 @@ public class ReceiptServiceImpl implements ReceiptService {
         } else if (order.bakongAmount() != null) {
             lines.add(ReceiptLine.twoColumn(labels.amountPaid(),
                     money(order.bakongAmount(), order.bakongCurrency()), FONT, BODY_SIZE, 0));
+            if (order.bakongCurrency() == Currency.KHR && order.exchangeRate() != null) {
+                lines.add(ReceiptLine.twoColumn(labels.exchangeRate(), rate(order.exchangeRate()), FONT, SMALL_SIZE, 0));
+            }
         }
+    }
+
+    // "1 USD = 4,100 KHR", keeping any fraction of the rate exactly as set.
+    private String rate(BigDecimal khrPerUsd) {
+        DecimalFormat format = new DecimalFormat("#,##0.####", DecimalFormatSymbols.getInstance(Locale.ENGLISH));
+        return "1 USD = " + format.format(khrPerUsd) + " KHR";
     }
 
     private List<String> options(OrderItemResponse item, ReceiptLabels labels) {

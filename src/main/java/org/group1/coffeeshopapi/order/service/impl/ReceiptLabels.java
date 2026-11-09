@@ -127,6 +127,14 @@ final class ReceiptLabels {
         return pick("Change", "ប្រាក់អាប់");
     }
 
+    String totalKhr() {
+        return pick("Total in KHR", "សរុបជារៀល");
+    }
+
+    String exchangeRate() {
+        return pick("Exchange rate", "អត្រាប្តូរប្រាក់");
+    }
+
     String note() {
         return pick("Note", "កំណត់ចំណាំ");
     }

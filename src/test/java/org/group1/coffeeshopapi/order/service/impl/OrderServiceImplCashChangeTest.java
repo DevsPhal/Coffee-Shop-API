@@ -85,8 +85,74 @@ class OrderServiceImplCashChangeTest {
 
         service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.KHR, new BigDecimal("45000"), null));
 
+        // $10.00 at 4,100 is 41,000 riel, so 45,000 riel gives exactly 4,000 back (not 4,018 from a round trip
+        // through dollars).
         assertThat(order.getChangeCurrency()).isEqualTo(Currency.KHR);
-        assertThat(order.getChangeDue()).isEqualByComparingTo("4018");
+        assertThat(order.getChangeDue()).isEqualByComparingTo("4000");
+        assertThat(order.getExchangeRate()).isEqualByComparingTo("4100");
+    }
+
+    @Test
+    void rielTotalThatRoundsDownIsEnoughToPay() {
+        UUID baristaId = UUID.randomUUID();
+        Order order = pendingOrder(baristaId, "0.30");
+        when(bakongExchangeRateService.getCurrentRate()).thenReturn(USD_TO_KHR_RATE);
+
+        // $0.30 is 1,230 riel, which rounds down to 1,200: paying 1,200 riel is the full amount.
+        service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.KHR, new BigDecimal("1200"), null));
+
+        assertThat(order.getChangeDue()).isEqualByComparingTo("0");
+        assertThat(order.getAmountTendered()).isEqualByComparingTo("1200");
+        assertThat(order.getTotalAmount()).isEqualByComparingTo("0.30");
+    }
+
+    @Test
+    void rielBelowTheRoundedTotalIsRefusedWithTheRielAmountDue() {
+        UUID baristaId = UUID.randomUUID();
+        Order order = pendingOrder(baristaId, "1.19");
+        when(bakongExchangeRateService.getCurrentRate()).thenReturn(USD_TO_KHR_RATE);
+
+        // $1.19 is 4,879 riel, which rounds up to 4,900: 4,879 riel is not enough.
+        assertThatThrownBy(() -> service.payCash(order.getId(), baristaId,
+                new CashPaymentRequest(Currency.KHR, new BigDecimal("4879"), null)))
+                .isInstanceOf(InvalidOperationException.class)
+                .hasMessageContaining("4,900 KHR");
+    }
+
+    @Test
+    void rielChangeComesFromTheRoundedRielTotal() {
+        UUID baristaId = UUID.randomUUID();
+        Order order = pendingOrder(baristaId, "1.19");
+        when(bakongExchangeRateService.getCurrentRate()).thenReturn(USD_TO_KHR_RATE);
+
+        service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.KHR, new BigDecimal("10000"), null));
+
+        assertThat(order.getChangeDue()).isEqualByComparingTo("5100");
+    }
+
+    @Test
+    void dollarChangeGivenInRielIsRoundedToTheNearest100() {
+        UUID baristaId = UUID.randomUUID();
+        Order order = pendingOrder(baristaId, "1.19");
+        when(bakongExchangeRateService.getCurrentRate()).thenReturn(USD_TO_KHR_RATE);
+
+        // $3.81 change is 15,621 riel; the last two digits (21) round down to 15,600.
+        service.payCash(order.getId(), baristaId,
+                new CashPaymentRequest(Currency.USD, new BigDecimal("5.00"), Currency.KHR));
+
+        assertThat(order.getChangeDue()).isEqualByComparingTo("15600");
+        assertThat(order.getChangeCurrency()).isEqualTo(Currency.KHR);
+    }
+
+    @Test
+    void dollarsOnlyKeepsCentsAndRecordsNoRate() {
+        UUID baristaId = UUID.randomUUID();
+        Order order = pendingOrder(baristaId, "1.19");
+
+        service.payCash(order.getId(), baristaId, new CashPaymentRequest(Currency.USD, new BigDecimal("2.00"), null));
+
+        assertThat(order.getChangeDue()).isEqualByComparingTo("0.81");
+        assertThat(order.getExchangeRate()).isNull();
     }
 
     @Test

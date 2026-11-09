@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.telegram.service.impl;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
+import org.group1.coffeeshopapi.common.util.KhrConversion;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoice;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoiceLineItem;
 import org.group1.coffeeshopapi.telegram.service.TelegramApiClient;
@@ -70,6 +71,10 @@ public class TelegramInvoiceServiceImpl implements TelegramInvoiceService {
         }
 
         sb.append("<b>Total: ").append(TelegramFormat.usd(invoice.totalAmount())).append("</b>\n");
+        String rielTotal = rielTotalLine(invoice);
+        if (rielTotal != null) {
+            sb.append(rielTotal).append('\n');
+        }
         sb.append("Payment: ").append(paymentSummary(invoice)).append('\n');
         if (invoice.paymentMethod() == PaymentMethod.CASH && invoice.amountTendered() != null) {
             sb.append(amountLine("Tendered", invoice.amountTendered(), invoice.amountTenderedCurrency())).append('\n');
@@ -80,6 +85,20 @@ public class TelegramInvoiceServiceImpl implements TelegramInvoiceService {
         }
         sb.append("\nThank you for your order! ☕");
         return sb.toString();
+    }
+
+    // The riel total the customer was charged (rounded to the nearest 100) and the rate behind it, so riel
+    // tendered and change add up on the invoice. A KHR KHQR shows the amount it actually collected.
+    private String rielTotalLine(OrderInvoice invoice) {
+        if (invoice.exchangeRate() == null || invoice.totalAmount() == null) {
+            return null;
+        }
+        BigDecimal totalKhr = invoice.paymentMethod() == PaymentMethod.BAKONG
+                && invoice.bakongCurrency() == Currency.KHR && invoice.bakongAmount() != null
+                ? invoice.bakongAmount()
+                : KhrConversion.fromUsd(invoice.totalAmount(), invoice.exchangeRate());
+        return "Total (KHR): " + TelegramFormat.wholeAmount(totalKhr, "KHR")
+                + " (1 USD = " + invoice.exchangeRate().stripTrailingZeros().toPlainString() + " KHR)";
     }
 
     private String amountLine(String label, BigDecimal amount, Currency currency) {

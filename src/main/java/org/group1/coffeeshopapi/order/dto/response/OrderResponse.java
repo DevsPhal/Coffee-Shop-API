@@ -53,6 +53,7 @@ public record OrderResponse(
         boolean awaitingDeliveryFee,
         BigDecimal itemsTotal,
         LocalDateTime estimatedReadyAt,
-        LocalDateTime bakongExpiresAt
+        LocalDateTime bakongExpiresAt,
+        BigDecimal exchangeRate
 ) {
 }

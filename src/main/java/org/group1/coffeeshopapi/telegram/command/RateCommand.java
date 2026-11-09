@@ -3,7 +3,6 @@ package org.group1.coffeeshopapi.telegram.command;
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.bakong.BakongExchangeRateService;
 import org.group1.coffeeshopapi.telegram.dto.TelegramMessage;
-import org.group1.coffeeshopapi.telegram.util.TelegramFormat;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -21,8 +20,9 @@ public class RateCommand implements TelegramCommand {
     @Override
     public String execute(TelegramMessage message, String argument) {
         BigDecimal rate = bakongExchangeRateService.getCurrentRate();
-        return "💱 <b>Exchange Rate</b>\n\n1 USD = " + TelegramFormat.wholeAmount(rate, "KHR")
-                + "\n\nUsed to convert your total when you pay by Bakong KHQR in KHR.";
+        return "💱 <b>Exchange Rate</b>\n\n1 USD = " + rate.stripTrailingZeros().toPlainString() + " KHR"
+                + "\n\nUsed to convert your total when you pay in KHR. Riel totals are rounded to the nearest"
+                + " 100 KHR: 00–50 rounds down, 51–99 rounds up (1,250 → 1,200; 1,251 → 1,300).";
     }
 
     @Override

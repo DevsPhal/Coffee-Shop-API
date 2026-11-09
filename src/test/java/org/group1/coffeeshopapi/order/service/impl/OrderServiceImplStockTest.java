@@ -272,7 +272,8 @@ class OrderServiceImplStockTest {
         when(orderRepository.findByCustomerForUpdate(order.getId(), customerId)).thenReturn(Optional.of(order));
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(bakongQrService.generateQr(any(), any(), eq(Currency.KHR), any())).thenReturn(new org.group1.coffeeshopapi.bakong.dto.BakongQrResult(
-                "khr-qr", "khr-md5", Currency.KHR, new BigDecimal("6150"), LocalDateTime.now().plusMinutes(15)));
+                "khr-qr", "khr-md5", Currency.KHR, new BigDecimal("6150"), LocalDateTime.now().plusMinutes(15),
+                new BigDecimal("4100")));
 
         service.generateBakongQrForCustomer(order.getId(), customerId, Currency.KHR);
 
@@ -307,7 +308,7 @@ class OrderServiceImplStockTest {
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(bakongQrService.generateQr(any(), any(), eq(Currency.KHR), eq(deadline))).thenReturn(
                 new org.group1.coffeeshopapi.bakong.dto.BakongQrResult(
-                        "khr-qr", "khr-md5", Currency.KHR, new BigDecimal("6150"), deadline));
+                        "khr-qr", "khr-md5", Currency.KHR, new BigDecimal("6150"), deadline, new BigDecimal("4100")));
 
         service.generateBakongQrForCustomer(order.getId(), customerId, Currency.KHR);
 

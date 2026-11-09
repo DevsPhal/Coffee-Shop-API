@@ -22,6 +22,7 @@ import org.group1.coffeeshopapi.common.properties.BakongProperties;
 import org.group1.coffeeshopapi.common.properties.ShopLocationProperties;
 import org.group1.coffeeshopapi.common.security.SuperAdminUserDetails;
 import org.group1.coffeeshopapi.common.util.GeoUtil;
+import org.group1.coffeeshopapi.common.util.KhrConversion;
 import org.group1.coffeeshopapi.extra.entity.Extra;
 import org.group1.coffeeshopapi.extra.entity.ProductExtra;
 import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
@@ -78,7 +79,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -88,6 +88,7 @@ import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -715,42 +716,49 @@ public class OrderServiceImpl implements OrderService {
         order.setTotalAmount(itemsTotal.add(deliveryFee));
     }
 
+    // Riel is charged as the order total converted and rounded to the nearest 100 (KhrConversion), so a
+    // customer who pays in KHR is checked against, and gets change from, that rounded riel total. The USD total
+    // is never rounded; the rate used is kept on the order for the receipt.
     private Order chargeCash(Order order, CashPaymentRequest request, UUID fulfillingActorId) {
-        BigDecimal tenderedInUsd = request.currency() == Currency.KHR
-                ? khrToUsd(request.amountTendered())
-                : request.amountTendered();
-        if (tenderedInUsd.compareTo(order.getTotalAmount()) < 0) {
-            throw new InvalidOperationException("Amount tendered is less than the order total");
+        BigDecimal total = order.getTotalAmount();
+        Currency tenderedCurrency = request.currency();
+        Currency changeCurrency = request.changeCurrency() != null ? request.changeCurrency() : tenderedCurrency;
+        BigDecimal rate = null;
+        if (tenderedCurrency == Currency.KHR || changeCurrency == Currency.KHR) {
+            rate = bakongExchangeRateService.getCurrentRate();
+            KhrConversion.requireRate(rate);
         }
-        BigDecimal changeDueUsd = tenderedInUsd.subtract(order.getTotalAmount());
-        Currency changeCurrency = request.changeCurrency() != null ? request.changeCurrency() : request.currency();
+
+        BigDecimal changeDue;
+        if (tenderedCurrency == Currency.KHR) {
+            BigDecimal totalKhr = KhrConversion.fromUsd(total, rate);
+            if (request.amountTendered().compareTo(totalKhr) < 0) {
+                throw new InvalidOperationException("Amount tendered is less than the order total ("
+                        + String.format(Locale.ENGLISH, "%,d", totalKhr.longValueExact()) + " KHR)");
+            }
+            BigDecimal changeKhr = request.amountTendered().subtract(totalKhr);
+            changeDue = changeCurrency == Currency.KHR
+                    ? KhrConversion.roundToNearest100(changeKhr)
+                    : KhrConversion.toUsd(changeKhr, rate);
+        } else {
+            if (request.amountTendered().compareTo(total) < 0) {
+                throw new InvalidOperationException("Amount tendered is less than the order total");
+            }
+            BigDecimal changeUsd = request.amountTendered().subtract(total);
+            changeDue = changeCurrency == Currency.KHR ? KhrConversion.fromUsd(changeUsd, rate) : changeUsd;
+        }
 
         order.setHandledBy(fulfillingActorId);
         order.setPaymentMethod(PaymentMethod.CASH);
         order.setAmountTendered(request.amountTendered());
-        order.setAmountTenderedCurrency(request.currency());
-        order.setChangeDue(changeCurrency == Currency.KHR ? usdToKhr(changeDueUsd) : changeDueUsd);
+        order.setAmountTenderedCurrency(tenderedCurrency);
+        order.setChangeDue(changeDue);
         order.setChangeCurrency(changeCurrency);
+        order.setExchangeRate(rate);
         markPaid(order, fulfillingActorId, false);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.CASH_COLLECTED, fulfillingActorId);
         return order;
-    }
-
-    private BigDecimal khrToUsd(BigDecimal khrAmount) {
-        BigDecimal rate = bakongExchangeRateService.getCurrentRate();
-        if (rate == null || rate.signum() <= 0) {
-            throw new InvalidOperationException("USD-to-KHR exchange rate is not configured");
-        }
-        return khrAmount.divide(rate, 2, RoundingMode.HALF_UP);
-    }
-
-    private BigDecimal usdToKhr(BigDecimal usdAmount) {
-        BigDecimal rate = bakongExchangeRateService.getCurrentRate();
-        if (rate == null || rate.signum() <= 0) {
-            throw new InvalidOperationException("USD-to-KHR exchange rate is not configured");
-        }
-        return usdAmount.multiply(rate).setScale(0, RoundingMode.HALF_UP);
     }
 
     private BakongQrResponse attachBakongQr(Order order, Currency currency, UUID actorId) {
@@ -782,6 +790,7 @@ public class OrderServiceImpl implements OrderService {
         order.setBakongMd5Hash(qr.md5Hash());
         order.setBakongCurrency(qr.currency());
         order.setBakongAmount(qr.amount());
+        order.setExchangeRate(qr.exchangeRate());
         order.setBakongExpiresAt(expiresAt);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.BAKONG_QR_GENERATED, actorId);
@@ -957,7 +966,7 @@ public class OrderServiceImpl implements OrderService {
         return new OrderInvoice(order.getId(), items, order.getDeliveryFee(), order.getTotalAmount(),
                 order.getPaymentMethod(), order.getBakongCurrency(), order.getBakongAmount(),
                 order.getAmountTendered(), order.getAmountTenderedCurrency(), order.getChangeDue(),
-                order.getChangeCurrency(), order.getPaidAt());
+                order.getChangeCurrency(), order.getPaidAt(), order.getExchangeRate());
     }
 
     private Order requirePending(Order order) {

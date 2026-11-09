@@ -122,6 +122,11 @@ public class Order extends BaseEntity {
     @Column(precision = 15, scale = 2)
     private BigDecimal bakongAmount;
 
+    // KHR per USD used when a riel amount was worked out for this order (cash in or out in KHR, or a KHR
+    // KHQR), so the receipt can show the riel total exactly as it was charged. Null when no riel was involved.
+    @Column(precision = 15, scale = 4)
+    private BigDecimal exchangeRate;
+
     @Column(length = 128)
     private String bakongTransactionHash;
 
