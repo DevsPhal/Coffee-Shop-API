@@ -1,9 +1,11 @@
 package org.group1.coffeeshopapi.product.service.impl;
 
+import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.WorkbookFactory;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.group1.coffeeshopapi.admin.entity.Admin;
 import org.group1.coffeeshopapi.category.entity.Category;
 import org.group1.coffeeshopapi.category.repository.CategoryRepository;
@@ -11,6 +13,9 @@ import org.group1.coffeeshopapi.common.enums.CategoryGroup;
 import org.group1.coffeeshopapi.common.enums.SellUnit;
 import org.group1.coffeeshopapi.common.enums.SkuMode;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
+import org.group1.coffeeshopapi.common.excel.BrandedSheet;
+import org.group1.coffeeshopapi.common.excel.BrandingAssertions;
+import org.group1.coffeeshopapi.common.excel.ExcelSheetReader;
 import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
 import org.group1.coffeeshopapi.product.dto.response.ProductImportResponse;
 import org.group1.coffeeshopapi.product.entity.Product;
@@ -56,20 +61,39 @@ class ProductImportServiceImplTest {
     private final Category coffee = category("Coffee", CategoryGroup.FRESH_DRINK);
     private final Category pastry = category("Pastry", CategoryGroup.SNACK);
 
+    /** Header row of the last template filled by file(). */
+    private int templateHeaderRow;
+
     @Test
     void templateHasTheDocumentedHeadersAndReferenceSheets() throws Exception {
         when(categoryRepository.findAll(any(Sort.class))).thenReturn(List.of(coffee, pastry));
         when(skuGenerator.categoryPrefix(any())).thenReturn("FD-COF-");
 
-        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(service.generateTemplate()))) {
-            Row header = workbook.getSheetAt(0).getRow(0);
+        try (XSSFWorkbook workbook = BrandingAssertions.open(service.generateTemplate())) {
+            BrandingAssertions.assertEverySheetBranded(workbook);
+            Sheet data = workbook.getSheetAt(0);
+            int headerIndex = ExcelSheetReader.findHeaderRow(data, ProductImportColumn.values());
+            assertThat(headerIndex).isEqualTo(BrandedSheet.firstContentRow(2));
+            Row header = data.getRow(headerIndex);
             List<ProductImportColumn> columns = ProductImportColumn.templateColumns();
             assertThat(workbook.getSheetName(0)).isEqualTo("Products");
             for (int i = 0; i < columns.size(); i++) {
                 assertThat(header.getCell(i).getStringCellValue()).isEqualTo(columns.get(i).headerLabel());
             }
-            assertThat(workbook.getSheet("Categories").getRow(1).getCell(0).getStringCellValue()).isEqualTo("Coffee");
+            Sheet categories = workbook.getSheet("Categories");
+            int firstCategoryRow = BrandingAssertions.rowStartingWith(categories, "Category").getRowNum() + 1;
+            assertThat(categories.getRow(firstCategoryRow).getCell(0).getStringCellValue()).isEqualTo("Coffee");
+            assertThat(categories.getRow(firstCategoryRow + 1).getCell(0).getStringCellValue()).isEqualTo("Pastry");
             assertThat(workbook.getSheet("Instructions")).isNotNull();
+
+            // The Category dropdown covers exactly the two category rows, from the first row under the header.
+            DataValidation categoryList = data.getDataValidations().stream()
+                    .filter(validation -> validation.getRegions().getCellRangeAddress(0).getFirstColumn()
+                            == ProductImportColumn.CATEGORY.templateIndex())
+                    .findFirst().orElseThrow();
+            assertThat(categoryList.getValidationConstraint().getFormula1())
+                    .isEqualTo("'Categories'!$A$" + (firstCategoryRow + 1) + ":$A$" + (firstCategoryRow + 2));
+            assertThat(categoryList.getRegions().getCellRangeAddress(0).getFirstRow()).isEqualTo(headerIndex + 1);
         }
     }
 
@@ -127,7 +151,8 @@ class ProductImportServiceImplTest {
         assertThat(response.totalRows()).isEqualTo(4);
         assertThat(response.created()).isEqualTo(1);
         assertThat(response.errors()).hasSize(3);
-        assertThat(response.errors().get(0).rowNumber()).isEqualTo(2);
+        // The first filled row, numbered as Excel shows it: under the branded banner and the header row.
+        assertThat(response.errors().get(0).rowNumber()).isEqualTo(templateHeaderRow + 2);
         assertThat(response.errors().get(0).message()).contains("Large Price only applies to drink categories");
         assertThat(response.errors().get(1).message())
                 .contains("Name is required", "Category 'Juice' does not exist", "Stock Unit 'CRATE'", "Price must be");
@@ -145,6 +170,41 @@ class ProductImportServiceImplTest {
         assertThat(response.created()).isEqualTo(1);
         assertThat(response.errors()).singleElement()
                 .satisfies(error -> assertThat(error.message()).contains("more than once"));
+    }
+
+    @Test
+    void aFileMadeBeforeTheBrandedTemplateWithItsHeaderOnTheFirstRowStillImports() throws Exception {
+        stubCategoriesAndSaves();
+
+        ProductImportResponse response = service.importFromExcel(headerOnFirstRow(
+                row("Croissant", "Pastry", "SN-OLD-1", "1.80", "", "PIECE", "", "", ""),
+                row("Cookie", "Pastry", "", "abc", "", "PIECE", "", "", "")), admin());
+
+        assertThat(response.created()).isEqualTo(1);
+        assertThat(response.errors()).singleElement().satisfies(error -> {
+            assertThat(error.rowNumber()).isEqualTo(3);
+            assertThat(error.message()).contains("Price must be");
+        });
+    }
+
+    private MockMultipartFile headerOnFirstRow(String[]... rows) throws Exception {
+        try (XSSFWorkbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Products");
+            List<ProductImportColumn> columns = ProductImportColumn.templateColumns();
+            Row header = sheet.createRow(0);
+            for (int i = 0; i < columns.size(); i++) {
+                header.createCell(i).setCellValue(columns.get(i).headerLabel());
+            }
+            for (int r = 0; r < rows.length; r++) {
+                Row row = sheet.createRow(r + 1);
+                for (int c = 0; c < rows[r].length; c++) {
+                    row.createCell(c).setCellValue(rows[r][c]);
+                }
+            }
+            workbook.write(out);
+            return new MockMultipartFile("file", "old-products.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", out.toByteArray());
+        }
     }
 
     private void stubCategoriesAndSaves() {
@@ -169,8 +229,9 @@ class ProductImportServiceImplTest {
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(template));
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.getSheet("Products");
+            templateHeaderRow = ExcelSheetReader.findHeaderRow(sheet, ProductImportColumn.values());
             for (int i = 0; i < rows.length; i++) {
-                Row row = sheet.createRow(i + 1);
+                Row row = sheet.createRow(templateHeaderRow + 1 + i);
                 for (int c = 0; c < rows[i].length; c++) {
                     row.createCell(c).setCellValue(rows[i][c]);
                 }

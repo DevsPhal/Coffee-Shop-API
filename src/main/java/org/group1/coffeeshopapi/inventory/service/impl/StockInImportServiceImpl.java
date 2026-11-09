@@ -56,12 +56,12 @@ public class StockInImportServiceImpl implements StockInImportService {
                         String.CASE_INSENSITIVE_ORDER))
                 .toList();
 
-        try (ExcelTemplateWriter writer = new ExcelTemplateWriter()) {
+        try (ExcelTemplateWriter writer = new ExcelTemplateWriter("Stock-In Import Template")) {
             Sheet sheet = writer.dataSheet(DATA_SHEET, StockInImportColumn.templateColumns());
             writer.textColumn(sheet, SKU.templateIndex());
             if (!inventories.isEmpty()) {
                 writer.rangeValidation(sheet, SKU.templateIndex(),
-                        PRODUCT_SHEET + "!$A$2:$A$" + (inventories.size() + 1),
+                        ExcelTemplateWriter.referenceRange(PRODUCT_SHEET, inventories.size()),
                         "Pick a product SKU from the list (see the Products sheet)");
             }
             writer.decimalValidation(sheet, QUANTITY.templateIndex(), "0", false);
@@ -91,7 +91,7 @@ public class StockInImportServiceImpl implements StockInImportService {
                     productRows);
 
             writer.guideSheet("Stock-in import — how to fill this file", List.of(
-                    "Fill one delivery line per row on the 'Stock In' sheet, starting at row 2. Do not rename, move or delete the header row.",
+                    "Fill one delivery line per row on the 'Stock In' sheet, starting on the row right under the column headers. Do not rename, move or delete the header row.",
                     "Red headers marked * are required, grey headers are optional, blue headers are filled automatically. Hover over a header to see its help note.",
                     "Pick the SKU from the dropdown. The Product column then shows the product name and its stock unit so you can double-check.",
                     "Quantity and Unit Cost are in the product's STOCK unit (PACK, BOX, CARTON or PIECE), not per cup or can.",
@@ -126,7 +126,7 @@ public class StockInImportServiceImpl implements StockInImportService {
             ExcelSheetReader<StockInImportColumn> reader =
                     ExcelSheetReader.open(workbook, DATA_SHEET, StockInImportColumn.class);
 
-            for (int rowIndex = 1; rowIndex <= reader.lastRowIndex(); rowIndex++) {
+            for (int rowIndex = reader.firstDataRowIndex(); rowIndex <= reader.lastRowIndex(); rowIndex++) {
                 Row row = reader.row(rowIndex);
                 if (reader.isBlank(row)) {
                     continue;

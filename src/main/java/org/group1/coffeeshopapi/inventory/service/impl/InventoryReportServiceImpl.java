@@ -1,18 +1,16 @@
 package org.group1.coffeeshopapi.inventory.service.impl;
 
 import lombok.RequiredArgsConstructor;
-import org.apache.poi.ss.usermodel.Cell;
-import org.apache.poi.ss.usermodel.CellStyle;
-import org.apache.poi.ss.usermodel.Font;
-import org.apache.poi.ss.usermodel.Row;
-import org.apache.poi.ss.usermodel.Sheet;
-import org.apache.poi.ss.usermodel.Workbook;
-import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.group1.coffeeshopapi.common.enums.QuantityUnit;
 import org.group1.coffeeshopapi.common.enums.ReportPeriod;
 import org.group1.coffeeshopapi.common.enums.StockMovementReason;
 import org.group1.coffeeshopapi.common.enums.StockMovementType;
 import org.group1.coffeeshopapi.common.enums.WasteReason;
+import org.group1.coffeeshopapi.common.excel.BrandedSheet;
+import org.group1.coffeeshopapi.common.excel.BrandedWorkbook;
+import org.group1.coffeeshopapi.common.excel.ExcelText;
+import org.group1.coffeeshopapi.common.excel.KeyValue;
+import org.group1.coffeeshopapi.common.excel.TableColumn;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.inventory.dto.response.InventoryReportResponse;
 import org.group1.coffeeshopapi.inventory.dto.response.InventoryReportRow;
@@ -27,7 +25,6 @@ import org.group1.coffeeshopapi.product.entity.Product;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -154,96 +151,69 @@ public class InventoryReportServiceImpl implements InventoryReportService {
         return type == StockMovementType.STOCK_IN ? StockMovementReason.PURCHASE : StockMovementReason.ADJUSTMENT;
     }
 
+    private static final List<TableColumn> PRODUCT_COLUMNS = List.of(
+            TableColumn.text("Product"), TableColumn.text("Category"), TableColumn.text("Ingredient"),
+            TableColumn.text("Unit"), TableColumn.quantity("Purchased"), TableColumn.quantity("Sold"),
+            TableColumn.quantity("Returned"), TableColumn.quantity("Wasted"), TableColumn.quantity("Adjusted In"),
+            TableColumn.quantity("Adjusted Out"), TableColumn.money("Purchase Cost"), TableColumn.money("Cost of Sales"),
+            TableColumn.money("Waste Cost"), TableColumn.quantity("On Hand Now"), TableColumn.quantity("Reorder Level"),
+            TableColumn.money("Stock Value Now"));
+
     @Override
     public byte[] exportSummary(ReportPeriod period, LocalDate date) {
         InventoryReportResponse report = summary(period, date);
-        try (Workbook workbook = new XSSFWorkbook()) {
-            CellStyle bold = workbook.createCellStyle();
-            Font font = workbook.createFont();
-            font.setBold(true);
-            bold.setFont(font);
-            CellStyle money = workbook.createCellStyle();
-            money.setDataFormat(workbook.createDataFormat().getFormat("$#,##0.00"));
-
-            Sheet summary = workbook.createSheet("Summary");
-            Object[][] lines = {
-                    {"Period", period.name() + " " + report.from() + " to " + report.to()},
-                    {"Purchases", report.purchaseCost()},
-                    {"Purchase records", report.purchaseCount()},
-                    {"Cost of goods sold", report.salesCost()},
-                    {"Waste", report.wasteCost()},
-                    {"Waste records", report.wasteCount()},
-                    {"Returned to stock", report.returnValue()},
-                    {"Stock count adjustments", report.adjustmentValue()},
-                    {"Stock movements", report.movementCount()},
-                    {"Stock value now", report.stockValue()},
-                    {"Low stock products", report.lowStockCount()},
-                    {"Out of stock products", report.outOfStockCount()}};
-            for (int i = 0; i < lines.length; i++) {
-                Row row = summary.createRow(i);
-                Cell label = row.createCell(0);
-                label.setCellValue((String) lines[i][0]);
-                label.setCellStyle(bold);
-                write(row.createCell(1), lines[i][1], money);
-            }
-            int wasteRow = lines.length + 1;
-            for (Map.Entry<WasteReason, BigDecimal> entry : report.wasteCostByReason().entrySet()) {
-                Row row = summary.createRow(wasteRow++);
-                row.createCell(0).setCellValue("Waste: " + entry.getKey().name());
-                write(row.createCell(1), entry.getValue(), money);
-            }
-            summary.autoSizeColumn(0);
-            summary.autoSizeColumn(1);
-
-            Sheet products = workbook.createSheet("Products");
-            String[] headers = {"Product", "Category", "Ingredient", "Unit", "Purchased", "Sold", "Returned", "Wasted",
-                    "Adjusted In", "Adjusted Out", "Purchase Cost", "Cost of Sales", "Waste Cost", "On Hand Now",
-                    "Reorder Level", "Stock Value Now"};
-            Row header = products.createRow(0);
-            for (int i = 0; i < headers.length; i++) {
-                Cell cell = header.createCell(i);
-                cell.setCellValue(headers[i]);
-                cell.setCellStyle(bold);
-            }
-            int rowIndex = 1;
-            for (InventoryReportRow line : report.products()) {
-                Row row = products.createRow(rowIndex++);
-                Object[] values = {line.productName(), line.categoryName(), line.ingredient() ? "Yes" : "No", line.unit(),
-                        line.purchased(), line.sold(), line.returned(), line.wasted(), line.adjustedIn(),
-                        line.adjustedOut()};
-                for (int i = 0; i < values.length; i++) {
-                    write(row.createCell(i), values[i], null);
+        String periodText = "Period: " + ExcelText.period(period, report.from(), report.to());
+        try (BrandedWorkbook book = new BrandedWorkbook()) {
+            BrandedSheet summary = book.sheet("Summary", "Inventory Report", List.of(periodText,
+                    "Products: " + report.products().size() + " · Low stock: " + report.lowStockCount()
+                            + " · Out of stock: " + report.outOfStockCount()));
+            summary.section("Stock movements and value");
+            summary.keyValues(List.of(
+                    KeyValue.text("Period", period.name() + " " + report.from() + " to " + report.to()),
+                    KeyValue.money("Purchases", report.purchaseCost()),
+                    KeyValue.count("Purchase records", report.purchaseCount()),
+                    KeyValue.money("Cost of goods sold", report.salesCost()),
+                    KeyValue.money("Waste", report.wasteCost()),
+                    KeyValue.count("Waste records", report.wasteCount()),
+                    KeyValue.money("Returned to stock", report.returnValue()),
+                    KeyValue.money("Stock count adjustments", report.adjustmentValue()),
+                    KeyValue.count("Stock movements", report.movementCount()),
+                    KeyValue.money("Stock value now", report.stockValue()),
+                    KeyValue.count("Low stock products", report.lowStockCount()),
+                    KeyValue.count("Out of stock products", report.outOfStockCount())));
+            if (!report.wasteCostByReason().isEmpty()) {
+                summary.blank();
+                summary.section("Waste by reason");
+                List<KeyValue> waste = new ArrayList<>();
+                for (Map.Entry<WasteReason, BigDecimal> entry : report.wasteCostByReason().entrySet()) {
+                    waste.add(KeyValue.money(ExcelText.readable(entry.getKey()), entry.getValue()));
                 }
-                write(row.createCell(10), line.purchaseCost(), money);
-                write(row.createCell(11), line.salesCost(), money);
-                write(row.createCell(12), line.wasteCost(), money);
-                write(row.createCell(13), line.onHand(), null);
-                write(row.createCell(14), line.reorderLevel(), null);
-                write(row.createCell(15), line.stockValue(), money);
-            }
-            for (int i = 0; i < headers.length; i++) {
-                products.autoSizeColumn(i);
+                summary.keyValues(waste);
             }
 
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            workbook.write(out);
-            return out.toByteArray();
+            BrandedSheet products = book.sheet("Products", "Inventory by Product", List.of(periodText,
+                    "Quantities are in each product's own unit; money is in US dollars."));
+            List<Object[]> rows = new ArrayList<>();
+            for (InventoryReportRow line : report.products()) {
+                rows.add(new Object[] {line.productName(), line.categoryName(), line.ingredient() ? "Yes" : "No",
+                        line.unit(), line.purchased(), line.sold(), line.returned(), line.wasted(), line.adjustedIn(),
+                        line.adjustedOut(), line.purchaseCost(), line.salesCost(), line.wasteCost(), line.onHand(),
+                        line.reorderLevel(), line.stockValue()});
+            }
+            // Quantities are in different units per product, so only the money columns are totalled.
+            products.table(PRODUCT_COLUMNS, rows, new Object[] {"Total", null, null, null, null, null, null, null,
+                    null, null, sumMoney(report.products(), InventoryReportRow::purchaseCost),
+                    sumMoney(report.products(), InventoryReportRow::salesCost),
+                    sumMoney(report.products(), InventoryReportRow::wasteCost), null, null,
+                    sumMoney(report.products(), InventoryReportRow::stockValue)});
+            return book.toBytes();
         } catch (IOException e) {
             throw new InvalidOperationException("Unable to generate inventory report: " + e.getMessage());
         }
     }
 
-    private static void write(Cell cell, Object value, CellStyle moneyStyle) {
-        if (value instanceof BigDecimal number) {
-            cell.setCellValue(number.doubleValue());
-            if (moneyStyle != null) {
-                cell.setCellStyle(moneyStyle);
-            }
-        } else if (value instanceof Number number) {
-            cell.setCellValue(number.doubleValue());
-        } else if (value != null) {
-            cell.setCellValue(value.toString());
-        }
+    private static BigDecimal sumMoney(List<InventoryReportRow> rows, Function<InventoryReportRow, BigDecimal> value) {
+        return rows.stream().map(value).map(InventoryReportServiceImpl::orZero).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
     private static BigDecimal sum(Map<UUID, Totals> totals, Function<Totals, BigDecimal> value) {

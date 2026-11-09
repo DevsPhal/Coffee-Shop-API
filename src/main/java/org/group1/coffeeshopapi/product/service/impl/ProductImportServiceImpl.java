@@ -70,13 +70,13 @@ public class ProductImportServiceImpl implements ProductImportService {
         List<Category> categories = categoryRepository.findAll(Sort.by("name"));
         List<ProductImportColumn> columns = ProductImportColumn.templateColumns();
 
-        try (ExcelTemplateWriter writer = new ExcelTemplateWriter()) {
+        try (ExcelTemplateWriter writer = new ExcelTemplateWriter("Product Import Template")) {
             Sheet sheet = writer.dataSheet(DATA_SHEET, columns);
             writer.textColumn(sheet, SKU.templateIndex());
             writer.textColumn(sheet, NAME_KH.templateIndex());
             if (!categories.isEmpty()) {
                 writer.rangeValidation(sheet, CATEGORY.templateIndex(),
-                        CATEGORY_SHEET + "!$A$2:$A$" + (categories.size() + 1),
+                        ExcelTemplateWriter.referenceRange(CATEGORY_SHEET, categories.size()),
                         "Pick a category from the list (see the Categories sheet)");
             }
             writer.listValidation(sheet, STOCK_UNIT.templateIndex(), names(StockUnit.values()));
@@ -106,7 +106,7 @@ public class ProductImportServiceImpl implements ProductImportService {
                     categoryRows);
 
             writer.guideSheet("Product import — how to fill this file", List.of(
-                    "Fill one product per row on the 'Products' sheet, starting at row 2. Do not rename, move or delete the header row.",
+                    "Fill one product per row on the 'Products' sheet, starting on the row right under the column headers. Do not rename, move or delete the header row.",
                     "Red headers marked * are required, grey headers are optional. Hover over a header to see its help note.",
                     "Category must match an existing category exactly — use the dropdown. Create missing categories in the admin panel first, then download this template again.",
                     "SKU: leave it blank to let the system generate one from the category and name (e.g. FD-COF-IL-001), or type your own to use it as-is. Every SKU must be unique.",
@@ -151,7 +151,7 @@ public class ProductImportServiceImpl implements ProductImportService {
             ExcelSheetReader<ProductImportColumn> reader =
                     ExcelSheetReader.open(workbook, DATA_SHEET, ProductImportColumn.class);
 
-            for (int rowIndex = 1; rowIndex <= reader.lastRowIndex(); rowIndex++) {
+            for (int rowIndex = reader.firstDataRowIndex(); rowIndex <= reader.lastRowIndex(); rowIndex++) {
                 Row row = reader.row(rowIndex);
                 if (reader.isBlank(row)) {
                     continue;

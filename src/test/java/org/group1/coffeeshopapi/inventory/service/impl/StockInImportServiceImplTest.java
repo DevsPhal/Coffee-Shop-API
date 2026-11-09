@@ -1,5 +1,6 @@
 package org.group1.coffeeshopapi.inventory.service.impl;
 
+import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Workbook;
@@ -8,6 +9,9 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.group1.coffeeshopapi.category.entity.Category;
 import org.group1.coffeeshopapi.common.enums.SellUnit;
 import org.group1.coffeeshopapi.common.enums.StockUnit;
+import org.group1.coffeeshopapi.common.excel.BrandedSheet;
+import org.group1.coffeeshopapi.common.excel.BrandingAssertions;
+import org.group1.coffeeshopapi.common.excel.ExcelSheetReader;
 import org.group1.coffeeshopapi.common.exception.ResourceNotFoundException;
 import org.group1.coffeeshopapi.inventory.dto.request.StockInRequest;
 import org.group1.coffeeshopapi.inventory.dto.response.StockInImportResponse;
@@ -46,6 +50,9 @@ class StockInImportServiceImplTest {
     @Mock private ProductRepository productRepository;
     @InjectMocks private StockInImportServiceImpl service;
 
+    /** Header row of the last template filled by fromTemplate. */
+    private int templateHeaderRow;
+
     @Test
     void aBadImportRowIsReportedWithoutSinkingTheValidOnes() throws Exception {
         Product good = product("GOOD");
@@ -80,7 +87,8 @@ class StockInImportServiceImplTest {
         assertThat(response.received()).singleElement()
                 .satisfies(result -> assertThat(result.sku()).isEqualTo("FD-COF-IL-001"));
         assertThat(response.errors()).singleElement().satisfies(error -> {
-            assertThat(error.rowNumber()).isEqualTo(3);
+            // The second filled row, numbered as Excel shows it: under the branded banner and the header.
+            assertThat(error.rowNumber()).isEqualTo(templateHeaderRow + 3);
             assertThat(error.message()).contains("SKU is required", "Quantity must be", "Unit Cost is required");
         });
         ArgumentCaptor<StockInRequest> request = ArgumentCaptor.forClass(StockInRequest.class);
@@ -93,13 +101,30 @@ class StockInImportServiceImplTest {
     void templateListsProductsAndHasTheDocumentedHeaders() throws Exception {
         when(inventoryRepository.findAll()).thenReturn(List.of(inventory(product("FD-COF-IL-001"))));
 
-        try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(service.generateTemplate()))) {
-            Row header = workbook.getSheet("Stock In").getRow(0);
+        try (XSSFWorkbook workbook = BrandingAssertions.open(service.generateTemplate())) {
+            BrandingAssertions.assertEverySheetBranded(workbook);
+            Sheet data = workbook.getSheet("Stock In");
+            int headerIndex = ExcelSheetReader.findHeaderRow(data, StockInImportColumn.values());
+            assertThat(headerIndex).isEqualTo(BrandedSheet.firstContentRow(2));
+            Row header = data.getRow(headerIndex);
             for (StockInImportColumn column : StockInImportColumn.values()) {
                 assertThat(header.getCell(column.templateIndex()).getStringCellValue()).isEqualTo(column.headerLabel());
             }
-            assertThat(workbook.getSheet("Products").getRow(1).getCell(0).getStringCellValue())
-                    .isEqualTo("FD-COF-IL-001");
+            Sheet products = workbook.getSheet("Products");
+            int firstProductRow = BrandingAssertions.rowStartingWith(products, "SKU").getRowNum() + 1;
+            assertThat(products.getRow(firstProductRow).getCell(0).getStringCellValue()).isEqualTo("FD-COF-IL-001");
+
+            // The SKU dropdown lists exactly the product rows, and the Product formula looks up its own row.
+            DataValidation skuList = data.getDataValidations().stream()
+                    .filter(validation -> validation.getRegions().getCellRangeAddress(0).getFirstColumn()
+                            == StockInImportColumn.SKU.templateIndex())
+                    .findFirst().orElseThrow();
+            int firstExcelRow = firstProductRow + 1;
+            assertThat(skuList.getValidationConstraint().getFormula1())
+                    .isEqualTo("'Products'!$A$" + firstExcelRow + ":$A$" + firstExcelRow);
+            assertThat(skuList.getRegions().getCellRangeAddress(0).getFirstRow()).isEqualTo(headerIndex + 1);
+            assertThat(data.getRow(headerIndex + 1).getCell(StockInImportColumn.PRODUCT.templateIndex()).getCellFormula())
+                    .startsWith("IF(A" + (headerIndex + 2) + "=");
         }
     }
 
@@ -107,8 +132,9 @@ class StockInImportServiceImplTest {
         try (Workbook workbook = WorkbookFactory.create(new ByteArrayInputStream(service.generateTemplate()));
                 ByteArrayOutputStream out = new ByteArrayOutputStream()) {
             Sheet sheet = workbook.getSheet("Stock In");
+            templateHeaderRow = ExcelSheetReader.findHeaderRow(sheet, StockInImportColumn.values());
             for (int i = 0; i < rows.length; i++) {
-                Row row = sheet.getRow(i + 1);
+                Row row = sheet.getRow(templateHeaderRow + 1 + i);
                 for (int c = 0; c < rows[i].length; c++) {
                     if (c != StockInImportColumn.PRODUCT.templateIndex()) {
                         row.createCell(c).setCellValue(rows[i][c]);
