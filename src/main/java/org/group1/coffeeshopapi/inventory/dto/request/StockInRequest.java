@@ -6,6 +6,7 @@ import org.group1.coffeeshopapi.common.enums.QuantityUnit;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import jakarta.validation.constraints.Size;
 
 public record StockInRequest(
         @NotNull(message = "Product is required")
@@ -22,6 +23,7 @@ public record StockInRequest(
         @DecimalMin(value = "0.0", message = "Unit cost must not be negative")
         BigDecimal unitCost,
 
+        @Size(max = 255, message = "Note must not exceed 255 characters")
         String note
 ) {
 }

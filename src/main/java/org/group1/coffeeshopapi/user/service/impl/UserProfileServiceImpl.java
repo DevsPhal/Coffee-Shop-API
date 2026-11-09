@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.user.service.impl;
 
 import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.auth.service.TokenService;
+import org.group1.coffeeshopapi.common.exception.DatabaseErrors;
 import org.group1.coffeeshopapi.common.exception.DuplicateResourceException;
 import org.group1.coffeeshopapi.common.exception.InvalidCredentialsException;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
@@ -60,7 +61,11 @@ public class UserProfileServiceImpl implements UserProfileService {
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            throw new DuplicateResourceException("That phone number is already used by another account");
+            // Only a duplicate is about the phone; anything else goes to the global handler as it is.
+            if (DatabaseErrors.isUniqueViolation(e)) {
+                throw new DuplicateResourceException("That phone number is already used by another account");
+            }
+            throw e;
         }
         authUserSyncService.sync(user);
         return userMapper.toResponse(user);
@@ -79,7 +84,11 @@ public class UserProfileServiceImpl implements UserProfileService {
         try {
             userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            throw new DuplicateResourceException("That phone number is already used by another account");
+            // Only a duplicate is about the phone; anything else goes to the global handler as it is.
+            if (DatabaseErrors.isUniqueViolation(e)) {
+                throw new DuplicateResourceException("That phone number is already used by another account");
+            }
+            throw e;
         }
         authUserSyncService.sync(user);
         return userMapper.toResponse(user);

@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record UpdateProductRequest(
+        @Pattern(regexp = ValidationPatterns.NOT_BLANK_REGEX, message = "Product name can't be blank")
         @Size(max = 255, message = "Name must not exceed 255 characters")
         String name,
         @Size(max = 255, message = "Khmer name must not exceed 255 characters")

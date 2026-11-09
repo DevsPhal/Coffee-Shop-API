@@ -682,7 +682,8 @@ public class OrderServiceImpl implements OrderService {
             try {
                 label = VariantLabel.valueOf(name.toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new ResourceNotFoundException("Variant not found: '" + name + "' for '" + product.getName() + "'");
+                // Not a size name at all: a bad request, not a missing record.
+                throw new InvalidOperationException("'" + name + "' isn't a size for '" + product.getName() + "'");
             }
             return requireActiveVariant(variantRepository
                     .findByProductIdAndName(product.getId(), label)

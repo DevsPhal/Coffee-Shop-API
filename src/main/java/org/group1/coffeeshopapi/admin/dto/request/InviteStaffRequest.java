@@ -5,9 +5,11 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 import org.group1.coffeeshopapi.common.enums.Gender;
+import jakarta.validation.constraints.Size;
 
 public record InviteStaffRequest(
         @NotBlank(message = "Full name is required")
+        @Size(max = 255, message = "Full name must not exceed 255 characters")
         @Schema(example = "Chanden Sok")
         String fullName,
 

@@ -21,6 +21,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.sql.SQLException;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -68,10 +69,23 @@ class UserProfileServiceImplTest {
     void updatingToAPhoneNumberAlreadyUsedByAnotherAccountIsReportedAsADuplicate() {
         User user = customer();
         when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
-        when(userRepository.saveAndFlush(user)).thenThrow(new DataIntegrityViolationException("unique violation"));
+        when(userRepository.saveAndFlush(user)).thenThrow(new DataIntegrityViolationException("unique violation",
+                new SQLException("duplicate key value violates unique constraint", "23505")));
 
         assertThatThrownBy(() -> service.updateProfile(user.getId(), new UpdateProfileRequest(null, "099 888 777", null)))
                 .isInstanceOf(DuplicateResourceException.class);
+    }
+
+    @Test
+    void aDatabaseErrorThatIsNotADuplicateIsNotBlamedOnThePhoneNumber() {
+        User user = customer();
+        when(userRepository.findById(user.getId())).thenReturn(Optional.of(user));
+        DataIntegrityViolationException tooLong = new DataIntegrityViolationException("value too long",
+                new SQLException("value too long for type character varying(255)", "22001"));
+        when(userRepository.saveAndFlush(user)).thenThrow(tooLong);
+
+        assertThatThrownBy(() -> service.updateProfile(user.getId(), new UpdateProfileRequest(null, "099 888 777", null)))
+                .isSameAs(tooLong);
     }
 
     @Test

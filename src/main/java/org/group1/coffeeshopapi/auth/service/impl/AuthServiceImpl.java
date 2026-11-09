@@ -96,10 +96,12 @@ public class AuthServiceImpl implements AuthService {
         }
 
         Customer customer = new Customer();
-        customer.setFullName(request.fullName());
+        customer.setFullName(request.fullName().trim());
         customer.setEmail(email);
         customer.setPassword(passwordEncoder.encode(request.password()));
-        customer.setPhoneNumber(request.phoneNumber());
+        // An empty phone field means "no phone".
+        customer.setPhoneNumber(request.phoneNumber() == null || request.phoneNumber().isBlank()
+                ? null : request.phoneNumber().trim());
         customer.setGender(request.gender());
         customer.setStatus(UserStatus.PENDING_VERIFICATION);
         customer.setRegisterType(RegisterType.EMAIL);

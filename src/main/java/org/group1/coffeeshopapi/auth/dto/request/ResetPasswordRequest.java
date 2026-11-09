@@ -19,7 +19,7 @@ public record ResetPasswordRequest(
         String otp,
 
         @NotBlank(message = "New password is required")
-        @Size(min = 8, message = "Password must be at least 8 characters")
+        @Size(min = 8, max = ValidationPatterns.PASSWORD_MAX_LENGTH, message = "Password must be 8 to 72 characters")
         @Pattern(regexp = ValidationPatterns.STRONG_PASSWORD_REGEX, message = ValidationPatterns.STRONG_PASSWORD_MESSAGE)
         @Schema(example = "Qwert!12@")
         String newPassword

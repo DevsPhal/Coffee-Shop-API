@@ -7,6 +7,7 @@ import org.group1.coffeeshopapi.common.enums.StockStrategy;
 
 import java.math.BigDecimal;
 import java.util.UUID;
+import jakarta.validation.constraints.Size;
 
 public record StockCutRequest(
         @NotNull(message = "Product is required")
@@ -22,6 +23,7 @@ public record StockCutRequest(
         @NotNull(message = "Strategy is required")
         StockStrategy strategy,
 
+        @Size(max = 255, message = "Note must not exceed 255 characters")
         String note
 ) {
 }

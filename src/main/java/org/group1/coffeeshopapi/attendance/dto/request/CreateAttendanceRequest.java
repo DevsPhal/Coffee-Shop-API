@@ -14,6 +14,6 @@ public record CreateAttendanceRequest(
         LocalDateTime checkInAt,
 
         LocalDateTime checkOutAt,
-        @Size(max = 255) String note
+        @Size(max = 255, message = "Note must not exceed 255 characters") String note
 ) {
 }

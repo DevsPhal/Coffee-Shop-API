@@ -12,6 +12,7 @@ import org.group1.coffeeshopapi.cart.entity.Cart;
 import org.group1.coffeeshopapi.cart.entity.CartItem;
 import org.group1.coffeeshopapi.cart.repository.CartRepository;
 import org.group1.coffeeshopapi.cart.service.CartService;
+import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 import org.group1.coffeeshopapi.common.enums.IceLevel;
 import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.Status;
@@ -44,6 +45,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -87,12 +89,14 @@ public class CartServiceImpl implements CartService {
         }
         Set<Extra> extras = resolveExtras(product, request.extraIds());
 
-        cart.getItems().stream()
+        Optional<CartItem> sameLine = cart.getItems().stream()
                 .filter(item -> sameLineItem(item, product.getId(), variant.getId(),
                         request.sugarLevel(), request.iceLevel(), request.milkType(), extras))
-                .findFirst()
-                .ifPresentOrElse(
-                        existing -> existing.setQuantity(existing.getQuantity() + request.quantity()),
+                .findFirst();
+        int lineQuantity = sameLine.map(CartItem::getQuantity).orElse(0) + request.quantity();
+        requireQuantityAvailable(product, lineQuantity, stock);
+        sameLine.ifPresentOrElse(
+                        existing -> existing.setQuantity(lineQuantity),
                         () -> {
                             CartItem item = new CartItem();
                             item.setProduct(product);
@@ -132,7 +136,25 @@ public class CartServiceImpl implements CartService {
         }
         ProductVariantPolicy.validate(item.getProduct(), requestedVariant, request.sugarLevel(),
                 request.iceLevel(), request.milkType());
+        if (item.getVariant() != null) {
+            VariantStock stock = inventoryService.variantStock(List.of(item.getVariant())).get(item.getVariant().getId());
+            if (stock != null) {
+                requireQuantityAvailable(item.getProduct(), request.quantity(), stock);
+            }
+        }
         return toResponse(cartRepository.save(cart));
+    }
+
+    // Checked when the quantity changes, so a shortage shows up now instead of at checkout (which checks again).
+    private static void requireQuantityAvailable(Product product, int quantity, VariantStock stock) {
+        if (quantity > ValidationPatterns.MAX_ITEM_QUANTITY) {
+            throw new InvalidOperationException("You can add at most " + ValidationPatterns.MAX_ITEM_QUANTITY
+                    + " of one item");
+        }
+        if (quantity > stock.available()) {
+            throw new InvalidOperationException("Only " + stock.available() + " of '" + product.getName()
+                    + "' left");
+        }
     }
 
     @Override

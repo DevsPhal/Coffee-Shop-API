@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import jakarta.validation.constraints.Digits;
+import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 
 public record CreateExpenseRequest(
         @NotBlank(message = "Category is required")
@@ -18,6 +20,7 @@ public record CreateExpenseRequest(
 
         @NotNull(message = "Amount is required")
         @DecimalMin(value = "0.0", inclusive = false, message = "Amount must be greater than zero")
+        @Digits(integer = ValidationPatterns.MONEY_INTEGER_DIGITS, fraction = 2, message = "Amount must be a valid amount with at most 2 decimal places")
         BigDecimal amount,
 
         LocalDate expenseDate
