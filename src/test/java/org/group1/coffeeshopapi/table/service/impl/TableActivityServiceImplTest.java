@@ -62,7 +62,7 @@ class TableActivityServiceImplTest {
         return new OrderResponse(
                 UUID.randomUUID(), null, null, null, null, "Dara",
                 OrderStatus.PREPARING, List.of(), BigDecimal.TEN,
-                FulfillmentMethod.DINE_IN, tableId, "A1", null, null, null, null, null,
+                FulfillmentMethod.DINE_IN, null, tableId, "A1", null, null, null, null, null,
                 null, null, null, null, null,
                 null, null, null, null,
                 null, null, LocalDateTime.now(), LocalDateTime.now(),

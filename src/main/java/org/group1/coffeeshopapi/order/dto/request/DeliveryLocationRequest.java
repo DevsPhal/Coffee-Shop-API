@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import jakarta.validation.constraints.Pattern;
+import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 
 public record DeliveryLocationRequest(
         @NotNull(message = "Latitude is required")
@@ -20,11 +22,13 @@ public record DeliveryLocationRequest(
         BigDecimal longitude,
 
         @NotBlank(message = "A delivery address is required")
-        @Size(max = 500) String address,
+        @Size(max = 500, message = "Address must not exceed 500 characters") String address,
 
-        @Size(max = 120) String contactName,
+        @Size(max = 120, message = "Contact name must not exceed 120 characters") String contactName,
 
         @NotBlank(message = "A contact phone is required for delivery")
-        @Size(max = 30) String contactPhone
+        @Size(max = 30, message = "Contact phone must not exceed 30 characters")
+        @Pattern(regexp = ValidationPatterns.CAMBODIA_PHONE_REGEX, message = ValidationPatterns.CAMBODIA_PHONE_MESSAGE)
+        String contactPhone
 ) {
 }

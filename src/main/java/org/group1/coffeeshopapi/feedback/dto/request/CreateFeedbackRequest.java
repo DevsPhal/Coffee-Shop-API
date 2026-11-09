@@ -5,6 +5,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.group1.coffeeshopapi.common.enums.FeedbackTopic;
+import jakarta.validation.constraints.Pattern;
+import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 
 public record CreateFeedbackRequest(
         @NotBlank(message = "Full name is required")
@@ -17,6 +19,7 @@ public record CreateFeedbackRequest(
         String email,
 
         @Size(max = 30, message = "Phone number must not exceed 30 characters")
+        @Pattern(regexp = ValidationPatterns.CAMBODIA_PHONE_REGEX, message = ValidationPatterns.CAMBODIA_PHONE_MESSAGE)
         String phoneNumber,
 
         @NotNull(message = "Topic is required")

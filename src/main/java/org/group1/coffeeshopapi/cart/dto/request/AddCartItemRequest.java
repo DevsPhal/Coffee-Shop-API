@@ -8,6 +8,8 @@ import org.group1.coffeeshopapi.common.enums.SugarLevel;
 
 import java.util.List;
 import java.util.UUID;
+import jakarta.validation.constraints.Max;
+import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 
 public record AddCartItemRequest(
         @NotNull(message = "Product is required")
@@ -15,6 +17,7 @@ public record AddCartItemRequest(
 
         @NotNull(message = "Quantity is required")
         @Min(value = 1, message = "Quantity must be at least 1")
+        @Max(value = ValidationPatterns.MAX_ITEM_QUANTITY, message = "Quantity must be at most 999")
         Integer quantity,
 
         UUID variantId,

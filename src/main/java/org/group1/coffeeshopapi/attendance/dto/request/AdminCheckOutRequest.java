@@ -13,6 +13,6 @@ public record AdminCheckOutRequest(
         @NotNull(message = "Check-out time is required")
         LocalDateTime checkOutAt,
 
-        @Size(max = 255) String note
+        @Size(max = 255, message = "Note must not exceed 255 characters") String note
 ) {
 }

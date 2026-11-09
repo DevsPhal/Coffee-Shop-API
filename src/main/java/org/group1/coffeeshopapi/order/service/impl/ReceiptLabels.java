@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.order.service.impl;
 
 import org.group1.coffeeshopapi.common.enums.IceLevel;
 import org.group1.coffeeshopapi.common.enums.MilkType;
+import org.group1.coffeeshopapi.common.enums.OrderType;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.ReceiptLanguage;
 import org.group1.coffeeshopapi.common.enums.Role;
@@ -62,6 +63,17 @@ final class ReceiptLabels {
 
     String table() {
         return pick("Table", "តុ");
+    }
+
+    String orderType() {
+        return pick("Order type", "ប្រភេទការកុម្ម៉ង់");
+    }
+
+    String orderType(OrderType type) {
+        return switch (type) {
+            case DINE_IN -> pick("Dine in", "ញ៉ាំនៅហាង");
+            case TAKE_AWAY -> pick("Take away", "ខ្ចប់យកទៅ");
+        };
     }
 
     String customer() {

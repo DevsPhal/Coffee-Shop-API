@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.order.service.impl;
 import org.group1.coffeeshopapi.bakong.BakongApiClient;
 import org.group1.coffeeshopapi.bakong.BakongExchangeRateService;
 import org.group1.coffeeshopapi.bakong.BakongQrService;
+import org.group1.coffeeshopapi.common.enums.OrderType;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
@@ -127,7 +128,7 @@ class OrderServiceImplStockTest {
 
         service.create(new StaffCreateOrderRequest(List.of(
                 new OrderItemRequest(cans.getId(), 12, piece.getId(), null, null, null, null, List.of()),
-                new OrderItemRequest(cans.getId(), 12, piece.getId(), null, null, null, null, List.of())), null),
+                new OrderItemRequest(cans.getId(), 12, piece.getId(), null, null, null, null, List.of())), null, OrderType.TAKE_AWAY, null),
                 UUID.randomUUID());
 
         verify(inventoryService).requireAvailableForSale(List.of(
@@ -146,7 +147,7 @@ class OrderServiceImplStockTest {
 
         service.create(new StaffCreateOrderRequest(List.of(
                 new OrderItemRequest(cans.getId(), 1, carton.getId(), null, null, null, null, List.of()),
-                new OrderItemRequest(cans.getId(), 3, single.getId(), null, null, null, null, List.of())), null),
+                new OrderItemRequest(cans.getId(), 3, single.getId(), null, null, null, null, List.of())), null, OrderType.TAKE_AWAY, null),
                 UUID.randomUUID());
 
         verify(inventoryService).requireAvailableForSale(List.of(

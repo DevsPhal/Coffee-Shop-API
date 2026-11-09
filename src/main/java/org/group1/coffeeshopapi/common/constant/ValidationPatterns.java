@@ -16,4 +16,16 @@ public final class ValidationPatterns {
     public static final String SKU_MESSAGE =
             "SKU may only contain letters, digits and single '-', '_' or '.' separators, e.g. FD-COF-IL-001";
     public static final int SKU_MAX_LENGTH = 64;
+
+    // @Pattern skips null, so on a PATCH this rejects "" or spaces while null still means "leave it unchanged".
+    public static final String NOT_BLANK_REGEX = "(?s).*\\S.*";
+
+    // Money columns are numeric(12,2): at most 10 digits before the decimal point.
+    public static final int MONEY_INTEGER_DIGITS = 10;
+
+    // Upper bound for one cart or order line, so quantities can't overflow when lines are combined.
+    public static final int MAX_ITEM_QUANTITY = 999;
+
+    // BCrypt only reads the first 72 bytes of a password.
+    public static final int PASSWORD_MAX_LENGTH = 72;
 }

@@ -178,6 +178,9 @@ public class ReceiptServiceImpl implements ReceiptService {
             String role = order.handledByRole() != null ? labels.role(order.handledByRole()) + " " : "";
             lines.add(ReceiptLine.field(labels.servedBy(), role + staff));
         }
+        if (order.orderType() != null) {
+            lines.add(ReceiptLine.field(labels.orderType(), labels.orderType(order.orderType())));
+        }
         if (order.tableNumber() != null && !order.tableNumber().isBlank()) {
             lines.add(ReceiptLine.field(labels.table(), order.tableNumber().strip()));
         }
@@ -240,7 +243,8 @@ public class ReceiptServiceImpl implements ReceiptService {
     }
 
     private void addTotals(List<ReceiptLine> lines, OrderResponse order, ReceiptLabels labels) {
-        if (order.deliveryFee() != null) {
+        // Only delivery orders carry a fee; dine-in, pickup and POS receipts go straight to the total.
+        if (order.fulfillmentMethod() == FulfillmentMethod.DELIVERY && order.deliveryFee() != null) {
             lines.add(ReceiptLine.divider());
             lines.add(ReceiptLine.twoColumn(labels.subtotal(), usd(order.itemsTotal()), FONT, BODY_SIZE, 0));
             lines.add(ReceiptLine.twoColumn(labels.deliveryFee(), usd(order.deliveryFee()), FONT, BODY_SIZE, 0));

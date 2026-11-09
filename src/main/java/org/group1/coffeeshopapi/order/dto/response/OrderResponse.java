@@ -3,6 +3,7 @@ package org.group1.coffeeshopapi.order.dto.response;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.common.enums.OrderType;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.Role;
 
@@ -22,6 +23,8 @@ public record OrderResponse(
         List<OrderItemResponse> items,
         BigDecimal totalAmount,
         FulfillmentMethod fulfillmentMethod,
+        // POS orders only: DINE_IN or TAKE_AWAY. Null for online orders.
+        OrderType orderType,
         UUID tableId,
         String tableNumber,
         String deliveryAddress,

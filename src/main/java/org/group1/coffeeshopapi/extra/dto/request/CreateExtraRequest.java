@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
+import jakarta.validation.constraints.Digits;
+import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 
 public record CreateExtraRequest(
         @NotBlank(message = "Name is required")
@@ -14,6 +16,7 @@ public record CreateExtraRequest(
 
         @NotNull(message = "Price is required")
         @DecimalMin(value = "0.0", message = "Price must not be negative")
+        @Digits(integer = ValidationPatterns.MONEY_INTEGER_DIGITS, fraction = 2, message = "Price must be a valid amount with at most 2 decimal places")
         BigDecimal price,
 
         @DecimalMin(value = "0.0", message = "Quantity on hand must not be negative")

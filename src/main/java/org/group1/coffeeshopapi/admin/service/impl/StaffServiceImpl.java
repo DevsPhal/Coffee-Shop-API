@@ -93,10 +93,10 @@ public class StaffServiceImpl implements StaffService {
             case BARISTA -> new Barista();
             default -> throw new IllegalArgumentException("Unsupported staff role: " + role);
         };
-        staff.setFullName(request.fullName());
+        staff.setFullName(request.fullName().trim());
         staff.setEmail(email);
         staff.setPassword(passwordEncoder.encode(request.password()));
-        staff.setPhoneNumber(request.phoneNumber());
+        staff.setPhoneNumber(blankToNull(request.phoneNumber()));
         staff.setGender(request.gender());
         staff.setStatus(status);
         staff.setRegisterType(registerType);
@@ -118,10 +118,10 @@ public class StaffServiceImpl implements StaffService {
             case BARISTA -> new Barista();
             default -> throw new IllegalArgumentException("Unsupported staff role: " + role);
         };
-        staff.setFullName(request.fullName());
+        staff.setFullName(request.fullName().trim());
         staff.setEmail(TelegramAccountUtil.placeholderEmail());
         staff.setPassword(passwordEncoder.encode(UUID.randomUUID().toString()));
-        staff.setPhoneNumber(request.phoneNumber());
+        staff.setPhoneNumber(blankToNull(request.phoneNumber()));
         staff.setGender(request.gender());
         staff.setStatus(UserStatus.PENDING_VERIFICATION);
         staff.setRegisterType(RegisterType.TELEGRAM);
@@ -157,15 +157,19 @@ public class StaffServiceImpl implements StaffService {
         User staff = findByIdAndRole(id, role);
 
         if (request.fullName() != null) {
-            staff.setFullName(request.fullName());
+            staff.setFullName(request.fullName().trim());
         }
         if (request.phoneNumber() != null) {
-            staff.setPhoneNumber(request.phoneNumber());
+            staff.setPhoneNumber(blankToNull(request.phoneNumber()));
         }
         if (request.gender() != null) {
             staff.setGender(request.gender());
         }
         if (request.status() != null) {
+            // Verification and deletion have their own flows (invite link, delete endpoint).
+            if (request.status() == UserStatus.PENDING_VERIFICATION || request.status() == UserStatus.DELETED) {
+                throw new InvalidOperationException("Status can only be set to active, deactivated, suspended or banned");
+            }
             staff.setStatus(request.status());
             if (request.status() != UserStatus.ACTIVE) {
                 tokenService.revokeRefreshToken(staff.getId());
@@ -201,5 +205,10 @@ public class StaffServiceImpl implements StaffService {
                     .orElseThrow(() -> new ResourceNotFoundException(role.name() + " not found"));
             default -> throw new IllegalArgumentException("Unsupported staff role: " + role);
         };
+    }
+
+    // An empty phone field means "no phone", stored as null like the profile endpoint does.
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 }

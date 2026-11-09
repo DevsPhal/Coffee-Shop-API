@@ -9,6 +9,8 @@ import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.IceLevel;
 import org.group1.coffeeshopapi.common.enums.MilkType;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.common.enums.OrderType;
+import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.enums.Status;
 import org.group1.coffeeshopapi.common.enums.SugarLevel;
 import org.group1.coffeeshopapi.common.enums.VariantLabel;
@@ -33,6 +35,8 @@ import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.realtime.ResourceChangePublisher;
+import org.group1.coffeeshopapi.table.entity.DiningTable;
+import org.group1.coffeeshopapi.table.service.DiningTableService;
 import org.group1.coffeeshopapi.telegram.service.TelegramInvoiceService;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
 import org.group1.coffeeshopapi.user.service.ActorLookupService;
@@ -50,8 +54,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -76,10 +83,11 @@ class OrderServiceImplWalkInSaleTest {
     @Mock private BakongProperties bakongProperties;
     @Mock private ApplicationEventPublisher eventPublisher;
     @Mock private ResourceChangePublisher resourceChangePublisher;
+    @Mock private DiningTableService diningTableService;
     @InjectMocks private OrderServiceImpl service;
 
     @Test
-    void ringingUpAWalkInSaleAlwaysProducesAPickupOrderHandledByTheStaffMemberWhoRangItUp() {
+    void aTakeAwaySaleIsAPickupOrderWithNoDeliveryFeeHandledByTheStaffMemberWhoRangItUp() {
         Category category = new Category();
         category.setCategoryGroup(CategoryGroup.SNACK);
 
@@ -102,18 +110,84 @@ class OrderServiceImplWalkInSaleTest {
 
         UUID baristaId = UUID.randomUUID();
         StaffCreateOrderRequest request = new StaffCreateOrderRequest(
-                List.of(new OrderItemRequest(product.getId(), 2, null, null, null, null, null, null)), null);
+                List.of(new OrderItemRequest(product.getId(), 2, null, null, null, null, null, null)),
+                null, OrderType.TAKE_AWAY, null);
 
         service.create(request, baristaId);
 
         ArgumentCaptor<Order> saved = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository).save(saved.capture());
         Order order = saved.getValue();
+        assertThat(order.getOrderType()).isEqualTo(OrderType.TAKE_AWAY);
         assertThat(order.getFulfillmentMethod()).isEqualTo(FulfillmentMethod.PICKUP);
         assertThat(order.isDelivery()).isFalse();
         assertThat(order.getDeliveryAddress()).isNull();
+        assertThat(order.getDeliveryFee()).isNull();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING);
         assertThat(order.getHandledBy()).isEqualTo(baristaId);
+        verifyNoInteractions(diningTableService);
+    }
+
+    @Test
+    void aDineInSaleWithoutATableIsADineInOrderWithNoTable() {
+        Product croissant = sellableCroissant();
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.create(new StaffCreateOrderRequest(List.of(line(croissant)), null, OrderType.DINE_IN, " "),
+                UUID.randomUUID());
+
+        ArgumentCaptor<Order> saved = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(saved.capture());
+        assertThat(saved.getValue().getOrderType()).isEqualTo(OrderType.DINE_IN);
+        assertThat(saved.getValue().getFulfillmentMethod()).isEqualTo(FulfillmentMethod.DINE_IN);
+        assertThat(saved.getValue().getTableNumber()).isNull();
+        assertThat(saved.getValue().getDeliveryFee()).isNull();
+        verifyNoInteractions(diningTableService);
+    }
+
+    @Test
+    void aDineInSaleAtATableSeatsTheTable() {
+        Product croissant = sellableCroissant();
+        DiningTable table = new DiningTable();
+        table.setTableNumber("A3");
+        when(diningTableService.seatForOrder("A3")).thenReturn(table);
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        service.create(new StaffCreateOrderRequest(List.of(line(croissant)), null, OrderType.DINE_IN, "A3"),
+                UUID.randomUUID());
+
+        ArgumentCaptor<Order> saved = ArgumentCaptor.forClass(Order.class);
+        verify(orderRepository).save(saved.capture());
+        assertThat(saved.getValue().getFulfillmentMethod()).isEqualTo(FulfillmentMethod.DINE_IN);
+        assertThat(saved.getValue().getTableNumber()).isEqualTo("A3");
+    }
+
+    @Test
+    void aTakeAwaySaleCannotHaveATable() {
+        StaffCreateOrderRequest request = new StaffCreateOrderRequest(
+                List.of(new OrderItemRequest(UUID.randomUUID(), 1, null, null, null, null, null, null)),
+                null, OrderType.TAKE_AWAY, "A3");
+
+        assertThatThrownBy(() -> service.create(request, UUID.randomUUID()))
+                .isInstanceOf(InvalidOperationException.class)
+                .hasMessageContaining("take-away");
+        verify(orderRepository, never()).save(any(Order.class));
+        verifyNoInteractions(diningTableService);
+    }
+
+    private Product sellableCroissant() {
+        Category bakery = new Category();
+        bakery.setCategoryGroup(CategoryGroup.SNACK);
+        Product croissant = product("Croissant", bakery);
+        ProductVariant piece = variant(croissant, VariantLabel.PIECE, "2.75");
+        when(productRepository.findById(croissant.getId())).thenReturn(Optional.of(croissant));
+        when(variantRepository.findByProductIdAndStatusOrderBySortOrderAscNameAsc(croissant.getId(), Status.ACTIVE))
+                .thenReturn(List.of(piece));
+        return croissant;
+    }
+
+    private static OrderItemRequest line(Product product) {
+        return new OrderItemRequest(product.getId(), 1, null, null, null, null, null, null);
     }
 
     @Test
@@ -148,7 +222,8 @@ class OrderServiceImplWalkInSaleTest {
         StaffCreateOrderRequest request = new StaffCreateOrderRequest(List.of(
                 new OrderItemRequest(latte.getId(), 2, large.getId(), null,
                         SugarLevel.LESS, IceLevel.NO_ICE, MilkType.EXTRA, List.of(shot.getId())),
-                new OrderItemRequest(croissant.getId(), 1, piece.getId(), null, null, null, null, null)), null);
+                new OrderItemRequest(croissant.getId(), 1, piece.getId(), null, null, null, null, null)),
+                null, OrderType.DINE_IN, null);
 
         service.create(request, UUID.randomUUID());
 

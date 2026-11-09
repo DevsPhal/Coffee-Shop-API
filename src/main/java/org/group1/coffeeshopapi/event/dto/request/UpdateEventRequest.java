@@ -7,8 +7,11 @@ import org.group1.coffeeshopapi.common.enums.Status;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import jakarta.validation.constraints.Pattern;
+import org.group1.coffeeshopapi.common.constant.ValidationPatterns;
 
 public record UpdateEventRequest(
+        @Pattern(regexp = ValidationPatterns.NOT_BLANK_REGEX, message = "Title can't be blank")
         @Size(max = 255, message = "Title must not exceed 255 characters")
         String title,
         @Size(max = 255, message = "Description must not exceed 255 characters")
