@@ -335,6 +335,74 @@ class ReceiptServiceImplTest {
         }
     }
 
+    @Test
+    void theReceiptOpensWithTheLogoAndClosesWithTheThanksInTheScriptFace() throws IOException {
+        PaidOrder order = new PaidOrder();
+        when(orderService.getAny(order.id)).thenReturn(order.build());
+        byte[] pdf = service.generateInvoicePdf(order.id, ReceiptLanguage.EN);
+
+        assertThat(text(pdf)).contains("INVOICE", "Thank you, come again!").doesNotContain("590st Cafe");
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            List<String> fonts = new ArrayList<>();
+            for (var name : document.getPage(0).getResources().getFontNames()) {
+                fonts.add(document.getPage(0).getResources().getFont(name).getName());
+            }
+            assertThat(fonts).anyMatch(font -> font.contains("Satisfy"));
+            assertThat(document.getPage(0).getResources().getXObjectNames()).hasSize(1);
+        }
+        // The wordmark fills the top-centre of the paper with ink.
+        BufferedImage page = image(pdf);
+        int ink = 0;
+        for (int y = 28; y < 140; y++) {
+            for (int x = page.getWidth() / 2 - 60; x < page.getWidth() / 2 + 60; x++) {
+                if (page.getRaster().getSample(x, y, 0) < 128) {
+                    ink++;
+                }
+            }
+        }
+        assertThat(ink).isGreaterThan(2000);
+    }
+
+    @Test
+    void anAccountNamedAfterItsRolePrintsTheRoleOnce() throws IOException {
+        PaidOrder owner = new PaidOrder();
+        owner.staffName = "Super Admin";
+        owner.staffRole = Role.SUPER_ADMIN;
+        PaidOrder barista = new PaidOrder();
+
+        assertThat(row(invoice(owner, ReceiptLanguage.EN), "Served by")).endsWith("Super Admin")
+                .doesNotContain("Super Admin Super Admin");
+        assertThat(row(invoice(barista, ReceiptLanguage.EN), "Served by")).endsWith("Barista Sokha");
+    }
+
+    @Test
+    void productCodesKeepTheirLettersAndAPieceIsNotSpelledOut() throws IOException {
+        PaidOrder order = new PaidOrder();
+        order.items = List.of(
+                new OrderItemResponse(UUID.randomUUID(), UUID.randomUUID(), "CROISSANT mwa4x9k7", null,
+                        1, new BigDecimal("2.75"), new BigDecimal("2.75"),
+                        VariantLabel.PIECE, null, null, null, List.of(), null, null),
+                new OrderItemResponse(UUID.randomUUID(), UUID.randomUUID(), "coke 330ML", null,
+                        1, new BigDecimal("16.00"), new BigDecimal("16.00"),
+                        VariantLabel.CARTON, null, null, null, List.of(), null, null));
+
+        String text = invoice(order, ReceiptLanguage.EN);
+
+        assertThat(text).contains("Croissant mwa4x9k7", "Coke 330ML", "Carton").doesNotContain("Piece");
+    }
+
+    @Test
+    void theUnitPriceSharesTheFirstOptionsRowWhenThereIsNoSecondName() throws IOException {
+        PaidOrder order = new PaidOrder();
+        order.items = List.of(new OrderItemResponse(UUID.randomUUID(), UUID.randomUUID(), "Iced Latte", null,
+                2, new BigDecimal("2.70"), new BigDecimal("5.40"),
+                VariantLabel.LARGE, SugarLevel.LESS, null, null, List.of(), null, null));
+
+        String text = invoice(order, ReceiptLanguage.EN);
+
+        assertThat(row(text, "Large · Less Sugar")).endsWith("2 × $2.70");
+    }
+
     private static String text(byte[] pdf) throws IOException {
         try (PDDocument document = Loader.loadPDF(pdf)) {
             return new PDFTextStripper().getText(document);
@@ -377,6 +445,7 @@ class ReceiptServiceImplTest {
         UUID customerId = UUID.randomUUID();
         String customerName = "Dara";
         String staffName = "Sokha";
+        Role staffRole = Role.BARISTA;
         String contactPhone;
         String deliveryAddress;
         String tableNumber;
@@ -399,7 +468,7 @@ class ReceiptServiceImplTest {
             BigDecimal total = deliveryFee != null ? itemsTotal.add(deliveryFee) : itemsTotal;
             LocalDateTime paidAt = LocalDateTime.of(2026, 11, 7, 15, 45);
             return new OrderResponse(
-                    id, null, staffName, Role.BARISTA, customerId, customerName,
+                    id, null, staffName, staffRole, customerId, customerName,
                     OrderStatus.COMPLETED, items, total,
                     fulfillment, orderType, null, tableNumber, deliveryAddress, null, contactPhone, null, null,
                     paymentMethod, tendered, tenderedCurrency, change, changeCurrency,

@@ -152,6 +152,11 @@ final class ReceiptLabels {
         });
     }
 
+    // True when a display name is just the role's English name, as the super admin's "Super Admin" is.
+    boolean isRoleName(String name, Role role) {
+        return name.strip().equalsIgnoreCase(readable(role.name()));
+    }
+
     String variant(VariantLabel variant) {
         return pick(readable(variant.name()), switch (variant) {
             case MEDIUM -> "មធ្យម";

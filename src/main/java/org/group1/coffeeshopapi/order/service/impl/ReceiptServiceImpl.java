@@ -6,15 +6,19 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 import org.apache.pdfbox.pdmodel.font.encoding.GlyphList;
 import org.apache.pdfbox.pdmodel.font.encoding.WinAnsiEncoding;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
 import org.group1.coffeeshopapi.common.enums.ReceiptLanguage;
+import org.group1.coffeeshopapi.common.enums.Role;
+import org.group1.coffeeshopapi.common.enums.VariantLabel;
 import org.group1.coffeeshopapi.common.exception.InvalidOperationException;
 import org.group1.coffeeshopapi.common.properties.BakongProperties;
 import org.group1.coffeeshopapi.common.util.KhrConversion;
@@ -23,6 +27,8 @@ import org.group1.coffeeshopapi.order.dto.response.OrderItemResponse;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.order.service.ReceiptService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.awt.FontFormatException;
@@ -30,7 +36,11 @@ import java.awt.Shape;
 import java.awt.font.FontRenderContext;
 import java.awt.font.TextLayout;
 import java.awt.geom.AffineTransform;
+import java.awt.geom.CubicCurve2D;
+import java.awt.geom.Ellipse2D;
 import java.awt.geom.PathIterator;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,6 +56,8 @@ import java.util.Locale;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import javax.imageio.ImageIO;
+
 @Service
 @RequiredArgsConstructor
 public class ReceiptServiceImpl implements ReceiptService {
@@ -57,6 +69,7 @@ public class ReceiptServiceImpl implements ReceiptService {
 
     // Black only: thermal printers dither grey into speckles, so hierarchy comes from size and weight.
     private static final float STORE_SIZE = 15f;
+    private static final float TITLE_SIZE = 11f;
     private static final float TOTAL_SIZE = 13f;
     private static final float BODY_SIZE = 9f;
     private static final float SMALL_SIZE = 8f;
@@ -77,6 +90,23 @@ public class ReceiptServiceImpl implements ReceiptService {
     private static final PDType1Font FONT_ITALIC = new PDType1Font(Standard14Fonts.FontName.HELVETICA_OBLIQUE);
 
     private static final String KHMER_FONT_RESOURCE = "/font/NotoSansKhmer-VariableFont_wdth,wght.ttf";
+
+    private static final Logger log = LoggerFactory.getLogger(ReceiptServiceImpl.class);
+
+    // The shop's wordmark at the top, between two rules (the same artwork as the Excel exports).
+    private static final String LOGO_RESOURCE = "/branding/590st-cafe-logo.png";
+    private static final byte[] LOGO_PNG = loadResource(LOGO_RESOURCE);
+    private static final float LOGO_WIDTH = 84f;
+    private static final float LOGO_HEIGHT = logoHeight(LOGO_PNG, LOGO_WIDTH);
+    private static final float FLANK_GAP = 8f;
+    // "Thank you, come again!" in a script face (Satisfy, Apache License 2.0, see font/Satisfy-LICENSE.txt). Its
+    // strokes are even, so it prints cleanly on a thermal head; Khmer keeps the Khmer face.
+    private static final String SCRIPT_FONT_RESOURCE = "/font/Satisfy-Regular.ttf";
+    private static final byte[] SCRIPT_FONT_TTF = loadResource(SCRIPT_FONT_RESOURCE);
+    private static final float THANKS_SIZE = 15f;
+    private static final float KHMER_THANKS_SIZE = 10f;
+    private static final float ORNAMENT_HEIGHT = 16f;
+    private static final float ORNAMENT_RULE = 34f;
     private static final java.awt.Font KHMER_FONT = loadKhmerFont();
     // Draws what neither Helvetica nor the Khmer face covers (Cyrillic, Chinese, ...) with whatever the server has installed.
     private static final java.awt.Font FALLBACK_FONT = new java.awt.Font(java.awt.Font.SANS_SERIF, java.awt.Font.PLAIN, 1);
@@ -113,7 +143,8 @@ public class ReceiptServiceImpl implements ReceiptService {
 
     private byte[] render(OrderResponse order, ReceiptLabels labels, boolean invoice) {
         try (PDDocument document = new PDDocument()) {
-            List<ReceiptLine> rows = fitToPaper(buildLines(order, labels, invoice));
+            Assets assets = assets(document);
+            List<ReceiptLine> rows = fitToPaper(buildLines(order, labels, invoice, assets));
             List<Float> heights = new ArrayList<>(rows.size());
             float height = MARGIN * 2;
             for (ReceiptLine row : rows) {
@@ -130,7 +161,7 @@ public class ReceiptServiceImpl implements ReceiptService {
                 float top = height - MARGIN;
                 for (int i = 0; i < rows.size(); i++) {
                     float rowHeight = heights.get(i);
-                    drawLine(cs, rows.get(i), top - rowHeight / 2f);
+                    drawLine(cs, rows.get(i), top - rowHeight / 2f, assets);
                     top -= rowHeight;
                 }
             }
@@ -143,16 +174,19 @@ public class ReceiptServiceImpl implements ReceiptService {
         }
     }
 
-    private List<ReceiptLine> buildLines(OrderResponse order, ReceiptLabels labels, boolean invoice) throws IOException {
+    private List<ReceiptLine> buildLines(OrderResponse order, ReceiptLabels labels, boolean invoice, Assets assets)
+            throws IOException {
         List<ReceiptLine> lines = new ArrayList<>();
 
-        lines.add(ReceiptLine.center(titleCase(orDefault(bakongProperties.getStoreLabel(), "590st Cafe")), FONT_BOLD, STORE_SIZE));
-        String city = bakongProperties.getMerchantCity();
-        if (city != null && !city.isBlank()) {
-            lines.add(ReceiptLine.center(titleCase(city), FONT, SMALL_SIZE));
+        // The wordmark between two rules; the shop name in text only if the artwork can't be loaded.
+        if (assets.logo() != null) {
+            lines.add(ReceiptLine.logo());
+            lines.add(ReceiptLine.space(6));
+        } else {
+            lines.add(ReceiptLine.center(titleCase(orDefault(bakongProperties.getStoreLabel(), "590st Cafe")), FONT_BOLD, STORE_SIZE));
+            lines.add(ReceiptLine.space(4));
         }
-        lines.add(ReceiptLine.space(4));
-        lines.add(ReceiptLine.center(labels.title(invoice), FONT_BOLD, BODY_SIZE));
+        lines.add(ReceiptLine.center(labels.title(invoice), FONT_BOLD, TITLE_SIZE));
         lines.add(ReceiptLine.divider());
 
         addOrderDetails(lines, order, labels);
@@ -166,7 +200,9 @@ public class ReceiptServiceImpl implements ReceiptService {
             lines.add(ReceiptLine.left(note, FONT, BODY_SIZE, 0));
         }
         lines.add(ReceiptLine.divider());
-        lines.add(ReceiptLine.center(labels.thanks(), labels.khmer() ? FONT : FONT_ITALIC, BODY_SIZE));
+        lines.add(ReceiptLine.space(4));
+        lines.add(ReceiptLine.thanks(labels.thanks(), labels.khmer() ? KHMER_THANKS_SIZE : THANKS_SIZE));
+        lines.add(ReceiptLine.ornament());
         return lines;
     }
 
@@ -178,8 +214,7 @@ public class ReceiptServiceImpl implements ReceiptService {
         }
         String staff = titleCase(cleanName(order.handledByName()));
         if (!staff.isEmpty()) {
-            String role = order.handledByRole() != null ? labels.role(order.handledByRole()) + " " : "";
-            lines.add(ReceiptLine.field(labels.servedBy(), role + staff));
+            lines.add(ReceiptLine.field(labels.servedBy(), servedBy(staff, order.handledByRole(), labels)));
         }
         if (order.orderType() != null) {
             lines.add(ReceiptLine.field(labels.orderType(), labels.orderType(order.orderType())));
@@ -231,10 +266,21 @@ public class ReceiptServiceImpl implements ReceiptService {
             String unitPrice = item.quantity() > 1 ? item.quantity() + " × " + usd(item.unitPrice()) : null;
 
             lines.add(ReceiptLine.item(quantity(item), name, usd(item.subtotal()), quantityColumn));
-            if (!otherName.isEmpty() || unitPrice != null) {
-                lines.add(ReceiptLine.twoColumn(otherName, unitPrice, FONT, SMALL_SIZE, quantityColumn));
+            List<String> optionRows;
+            if (otherName.isEmpty() && unitPrice != null && !options(item, labels).isEmpty()) {
+                // No second name to share a row with: "2 × $2.70" sits at the end of the first options row
+                // instead of alone on a row of its own.
+                float beside = detailWidth - width(unitPrice, FONT, SMALL_SIZE) - COLUMN_GAP;
+                optionRows = pack(options(item, labels), " · ", SMALL_SIZE, beside);
+                lines.add(ReceiptLine.twoColumn(optionRows.get(0), unitPrice, FONT, SMALL_SIZE, quantityColumn));
+                optionRows = optionRows.subList(1, optionRows.size());
+            } else {
+                if (!otherName.isEmpty() || unitPrice != null) {
+                    lines.add(ReceiptLine.twoColumn(otherName, unitPrice, FONT, SMALL_SIZE, quantityColumn));
+                }
+                optionRows = pack(options(item, labels), " · ", SMALL_SIZE, detailWidth);
             }
-            for (String row : pack(options(item, labels), " · ", SMALL_SIZE, detailWidth)) {
+            for (String row : optionRows) {
                 lines.add(ReceiptLine.left(row, FONT, SMALL_SIZE, quantityColumn));
             }
             // Every row of extras starts with "+", so a wrapped one still reads as an extra, not an option.
@@ -294,7 +340,8 @@ public class ReceiptServiceImpl implements ReceiptService {
 
     private List<String> options(OrderItemResponse item, ReceiptLabels labels) {
         List<String> options = new ArrayList<>();
-        if (item.variantName() != null) {
+        // "Piece" adds nothing under "1x Croissant"; sizes, packs, boxes and cartons do.
+        if (item.variantName() != null && item.variantName() != VariantLabel.PIECE) {
             options.add(labels.variant(item.variantName()));
         }
         if (item.sugarLevel() != null) {
@@ -326,7 +373,7 @@ public class ReceiptServiceImpl implements ReceiptService {
         List<ReceiptLine> rows = new ArrayList<>();
         for (ReceiptLine line : lines) {
             switch (line.type()) {
-                case DIVIDER, RULE, SPACE -> rows.add(line);
+                case DIVIDER, RULE, SPACE, LOGO, THANKS, ORNAMENT -> rows.add(line);
                 case CENTER, LEFT -> {
                     float available = CONTENT_WIDTH - line.indent();
                     for (String row : breakLines(printable(line.left()), line.font(), line.size(), available)) {
@@ -365,15 +412,25 @@ public class ReceiptServiceImpl implements ReceiptService {
         return switch (row.type()) {
             case SPACE -> row.size();
             case DIVIDER, RULE -> DIVIDER_HEIGHT;
+            case LOGO -> LOGO_HEIGHT;
+            case THANKS -> row.size() * (needsOutlines(row.left()) ? OUTLINE_LINE_SPACING : 1.6f);
+            case ORNAMENT -> ORNAMENT_HEIGHT;
             default -> row.size() * (needsOutlines(row.prefix()) || needsOutlines(row.left()) || needsOutlines(row.right())
                     ? OUTLINE_LINE_SPACING : LINE_SPACING);
         };
     }
 
-    private void drawLine(PDPageContentStream cs, ReceiptLine line, float middle) throws IOException {
+    private void drawLine(PDPageContentStream cs, ReceiptLine line, float middle, Assets assets) throws IOException {
         switch (line.type()) {
             case SPACE -> {
             }
+            case LOGO -> {
+                float x = (PAGE_WIDTH - LOGO_WIDTH) / 2f;
+                cs.drawImage(assets.logo(), x, middle - LOGO_HEIGHT / 2f, LOGO_WIDTH, LOGO_HEIGHT);
+                flankingRules(cs, x, x + LOGO_WIDTH, middle);
+            }
+            case THANKS -> drawThanks(cs, line, middle, assets.script());
+            case ORNAMENT -> drawOrnament(cs, middle);
             case DIVIDER -> {
                 cs.saveGraphicsState();
                 cs.setLineWidth(0.5f);
@@ -409,6 +466,66 @@ public class ReceiptServiceImpl implements ReceiptService {
                 }
             }
         }
+    }
+
+    // A closing line between two rules: in the script face, or in the Khmer face for a Khmer receipt.
+    private void drawThanks(PDPageContentStream cs, ReceiptLine line, float middle, PDFont script) throws IOException {
+        String value = printable(line.left());
+        float size = line.size();
+        boolean useScript = script != null && !needsOutlines(value);
+        float width = useScript ? script.getStringWidth(value) / 1000f * size : width(value, FONT, size);
+        float x = (PAGE_WIDTH - width) / 2f;
+        if (useScript) {
+            text(cs, script, size, x, middle - size * 0.3f, value);
+        } else {
+            drawText(cs, value, script == null ? FONT_ITALIC : FONT, size, x, middle - size * 0.34f);
+        }
+        flankingRules(cs, x, x + width, middle);
+    }
+
+    // Two coffee beans between two short rules, closing the receipt.
+    private void drawOrnament(PDPageContentStream cs, float middle) throws IOException {
+        float centre = PAGE_WIDTH / 2f;
+        float beanGap = 4.4f;
+        rule(cs, centre - beanGap - 9f - ORNAMENT_RULE, centre - beanGap - 9f, middle, 0.9f);
+        rule(cs, centre + beanGap + 9f, centre + beanGap + 9f + ORNAMENT_RULE, middle, 0.9f);
+        drawBean(cs, centre - beanGap, middle, 28);
+        drawBean(cs, centre + beanGap, middle, -28);
+    }
+
+    // A bean: a filled oval, tilted, with the crease down its middle left white.
+    private void drawBean(PDPageContentStream cs, float x, float y, double degrees) throws IOException {
+        AffineTransform place = new AffineTransform();
+        place.translate(x, y);
+        place.rotate(Math.toRadians(degrees));
+        cs.saveGraphicsState();
+        appendPath(cs, place.createTransformedShape(new Ellipse2D.Float(-3f, -4.4f, 6f, 8.8f)));
+        cs.fill();
+        appendPath(cs, place.createTransformedShape(new CubicCurve2D.Float(0f, -3.7f, 1.6f, -1.3f, -1.6f, 1.3f, 0f, 3.7f)));
+        cs.setStrokingColor(1f);
+        cs.setLineWidth(0.75f);
+        cs.setLineCapStyle(1);
+        cs.stroke();
+        cs.restoreGraphicsState();
+    }
+
+    // Rules from each margin to just short of something centred between left and right, when there is room.
+    private void flankingRules(PDPageContentStream cs, float left, float right, float y) throws IOException {
+        if (left - FLANK_GAP - MARGIN >= 12f) {
+            rule(cs, MARGIN, left - FLANK_GAP, y, 0.9f);
+        }
+        if (PAGE_WIDTH - MARGIN - right - FLANK_GAP >= 12f) {
+            rule(cs, right + FLANK_GAP, PAGE_WIDTH - MARGIN, y, 0.9f);
+        }
+    }
+
+    private void rule(PDPageContentStream cs, float from, float to, float y, float width) throws IOException {
+        cs.saveGraphicsState();
+        cs.setLineWidth(width);
+        cs.moveTo(from, y);
+        cs.lineTo(to, y);
+        cs.stroke();
+        cs.restoreGraphicsState();
     }
 
     private void drawText(PDPageContentStream cs, String value, PDType1Font font, float size, float x, float y) throws IOException {
@@ -448,7 +565,18 @@ public class ReceiptServiceImpl implements ReceiptService {
             cs.setLineWidth(strokeWidth);
             cs.setLineJoinStyle(1);
         }
-        PathIterator path = outline.getPathIterator(null);
+        appendPath(cs, outline);
+        if (strokeWidth > 0) {
+            cs.fillAndStroke();
+        } else {
+            cs.fill();
+        }
+        cs.restoreGraphicsState();
+    }
+
+    // Writes an AWT shape into the content stream as a PDF path (filled or stroked by the caller).
+    private void appendPath(PDPageContentStream cs, Shape shape) throws IOException {
+        PathIterator path = shape.getPathIterator(null);
         float[] coords = new float[6];
         float currentX = 0;
         float currentY = 0;
@@ -482,12 +610,6 @@ public class ReceiptServiceImpl implements ReceiptService {
             }
             path.next();
         }
-        if (strokeWidth > 0) {
-            cs.fillAndStroke();
-        } else {
-            cs.fill();
-        }
-        cs.restoreGraphicsState();
     }
 
     private TextLayout outlineLayout(TextRun run, float size) {
@@ -689,6 +811,49 @@ public class ReceiptServiceImpl implements ReceiptService {
         return FALLBACK_FONT.canDisplay(codePoint) ? Face.FALLBACK : null;
     }
 
+    // The logo and script face, loaded into each document (a PDF font or image belongs to one document).
+    // A receipt still prints without them: the shop name in text, the closing line in italics.
+    private Assets assets(PDDocument document) {
+        PDImageXObject logo = null;
+        PDFont script = null;
+        try {
+            if (LOGO_PNG != null) {
+                logo = PDImageXObject.createFromByteArray(document, LOGO_PNG, "590st-cafe-logo");
+            }
+            if (SCRIPT_FONT_TTF != null) {
+                script = PDType0Font.load(document, new ByteArrayInputStream(SCRIPT_FONT_TTF), true);
+            }
+        } catch (IOException e) {
+            log.warn("Receipt artwork could not be loaded; printing without it", e);
+        }
+        return new Assets(logo, script);
+    }
+
+    // "Barista Sokha"; an account named after its role (the super admin's "Super Admin") prints the role once.
+    private String servedBy(String staff, Role role, ReceiptLabels labels) {
+        if (role == null) {
+            return staff;
+        }
+        return labels.isRoleName(staff, role) ? labels.role(role) : labels.role(role) + " " + staff;
+    }
+
+    private static byte[] loadResource(String resource) {
+        try (InputStream in = ReceiptServiceImpl.class.getResourceAsStream(resource)) {
+            return in == null ? null : in.readAllBytes();
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
+    private static float logoHeight(byte[] png, float width) {
+        try {
+            BufferedImage image = png == null ? null : ImageIO.read(new ByteArrayInputStream(png));
+            return image == null ? 0f : width * image.getHeight() / image.getWidth();
+        } catch (IOException e) {
+            return 0f;
+        }
+    }
+
     private static java.awt.Font loadKhmerFont() {
         try (InputStream in = ReceiptServiceImpl.class.getResourceAsStream(KHMER_FONT_RESOURCE)) {
             return java.awt.Font.createFont(java.awt.Font.TRUETYPE_FONT, in);
@@ -701,13 +866,18 @@ public class ReceiptServiceImpl implements ReceiptService {
         if (text == null || text.isBlank()) {
             return "";
         }
-        String[] words = text.trim().toLowerCase(Locale.ROOT).split("\\s+");
         StringBuilder sb = new StringBuilder();
-        for (String word : words) {
+        for (String word : text.trim().split("\\s+")) {
             if (!sb.isEmpty()) {
                 sb.append(' ');
             }
-            sb.append(Character.toUpperCase(word.charAt(0))).append(word.substring(1));
+            // A word with a digit is a code or a size ("MWA4X9K7", "500ml"): it prints exactly as written.
+            if (word.chars().anyMatch(Character::isDigit)) {
+                sb.append(word);
+                continue;
+            }
+            String lower = word.toLowerCase(Locale.ROOT);
+            sb.append(Character.toUpperCase(lower.charAt(0))).append(lower.substring(1));
         }
         return sb.toString();
     }
@@ -737,8 +907,12 @@ public class ReceiptServiceImpl implements ReceiptService {
     private record TextRun(String text, Face face) {
     }
 
+    private record Assets(PDImageXObject logo, PDFont script) {
+    }
+
     // TWO_COLUMN wraps its left text beside a fixed amount; FIELD keeps its label and wraps the value.
-    private enum LineType { CENTER, LEFT, TWO_COLUMN, FIELD, DIVIDER, RULE, SPACE }
+    // LOGO, THANKS and ORNAMENT are the receipt's header and closing artwork.
+    private enum LineType { CENTER, LEFT, TWO_COLUMN, FIELD, DIVIDER, RULE, SPACE, LOGO, THANKS, ORNAMENT }
 
     private record ReceiptLine(LineType type, String prefix, String left, String right, PDType1Font font, float size,
                                float indent) {
@@ -773,6 +947,18 @@ public class ReceiptServiceImpl implements ReceiptService {
 
         static ReceiptLine space(float points) {
             return new ReceiptLine(LineType.SPACE, null, null, null, null, points, 0);
+        }
+
+        static ReceiptLine logo() {
+            return new ReceiptLine(LineType.LOGO, null, null, null, null, 0, 0);
+        }
+
+        static ReceiptLine thanks(String text, float size) {
+            return new ReceiptLine(LineType.THANKS, null, text, null, FONT, size, 0);
+        }
+
+        static ReceiptLine ornament() {
+            return new ReceiptLine(LineType.ORNAMENT, null, null, null, null, 0, 0);
         }
 
         ReceiptLine withText(String prefix, String left, String right) {
