@@ -20,4 +20,10 @@ public interface ExtraRepository extends JpaRepository<Extra, UUID> {
             + "then e.quantityOnHand - :quantity else 0 end "
             + "where e.id = :id and e.quantityOnHand is not null")
     int deductStock(@Param("id") UUID id, @Param("quantity") BigDecimal quantity);
+
+    // A cancelled order's extras going back on the shelf.
+    @Modifying
+    @Query("update Extra e set e.quantityOnHand = e.quantityOnHand + :quantity "
+            + "where e.id = :id and e.quantityOnHand is not null")
+    int restoreStock(@Param("id") UUID id, @Param("quantity") BigDecimal quantity);
 }

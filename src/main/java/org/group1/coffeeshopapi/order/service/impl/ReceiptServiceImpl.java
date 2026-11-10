@@ -138,6 +138,9 @@ public class ReceiptServiceImpl implements ReceiptService {
         if (order.paidAt() == null) {
             throw new InvalidOperationException("This order hasn't been paid yet");
         }
+        if (order.status() == OrderStatus.CANCELLED) {
+            throw new InvalidOperationException("This order was cancelled and refunded, so it has no invoice");
+        }
         return render(order, new ReceiptLabels(language), true);
     }
 

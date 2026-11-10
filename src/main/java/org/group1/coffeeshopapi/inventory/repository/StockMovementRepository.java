@@ -21,6 +21,8 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, UU
 
     boolean existsByOrderIdAndReason(UUID orderId, StockMovementReason reason);
 
+    List<StockMovement> findByOrderIdAndReason(UUID orderId, StockMovementReason reason);
+
     List<StockMovement> findByOrderIdAndProductIdAndReason(UUID orderId, UUID productId, StockMovementReason reason);
 
     // Per product, reason and direction over [from, to): what moved and what it was worth.

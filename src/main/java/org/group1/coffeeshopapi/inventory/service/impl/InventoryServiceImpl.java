@@ -256,6 +256,34 @@ public class InventoryServiceImpl implements InventoryService {
         }
     }
 
+    @Override
+    @Transactional
+    public void reverseSaleForCancelledOrder(UUID orderId, boolean backToStock, UUID performedBy, String note) {
+        // Grouped by product id, sorted, so concurrent cancellations lock stock rows in the same order.
+        Map<UUID, List<StockMovement>> soldByProduct = new TreeMap<>(stockMovementRepository
+                .findByOrderIdAndReason(orderId, StockMovementReason.SALE).stream()
+                .collect(Collectors.groupingBy(movement -> movement.getProduct().getId())));
+        for (Map.Entry<UUID, List<StockMovement>> sold : soldByProduct.entrySet()) {
+            Inventory inventory = findInventoryForUpdate(sold.getKey());
+            BigDecimal soldQuantity = sum(sold.getValue(), StockMovement::getQuantity);
+            BigDecimal returned = sum(stockMovementRepository.findByOrderIdAndProductIdAndReason(
+                    orderId, sold.getKey(), StockMovementReason.RETURN), StockMovement::getQuantity);
+            BigDecimal quantity = soldQuantity.subtract(returned);
+            if (quantity.signum() <= 0) {
+                continue;
+            }
+            BigDecimal unitCost = sum(sold.getValue(), StockMovement::getTotalCost)
+                    .divide(soldQuantity, BASE_UNIT_COST_SCALE, RoundingMode.HALF_UP);
+            addToStock(inventory, quantity, unitCost);
+            record(inventory, StockMovementType.STOCK_IN, StockMovementReason.RETURN, quantity,
+                    quantity.multiply(unitCost), orderId, note, performedBy);
+            if (!backToStock) {
+                cut(inventory, StockStrategy.FIFO, quantity, StockMovementReason.WASTE, WasteReason.OTHER, orderId,
+                        note, performedBy, false);
+            }
+        }
+    }
+
     private InvalidOperationException notEnoughForSale(Inventory inventory, BigDecimal needed) {
         Product product = inventory.getProduct();
         if (product.isIngredient()) {

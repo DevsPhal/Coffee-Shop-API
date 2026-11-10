@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.order.service;
 
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.order.dto.request.CancelOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryLocationRequest;
@@ -39,7 +40,8 @@ public interface OrderService {
 
     OrderResponse confirmBakongPayment(UUID id, UUID baristaId);
 
-    OrderResponse cancel(UUID id, UUID baristaId);
+    // Staff cancelling an order they handle (or one nobody has taken yet). See OrderServiceImpl.cancelOrder.
+    OrderResponse cancel(UUID id, UUID baristaId, CancelOrderRequest request);
 
     OrderResponse collectCash(UUID id, UUID actorId, CashPaymentRequest request);
 
@@ -106,7 +108,7 @@ public interface OrderService {
      */
     boolean cancelExpiredBakongOrder(UUID id);
 
-    OrderResponse cancelForCustomer(UUID id, UUID customerId);
+    OrderResponse cancelForCustomer(UUID id, UUID customerId, CancelOrderRequest request);
 
     OrderResponse getAny(UUID id);
 
@@ -115,7 +117,8 @@ public interface OrderService {
     /** Count and total of the matching orders for every status, including statuses with none. */
     List<OrderStatusSummaryResponse> summarizeByStatus(OrderSearchFilter filter);
 
-    OrderResponse cancelAny(UUID id, UUID actorId);
+    // An admin cancelling any order that isn't finished, including a paid cash order (refunded).
+    OrderResponse cancelAny(UUID id, UUID actorId, CancelOrderRequest request);
 
     List<OrderAuditLogResponse> getHistory(UUID orderId);
 }

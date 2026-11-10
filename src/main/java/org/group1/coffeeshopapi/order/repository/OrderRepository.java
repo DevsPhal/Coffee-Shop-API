@@ -102,8 +102,10 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
             @Param("paid") OrderStatus paid, @Param("pending") OrderStatus pending,
             @Param("cash") PaymentMethod cash, Pageable pageable);
 
+    // Paid orders, less those cancelled and refunded afterwards.
     @Query("select o from Order o where o.handledBy = :handledBy "
-            + "and o.paidAt >= :start and o.paidAt < :end")
+            + "and o.paidAt >= :start and o.paidAt < :end "
+            + "and o.status <> org.group1.coffeeshopapi.common.enums.OrderStatus.CANCELLED")
     List<Order> findPaidByHandledByInRange(
             @Param("handledBy") UUID handledBy,
             @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
@@ -130,6 +132,8 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
     @Query("update Order o set o.diningTable = null where o.diningTable.id = :tableId")
     void detachDiningTable(@Param("tableId") UUID tableId);
 
-    @Query("select o from Order o where o.paidAt >= :start and o.paidAt < :end")
+    // Paid orders, less those cancelled and refunded afterwards.
+    @Query("select o from Order o where o.paidAt >= :start and o.paidAt < :end "
+            + "and o.status <> org.group1.coffeeshopapi.common.enums.OrderStatus.CANCELLED")
     List<Order> findPaidInRange(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

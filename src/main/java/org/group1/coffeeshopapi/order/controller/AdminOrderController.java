@@ -18,6 +18,7 @@ import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
+import org.group1.coffeeshopapi.order.dto.request.CancelOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.AnswerStaffCallRequest;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
@@ -187,9 +188,9 @@ public class AdminOrderController {
     }
 
     @PostMapping("/{id}/cancel")
-    public ApiResponse<OrderResponse> cancel(@PathVariable UUID id) {
+    public ApiResponse<OrderResponse> cancel(@PathVariable UUID id, @Valid @RequestBody CancelOrderRequest request) {
         return ApiResponse.of(HttpStatus.OK, "Order cancelled successfully.",
-                orderService.cancelAny(id, currentActor.id()));
+                orderService.cancelAny(id, currentActor.id(), request));
     }
 
     @GetMapping("/staff-calls")

@@ -42,6 +42,10 @@ public interface InventoryService {
     // Takes a paid order out of stock once. capToAvailable cuts what is there instead of failing (money already taken).
     void deductForSale(UUID orderId, List<SaleLine> lines, UUID performedBy, boolean capToAvailable);
 
+    // A cancelled order no longer counts as sold: what it took comes back on the shelf (nothing was made), or is
+    // written off as waste (it was made). Ingredients included. Safe to call twice.
+    void reverseSaleForCancelledOrder(UUID orderId, boolean backToStock, UUID performedBy, String note);
+
     Map<UUID, VariantStock> variantStock(Collection<ProductVariant> variants);
 
     // Cost of one base unit: the stock on hand averaged over its batches, else the last purchase, else 0.

@@ -82,7 +82,8 @@ class TableActivityServiceImplTest {
                 null, null, null, null, null,
                 null, null, null, null,
                 null, null, LocalDateTime.now(), LocalDateTime.now(),
-                null, null, null, null, null, false, BigDecimal.TEN, null, null, null);
+                null, null, null, null, null, false, BigDecimal.TEN, null, null, null,
+                null, null, null, null, null);
     }
 
     private StaffCallResponse call(UUID orderId) {

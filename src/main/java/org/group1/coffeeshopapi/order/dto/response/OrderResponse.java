@@ -54,6 +54,13 @@ public record OrderResponse(
         BigDecimal itemsTotal,
         LocalDateTime estimatedReadyAt,
         LocalDateTime bakongExpiresAt,
-        BigDecimal exchangeRate
+        BigDecimal exchangeRate,
+        // Set once the order is cancelled. cancelledByRole is null when the system cancelled it.
+        String cancelReason,
+        LocalDateTime cancelledAt,
+        Role cancelledByRole,
+        // Cash handed back for a paid order an admin cancelled.
+        BigDecimal refundAmount,
+        Currency refundCurrency
 ) {
 }

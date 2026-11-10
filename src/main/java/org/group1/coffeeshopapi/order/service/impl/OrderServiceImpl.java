@@ -7,6 +7,8 @@ import org.group1.coffeeshopapi.bakong.BakongQrService;
 import org.group1.coffeeshopapi.bakong.dto.BakongDeeplinkResult;
 import org.group1.coffeeshopapi.bakong.dto.BakongQrResult;
 import org.group1.coffeeshopapi.bakong.dto.BakongTransactionCheckResult;
+import org.group1.coffeeshopapi.common.exception.ForbiddenOperationException;
+import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.common.enums.Currency;
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderAuditAction;
@@ -29,6 +31,7 @@ import org.group1.coffeeshopapi.extra.repository.ExtraRepository;
 import org.group1.coffeeshopapi.extra.repository.ProductExtraRepository;
 import org.group1.coffeeshopapi.inventory.dto.request.SaleLine;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
+import org.group1.coffeeshopapi.order.dto.request.CancelOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.CheckoutDetailsRequest;
 import org.group1.coffeeshopapi.order.dto.request.CreateOrderRequest;
@@ -197,12 +200,14 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse cancel(UUID id, UUID baristaId) {
-        Order order = requirePending(findByHandledByForUpdate(id, baristaId));
-        order.setStatus(OrderStatus.CANCELLED);
-        order = orderRepository.save(order);
-        recordChange(order, OrderAuditAction.CANCELLED, baristaId);
-        return toResponse(order);
+    public OrderResponse cancel(UUID id, UUID baristaId, CancelOrderRequest request) {
+        Order order = findAnyForUpdate(id);
+        // The barista handling the order, or any barista while nobody has taken it yet (a customer calling in).
+        if (order.getHandledBy() != null && !order.getHandledBy().equals(baristaId)) {
+            throw new ForbiddenOperationException(
+                    "Another staff member is handling this order. Ask them or an admin to cancel it.");
+        }
+        return cancelOrder(order, Role.BARISTA, baristaId, request.reason(), request.backToStock());
     }
 
     @Override
@@ -528,6 +533,8 @@ public class OrderServiceImpl implements OrderService {
             return false;
         }
         order.setStatus(OrderStatus.CANCELLED);
+        order.setCancelReason("The Bakong payment time ran out before the order was paid");
+        order.setCancelledAt(LocalDateTime.now());
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.CANCELLED, order.getCustomer().getId());
         return true;
@@ -547,12 +554,10 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse cancelForCustomer(UUID id, UUID customerId) {
-        Order order = requirePending(findByCustomerForUpdate(id, customerId));
-        order.setStatus(OrderStatus.CANCELLED);
-        order = orderRepository.save(order);
-        recordChange(order, OrderAuditAction.CANCELLED, customerId);
-        return toResponse(order);
+    public OrderResponse cancelForCustomer(UUID id, UUID customerId, CancelOrderRequest request) {
+        // A customer cancelling while their order is being made: the stock goes back, and the staff see the
+        // cancellation and the reason straight away on the queue.
+        return cancelOrder(findByCustomerForUpdate(id, customerId), Role.CUSTOMER, customerId, request.reason(), true);
     }
 
     @Override
@@ -591,12 +596,97 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse cancelAny(UUID id, UUID actorId) {
-        Order order = requirePending(findAnyForUpdate(id));
+    public OrderResponse cancelAny(UUID id, UUID actorId, CancelOrderRequest request) {
+        return cancelOrder(findAnyForUpdate(id), Role.ADMIN, actorId, request.reason(), request.backToStock());
+    }
+
+    // The one set of cancellation rules, as a café runs them:
+    //  - an order no money has been taken for (waiting, being made, or a cash order on its way) can be cancelled
+    //    by the staff handling it or an admin; the customer can cancel it until it leaves the shop;
+    //  - a paid cash order is a refund: an admin only, and the cash to hand back is recorded;
+    //  - a paid Bakong order can't be cancelled here, since the refund has to go through the bank;
+    //  - a finished order can't be cancelled.
+    // Every cancellation has a reason. Stock already taken for the order comes back, or is written off as waste
+    // when the staff say it was made. A dine-in order's table is freed by recordChange.
+    private OrderResponse cancelOrder(Order order, Role role, UUID actorId, String reason, boolean backToStock) {
+        String why = requireCancelReason(reason);
+        OrderStatus status = order.getStatus();
+        if (status.isFinished()) {
+            throw new InvalidOperationException("This order is already " + status.name().toLowerCase(Locale.ROOT)
+                    + " and can't be cancelled");
+        }
+        boolean customer = role == Role.CUSTOMER;
+        boolean paid = order.getPaidAt() != null;
+        if (paid) {
+            if (customer) {
+                throw new InvalidOperationException("Your order is already paid. Please ask our staff to cancel it.");
+            }
+            if (order.getPaymentMethod() != PaymentMethod.CASH) {
+                throw new InvalidOperationException("This order was paid by Bakong KHQR. A Bakong refund goes through "
+                        + "the bank, so the order can't be cancelled here.");
+            }
+            if (role != Role.ADMIN) {
+                throw new ForbiddenOperationException("This order is paid. Only an admin can cancel it and refund the cash.");
+            }
+        } else {
+            if (customer && status == OrderStatus.OUT_FOR_DELIVERY) {
+                throw new InvalidOperationException("Your order is already on its way. Please call us to cancel it.");
+            }
+            if (status == OrderStatus.PENDING && order.getBakongMd5Hash() != null) {
+                // Money may be on its way through Bakong: never cancel an order that was just paid.
+                requireNoBakongPaymentReceived(order);
+            }
+        }
+
+        // Stock is taken when an order is paid, or when a cash order starts being made: anything past waiting.
+        if (status != OrderStatus.PENDING) {
+            String note = "Order #" + shortCode(order) + " cancelled: " + why;
+            inventoryService.reverseSaleForCancelledOrder(order.getId(), backToStock, actorId, note);
+            if (backToStock) {
+                restoreExtraStock(order);
+            }
+        }
+        if (paid) {
+            boolean riel = order.getAmountTenderedCurrency() == Currency.KHR && order.getExchangeRate() != null;
+            order.setRefundCurrency(riel ? Currency.KHR : Currency.USD);
+            order.setRefundAmount(riel
+                    ? KhrConversion.fromUsd(order.getTotalAmount(), order.getExchangeRate())
+                    : order.getTotalAmount());
+        }
         order.setStatus(OrderStatus.CANCELLED);
+        order.setCancelReason(why);
+        order.setCancelledAt(LocalDateTime.now());
+        order.setCancelledByRole(role);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.CANCELLED, actorId);
         return toResponse(order);
+    }
+
+    private static String requireCancelReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new InvalidOperationException("Give a reason for cancelling");
+        }
+        String trimmed = reason.strip();
+        if (trimmed.length() > 300) {
+            throw new InvalidOperationException("The reason must not exceed 300 characters");
+        }
+        return trimmed;
+    }
+
+    private void restoreExtraStock(Order order) {
+        for (OrderItem item : order.getItems()) {
+            for (OrderItemExtra orderItemExtra : item.getExtras()) {
+                Extra extra = orderItemExtra.getExtra();
+                if (extra != null && extra.getQuantityOnHand() != null) {
+                    extraRepository.restoreStock(extra.getId(), BigDecimal.valueOf(item.getQuantity()));
+                    resourceChangePublisher.record(ResourceType.EXTRA, extra.getId(), ChangeType.UPDATED);
+                }
+            }
+        }
+    }
+
+    private static String shortCode(Order order) {
+        return order.getId().toString().substring(0, 8).toUpperCase(Locale.ROOT);
     }
 
     @Override

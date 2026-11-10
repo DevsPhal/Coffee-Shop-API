@@ -19,6 +19,7 @@ import org.group1.coffeeshopapi.inventory.dto.request.StockInRequest;
 import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.inventory.repository.InventoryRepository;
 import org.group1.coffeeshopapi.inventory.service.InventoryService;
+import org.group1.coffeeshopapi.order.dto.request.CancelOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.OrderItemRequest;
 import org.group1.coffeeshopapi.order.dto.request.StaffCreateOrderRequest;
 import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
@@ -153,9 +154,9 @@ class TableReservationFlowIntegrationTest {
         assertThat(activeOrders(table)).isEqualTo(2);
 
         // The table frees itself only when the last order is done; then it needs cleaning.
-        orderService.cancelAny(first.id(), admin);
+        orderService.cancelAny(first.id(), admin, new CancelOrderRequest("Guests left"));
         assertThat(status(table)).isEqualTo(TableStatus.OCCUPIED);
-        orderService.cancelAny(second.id(), admin);
+        orderService.cancelAny(second.id(), admin, new CancelOrderRequest("Guests left"));
         assertThat(orderRepository.findById(second.id()).orElseThrow().getStatus()).isEqualTo(OrderStatus.CANCELLED);
         assertThat(status(table)).isEqualTo(TableStatus.CLEANING);
         assertThat(reservationService.getById(booking.id()).status()).isEqualTo(ReservationStatus.COMPLETED);
@@ -182,7 +183,7 @@ class TableReservationFlowIntegrationTest {
                 .hasMessageContaining("still occupied");
 
         // The walk-in leaves; once cleaned, the table goes straight back to being held for Sokha.
-        orderService.cancelAny(walkIn.id(), admin);
+        orderService.cancelAny(walkIn.id(), admin, new CancelOrderRequest("Guests left"));
         diningTableService.updateStatus(table.getId(), new UpdateTableStatusRequest(TableStatus.AVAILABLE, null),
                 barista, false);
         assertThat(status(table)).isEqualTo(TableStatus.RESERVED);

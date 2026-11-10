@@ -474,7 +474,8 @@ class ReceiptServiceImplTest {
                     paymentMethod, tendered, tenderedCurrency, change, changeCurrency,
                     null, null, bakongCurrency, bakongAmount,
                     note, paidAt, paidAt, paidAt,
-                    null, null, deliveryFee, null, null, false, itemsTotal, null, null, exchangeRate);
+                    null, null, deliveryFee, null, null, false, itemsTotal, null, null, exchangeRate,
+                    null, null, null, null, null);
         }
     }
 
@@ -490,6 +491,7 @@ class ReceiptServiceImplTest {
                 PaymentMethod.CASH, new BigDecimal("10.00"), Currency.USD, BigDecimal.ZERO, Currency.USD,
                 null, null, null, null,
                 null, paidAt, LocalDateTime.now(), LocalDateTime.now(),
-                null, null, null, null, null, false, new BigDecimal("10.00"), null, null, null);
+                null, null, null, null, null, false, new BigDecimal("10.00"), null, null, null,
+                null, null, null, null, null);
     }
 }

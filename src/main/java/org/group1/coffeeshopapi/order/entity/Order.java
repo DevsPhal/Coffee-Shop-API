@@ -19,6 +19,7 @@ import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
 import org.group1.coffeeshopapi.common.enums.OrderType;
 import org.group1.coffeeshopapi.common.enums.PaymentMethod;
+import org.group1.coffeeshopapi.common.enums.Role;
 import org.group1.coffeeshopapi.table.entity.DiningTable;
 import org.group1.coffeeshopapi.user.entity.Customer;
 
@@ -126,6 +127,25 @@ public class Order extends BaseEntity {
     // KHQR), so the receipt can show the riel total exactly as it was charged. Null when no riel was involved.
     @Column(precision = 15, scale = 4)
     private BigDecimal exchangeRate;
+
+    // A cancelled order: why, when, and who cancelled it (CUSTOMER, BARISTA or ADMIN; null when the system did,
+    // as for an expired Bakong QR).
+    @Column(length = 300)
+    private String cancelReason;
+
+    private LocalDateTime cancelledAt;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Role cancelledByRole;
+
+    // Cash handed back when an admin cancelled an order that was already paid, in the currency it was paid in.
+    @Column(precision = 15, scale = 2)
+    private BigDecimal refundAmount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(length = 3)
+    private Currency refundCurrency;
 
     @Column(length = 128)
     private String bakongTransactionHash;

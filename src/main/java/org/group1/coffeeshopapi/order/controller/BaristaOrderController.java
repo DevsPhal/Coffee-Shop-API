@@ -18,6 +18,7 @@ import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
 import org.group1.coffeeshopapi.common.util.QrImageUtil;
+import org.group1.coffeeshopapi.order.dto.request.CancelOrderRequest;
 import org.group1.coffeeshopapi.order.dto.request.AnswerStaffCallRequest;
 import org.group1.coffeeshopapi.order.dto.request.CashPaymentRequest;
 import org.group1.coffeeshopapi.order.dto.request.DeliveryFeeRequest;
@@ -172,10 +173,10 @@ public class BaristaOrderController {
     }
 
     @PostMapping("/{id}/cancel")
-    public ApiResponse<OrderResponse> cancel(
-            @PathVariable UUID id, @AuthenticationPrincipal CustomUserDetails currentUser) {
+    public ApiResponse<OrderResponse> cancel(@PathVariable UUID id, @Valid @RequestBody CancelOrderRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
         return ApiResponse.of(HttpStatus.OK, "Order cancelled successfully.",
-                orderService.cancel(id, currentUser.getId()));
+                orderService.cancel(id, currentUser.getId(), request));
     }
 
     @GetMapping("/awaiting-pickup")
