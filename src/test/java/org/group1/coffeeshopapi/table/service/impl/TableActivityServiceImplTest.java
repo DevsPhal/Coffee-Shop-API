@@ -2,6 +2,7 @@ package org.group1.coffeeshopapi.table.service.impl;
 
 import org.group1.coffeeshopapi.common.enums.FulfillmentMethod;
 import org.group1.coffeeshopapi.common.enums.OrderStatus;
+import org.group1.coffeeshopapi.common.enums.ReservationStatus;
 import org.group1.coffeeshopapi.common.enums.StaffCallReason;
 import org.group1.coffeeshopapi.common.enums.StaffCallStatus;
 import org.group1.coffeeshopapi.common.enums.TableSize;
@@ -10,9 +11,11 @@ import org.group1.coffeeshopapi.order.dto.response.OrderResponse;
 import org.group1.coffeeshopapi.order.dto.response.StaffCallResponse;
 import org.group1.coffeeshopapi.order.service.OrderService;
 import org.group1.coffeeshopapi.order.service.StaffCallService;
+import org.group1.coffeeshopapi.table.dto.response.ReservationResponse;
 import org.group1.coffeeshopapi.table.dto.response.TableActivityResponse;
 import org.group1.coffeeshopapi.table.dto.response.TableResponse;
 import org.group1.coffeeshopapi.table.service.DiningTableService;
+import org.group1.coffeeshopapi.table.service.ReservationService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -22,6 +25,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -33,6 +37,7 @@ class TableActivityServiceImplTest {
     @Mock private DiningTableService diningTableService;
     @Mock private OrderService orderService;
     @Mock private StaffCallService staffCallService;
+    @Mock private ReservationService reservationService;
     @InjectMocks private TableActivityServiceImpl service;
 
     @Test
@@ -44,13 +49,24 @@ class TableActivityServiceImplTest {
         when(diningTableService.listPublic(null)).thenReturn(List.of(busy, free));
         when(orderService.listActiveDineIn()).thenReturn(List.of(order));
         when(staffCallService.listOpen()).thenReturn(List.of(call(order.id()), call(takeaway.id())));
+        ReservationResponse booking = booking(free);
+        when(reservationService.currentByTable(List.of(busy.id(), free.id())))
+                .thenReturn(Map.of(free.id(), List.of(booking)));
 
         List<TableActivityResponse> activity = service.list(null);
 
         assertThat(activity.get(0).activeOrders()).containsExactly(order);
         assertThat(activity.get(0).openStaffCallCount()).isEqualTo(1);
+        assertThat(activity.get(0).reservations()).isEmpty();
         assertThat(activity.get(1).activeOrderCount()).isZero();
         assertThat(activity.get(1).openStaffCalls()).isEmpty();
+        assertThat(activity.get(1).reservations()).containsExactly(booking);
+    }
+
+    private ReservationResponse booking(TableResponse table) {
+        LocalDateTime at = LocalDateTime.now().plusHours(2);
+        return new ReservationResponse(UUID.randomUUID(), table.id(), table.tableNumber(), "Sokha", null, 2, at,
+                at.plusMinutes(90), 90, ReservationStatus.BOOKED, null, null, null, null, LocalDateTime.now());
     }
 
     private TableResponse table(String number, TableStatus status) {

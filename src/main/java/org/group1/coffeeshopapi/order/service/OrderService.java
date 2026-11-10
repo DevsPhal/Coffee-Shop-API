@@ -21,7 +21,13 @@ import java.util.UUID;
 
 public interface OrderService {
 
-    OrderResponse create(StaffCreateOrderRequest request, UUID baristaId);
+    // A POS sale by a barista: table rules apply and cannot be overridden.
+    default OrderResponse create(StaffCreateOrderRequest request, UUID baristaId) {
+        return create(request, baristaId, false);
+    }
+
+    // mayOverride: the caller is an admin, who may seat the order past the table rules (with a reason).
+    OrderResponse create(StaffCreateOrderRequest request, UUID actorId, boolean mayOverride);
 
     OrderResponse getOwn(UUID id, UUID baristaId);
 

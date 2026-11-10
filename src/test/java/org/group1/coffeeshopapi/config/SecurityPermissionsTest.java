@@ -94,6 +94,17 @@ class SecurityPermissionsTest {
         cases.add(new Access("GET", "/api/barista/tables", BARISTA));
         cases.add(new Access("GET", "/api/barista/tables/record", BARISTA));
         cases.add(new Access("PATCH", "/api/barista/tables/record/status", BARISTA));
+        cases.add(new Access("GET", "/api/admin/tables/record/history", MANAGERS));
+        for (String area : List.of("admin", "barista")) {
+            Set<String> roles = area.equals("admin") ? MANAGERS : BARISTA;
+            cases.add(new Access("GET", "/api/" + area + "/reservations", roles));
+            cases.add(new Access("GET", "/api/" + area + "/reservations/record", roles));
+            cases.add(new Access("POST", "/api/" + area + "/reservations", roles));
+            cases.add(new Access("PUT", "/api/" + area + "/reservations/record", roles));
+            for (String action : List.of("check-in", "cancel", "no-show")) {
+                cases.add(new Access("POST", "/api/" + area + "/reservations/record/" + action, roles));
+            }
+        }
         cases.add(new Access("GET", "/api/customer/tables/A1/orders", CUSTOMER));
         cases.add(new Access("GET", "/api/customer/cart", CUSTOMER));
         cases.add(new Access("GET", "/api/customer/orders", CUSTOMER));

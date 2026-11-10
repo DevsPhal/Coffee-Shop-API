@@ -62,7 +62,7 @@ public class AdminOrderController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<OrderResponse>> create(@Valid @RequestBody StaffCreateOrderRequest request) {
-        OrderResponse response = orderService.create(request, currentActor.id());
+        OrderResponse response = orderService.create(request, currentActor.id(), true);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.of(HttpStatus.CREATED, "Order created successfully.", response));
     }

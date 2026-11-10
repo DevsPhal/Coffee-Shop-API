@@ -10,6 +10,8 @@ public record TableActivityResponse(
         int activeOrderCount,
         int openStaffCallCount,
         List<OrderResponse> activeOrders,
-        List<StaffCallResponse> openStaffCalls
+        List<StaffCallResponse> openStaffCalls,
+        // Staff only: the party seated from a booking, and bookings starting in the next 24 hours.
+        List<ReservationResponse> reservations
 ) {
 }

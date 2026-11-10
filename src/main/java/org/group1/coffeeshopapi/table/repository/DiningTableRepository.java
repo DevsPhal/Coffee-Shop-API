@@ -22,6 +22,10 @@ public interface DiningTableRepository extends JpaRepository<DiningTable, UUID> 
     @Query("select t from DiningTable t where lower(t.tableNumber) = lower(:tableNumber)")
     Optional<DiningTable> findByTableNumberForUpdate(@Param("tableNumber") String tableNumber);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from DiningTable t where t.id = :id")
+    Optional<DiningTable> findByIdForUpdate(@Param("id") UUID id);
+
     boolean existsByTableNumberIgnoreCase(String tableNumber);
 
     boolean existsByTableNumberIgnoreCaseAndIdNot(String tableNumber, UUID id);

@@ -22,6 +22,19 @@ public record StaffCreateOrderRequest(
 
         // Optional for dine-in (a counter seat has no table); not allowed for take-away.
         @Size(max = 20, message = "Table number must not exceed 20 characters")
-        String tableNumber
+        String tableNumber,
+
+        // The order is for the party already sitting at the table (another round). Without it, an occupied
+        // table or one waiting to be cleaned refuses the order, so two parties never share a table by mistake.
+        Boolean forSeatedParty,
+
+        // Admin only: seat the order at a reserved table or one waiting to be cleaned. The reason is audited.
+        Boolean override,
+
+        @Size(max = 300, message = "The override reason must not exceed 300 characters")
+        String overrideReason
 ) {
+    public StaffCreateOrderRequest(List<OrderItemRequest> items, String note, OrderType orderType, String tableNumber) {
+        this(items, note, orderType, tableNumber, null, null, null);
+    }
 }

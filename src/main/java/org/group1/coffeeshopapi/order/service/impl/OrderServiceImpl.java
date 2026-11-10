@@ -65,6 +65,8 @@ import org.group1.coffeeshopapi.realtime.ResourceType;
 import org.group1.coffeeshopapi.realtime.event.OrderChangedEvent;
 import org.group1.coffeeshopapi.table.entity.DiningTable;
 import org.group1.coffeeshopapi.table.service.DiningTableService;
+import org.group1.coffeeshopapi.table.service.TableOrderClaim;
+import org.group1.coffeeshopapi.table.service.TableSeating;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoice;
 import org.group1.coffeeshopapi.telegram.dto.OrderInvoiceLineItem;
 import org.group1.coffeeshopapi.telegram.service.TelegramInvoiceService;
@@ -86,6 +88,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -103,6 +106,9 @@ public class OrderServiceImpl implements OrderService {
     private static final long PREVIOUS_QR_GRACE_SECONDS = 30 * 60;
     // A payment made right before the deadline can take a moment to show up in Bakong.
     private static final long EXPIRED_QR_SETTLE_SECONDS = 60;
+    // The audit actions that end an order: only these can free its table.
+    private static final Set<OrderAuditAction> FINISHING_ACTIONS = EnumSet.of(
+            OrderAuditAction.COMPLETED, OrderAuditAction.DELIVERED, OrderAuditAction.CANCELLED);
 
     private final OrderRepository orderRepository;
     private final OrderAuditLogRepository orderAuditLogRepository;
@@ -127,7 +133,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderResponse create(StaffCreateOrderRequest request, UUID baristaId) {
+    public OrderResponse create(StaffCreateOrderRequest request, UUID baristaId, boolean mayOverride) {
         OrderType orderType = request.orderType();
         String tableNumber = request.tableNumber() != null && !request.tableNumber().isBlank()
                 ? request.tableNumber()
@@ -141,11 +147,18 @@ public class OrderServiceImpl implements OrderService {
         order.setOrderType(orderType);
         order.setFulfillmentMethod(orderType.fulfillmentMethod());
         order.setDeliveryFee(null);
+        TableSeating seating = null;
         if (tableNumber != null) {
-            order.seatAt(diningTableService.seatForOrder(tableNumber));
+            seating = diningTableService.claimForOrder(TableOrderClaim.pos(tableNumber,
+                    Boolean.TRUE.equals(request.forSeatedParty()), Boolean.TRUE.equals(request.override()),
+                    request.overrideReason(), baristaId, mayOverride));
+            order.seatAt(seating.table());
         }
         order.setHandledBy(baristaId);
         order = orderRepository.save(order);
+        if (seating != null) {
+            diningTableService.linkOrder(seating, order.getId());
+        }
         recordChange(order, OrderAuditAction.CREATED, baristaId);
         return toResponse(order);
     }
@@ -348,7 +361,18 @@ public class OrderServiceImpl implements OrderService {
         order.setDeliveryLatitude(deliveryLatitude);
         order.setDeliveryLongitude(deliveryLongitude);
         requireConsistentDelivery(order);
+        // Ordering from the dine-in menu means the customer is at the table: a free table is seated, and an
+        // occupied one takes the order as another round for that party. Reserved tables refuse it.
+        TableSeating seating = null;
+        if (order.getFulfillmentMethod() == FulfillmentMethod.DINE_IN) {
+            seating = diningTableService.claimForOrder(
+                    TableOrderClaim.customer(request.delivery().tableNumber(), customerId));
+            order.seatAt(seating.table());
+        }
         order = orderRepository.save(order);
+        if (seating != null) {
+            diningTableService.linkOrder(seating, order.getId());
+        }
         recordChange(order, OrderAuditAction.CREATED, customerId);
         return toResponse(order);
     }
@@ -419,6 +443,7 @@ public class OrderServiceImpl implements OrderService {
     public OrderResponse pinDeliveryLocation(UUID id, UUID customerId, DeliveryLocationRequest request) {
         Order order = requirePending(findByCustomerForUpdate(id, customerId));
         requireNoBakongPaymentReceived(order);
+        UUID leftTableId = order.getDiningTable() != null ? order.getDiningTable().getId() : null;
         order.setFulfillmentMethod(FulfillmentMethod.DELIVERY);
         order.seatAt(null);
         order.setDeliveryLatitude(request.latitude());
@@ -435,6 +460,10 @@ public class OrderServiceImpl implements OrderService {
         recalculateTotal(order);
         order = orderRepository.save(order);
         recordChange(order, OrderAuditAction.LOCATION_PINNED, customerId);
+        // The order no longer sits at the table; if it was the last one there, the table needs cleaning.
+        if (leftTableId != null) {
+            diningTableService.releaseAfterOrder(leftTableId, order.getId(), customerId);
+        }
         return toResponse(order);
     }
 
@@ -665,9 +694,7 @@ public class OrderServiceImpl implements OrderService {
         order.setContactName(delivery.contactName());
         order.setContactPhone(delivery.contactPhone());
         order.setDeliveryAddress(delivery.address());
-        if (delivery.method() == FulfillmentMethod.DINE_IN) {
-            order.seatAt(diningTableService.seatForOrder(delivery.tableNumber()));
-        }
+        // The table itself is claimed in createForCustomer, after the items are checked.
     }
 
     private ProductVariant resolveExplicitVariant(Product product, OrderItemRequest itemRequest) {
@@ -1102,6 +1129,10 @@ public class OrderServiceImpl implements OrderService {
         orderAuditLogRepository.save(log);
 
         orderRepository.flush();
+        // Keeps the table in step with its orders: when the last one finishes, the table needs cleaning.
+        if (FINISHING_ACTIONS.contains(action) && order.getDiningTable() != null) {
+            diningTableService.releaseAfterOrder(order.getDiningTable().getId(), order.getId(), actorId);
+        }
         String customerEmail = order.getCustomer() != null ? order.getCustomer().getEmail() : null;
         eventPublisher.publishEvent(new OrderChangedEvent(action, toResponse(order), customerEmail));
     }

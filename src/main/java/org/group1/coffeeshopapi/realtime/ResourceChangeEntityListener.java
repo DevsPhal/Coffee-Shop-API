@@ -13,6 +13,7 @@ import org.group1.coffeeshopapi.inventory.entity.Inventory;
 import org.group1.coffeeshopapi.product.entity.Product;
 import org.group1.coffeeshopapi.product.entity.ProductVariant;
 import org.group1.coffeeshopapi.table.entity.DiningTable;
+import org.group1.coffeeshopapi.table.entity.Reservation;
 import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.UUID;
@@ -56,6 +57,7 @@ public class ResourceChangeEntityListener {
             case Inventory inventory -> publisher.record(ResourceType.INVENTORY, productId(inventory.getProduct()), change);
             case Feedback feedback -> publisher.record(ResourceType.FEEDBACK, feedback.getId(), change);
             case DiningTable table -> publisher.record(ResourceType.TABLE, table.getId(), change);
+            case Reservation reservation -> publisher.record(ResourceType.RESERVATION, reservation.getId(), change);
             default -> { }
         }
     }

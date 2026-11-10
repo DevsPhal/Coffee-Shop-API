@@ -10,7 +10,9 @@ public enum ResourceType {
     EVENT(RealtimeDestinations.CATALOG),
     INVENTORY(RealtimeDestinations.INVENTORY, RealtimeDestinations.STOCK),
     FEEDBACK(RealtimeDestinations.FEEDBACK),
-    TABLE(RealtimeDestinations.TABLES);
+    TABLE(RealtimeDestinations.TABLES),
+    // Bookings change what the tables screen shows; the message only carries the id.
+    RESERVATION(RealtimeDestinations.TABLES);
 
     private final List<String> destinations;
 

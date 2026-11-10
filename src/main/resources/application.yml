@@ -110,6 +110,11 @@ app:
   table:
     scan-base-url: ${APP_TABLE_SCAN_BASE_URL:https://590stcafe.shop/table/}
     menu-scan-url: ${APP_TABLE_MENU_SCAN_URL:https://590stcafe.shop/dine-in}
+    reservation:
+      hold-before-minutes: ${APP_TABLE_RESERVATION_HOLD_BEFORE_MINUTES:60}
+      default-duration-minutes: ${APP_TABLE_RESERVATION_DEFAULT_DURATION_MINUTES:90}
+      no-show-after-minutes: ${APP_TABLE_RESERVATION_NO_SHOW_AFTER_MINUTES:30}
+      max-advance-days: ${APP_TABLE_RESERVATION_MAX_ADVANCE_DAYS:60}
   super-admin:
     email: ${SUPER_ADMIN_EMAIL:}
     password: ${SUPER_ADMIN_PASSWORD:}

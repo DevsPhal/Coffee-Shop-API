@@ -36,6 +36,8 @@ import org.group1.coffeeshopapi.product.repository.ProductRepository;
 import org.group1.coffeeshopapi.product.repository.ProductVariantRepository;
 import org.group1.coffeeshopapi.realtime.ResourceChangePublisher;
 import org.group1.coffeeshopapi.table.entity.DiningTable;
+import org.group1.coffeeshopapi.table.service.TableOrderClaim;
+import org.group1.coffeeshopapi.table.service.TableSeating;
 import org.group1.coffeeshopapi.table.service.DiningTableService;
 import org.group1.coffeeshopapi.telegram.service.TelegramInvoiceService;
 import org.group1.coffeeshopapi.user.repository.CustomerRepository;
@@ -150,16 +152,36 @@ class OrderServiceImplWalkInSaleTest {
         Product croissant = sellableCroissant();
         DiningTable table = new DiningTable();
         table.setTableNumber("A3");
-        when(diningTableService.seatForOrder("A3")).thenReturn(table);
+        TableSeating seating = new TableSeating(table, null);
+        when(diningTableService.claimForOrder(any(TableOrderClaim.class))).thenReturn(seating);
         when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        UUID barista = UUID.randomUUID();
 
-        service.create(new StaffCreateOrderRequest(List.of(line(croissant)), null, OrderType.DINE_IN, "A3"),
-                UUID.randomUUID());
+        service.create(new StaffCreateOrderRequest(List.of(line(croissant)), null, OrderType.DINE_IN, "A3"), barista);
 
         ArgumentCaptor<Order> saved = ArgumentCaptor.forClass(Order.class);
         verify(orderRepository).save(saved.capture());
         assertThat(saved.getValue().getFulfillmentMethod()).isEqualTo(FulfillmentMethod.DINE_IN);
         assertThat(saved.getValue().getTableNumber()).isEqualTo("A3");
+        // A plain walk-in: not for a seated party, no override, and a barista could not override anyway.
+        verify(diningTableService).claimForOrder(TableOrderClaim.pos("A3", false, false, null, barista, false));
+        verify(diningTableService).linkOrder(seating, saved.getValue().getId());
+    }
+
+    @Test
+    void anAdminSaleForTheSeatedPartyPassesItsChoicesToTheTable() {
+        Product croissant = sellableCroissant();
+        DiningTable table = new DiningTable();
+        table.setTableNumber("A3");
+        when(diningTableService.claimForOrder(any(TableOrderClaim.class))).thenReturn(new TableSeating(table, null));
+        when(orderRepository.save(any(Order.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        UUID admin = UUID.randomUUID();
+
+        service.create(new StaffCreateOrderRequest(List.of(line(croissant)), null, OrderType.DINE_IN, "A3",
+                true, true, "Regulars, table was wiped"), admin, true);
+
+        verify(diningTableService).claimForOrder(
+                TableOrderClaim.pos("A3", true, true, "Regulars, table was wiped", admin, true));
     }
 
     @Test

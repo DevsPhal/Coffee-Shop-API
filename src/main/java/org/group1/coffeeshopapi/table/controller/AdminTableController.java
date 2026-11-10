@@ -8,6 +8,7 @@ import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.TableStatus;
 import org.group1.coffeeshopapi.common.properties.TableProperties;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
+import org.group1.coffeeshopapi.common.security.CurrentActor;
 import org.group1.coffeeshopapi.common.response.PageResponse;
 import org.group1.coffeeshopapi.common.util.FileResponseUtil;
 import org.group1.coffeeshopapi.common.util.PageUtil;
@@ -19,6 +20,7 @@ import org.group1.coffeeshopapi.table.dto.request.UpdateTableRequest;
 import org.group1.coffeeshopapi.table.dto.request.UpdateTableStatusRequest;
 import org.group1.coffeeshopapi.table.dto.response.MenuLinkResponse;
 import org.group1.coffeeshopapi.table.dto.response.TableActivityResponse;
+import org.group1.coffeeshopapi.table.dto.response.TableAuditLogResponse;
 import org.group1.coffeeshopapi.table.dto.response.TableResponse;
 import org.group1.coffeeshopapi.table.service.DiningTableService;
 import org.group1.coffeeshopapi.table.service.TableActivityService;
@@ -44,6 +46,7 @@ public class AdminTableController {
     private final TableActivityService tableActivityService;
     private final OrderService orderService;
     private final TableProperties tableProperties;
+    private final CurrentActor currentActor;
 
     @PostMapping
     public ResponseEntity<ApiResponse<TableResponse>> create(@Valid @RequestBody CreateTableRequest request) {
@@ -91,7 +94,13 @@ public class AdminTableController {
     public ApiResponse<TableResponse> updateStatus(
             @PathVariable UUID id, @Valid @RequestBody UpdateTableStatusRequest request) {
         return ApiResponse.of(HttpStatus.OK, "Table status updated successfully.",
-                diningTableService.updateStatus(id, request));
+                diningTableService.updateStatus(id, request, currentActor.id(), true));
+    }
+
+    // Every status change on the table: who made it, overrides and their reasons.
+    @GetMapping("/{id}/history")
+    public ApiResponse<List<TableAuditLogResponse>> history(@PathVariable UUID id) {
+        return ApiResponse.of(HttpStatus.OK, AppConstant.SUCCESS_MESSAGE, diningTableService.history(id));
     }
 
     @DeleteMapping("/{id}")

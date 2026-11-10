@@ -7,12 +7,14 @@ import lombok.RequiredArgsConstructor;
 import org.group1.coffeeshopapi.common.constant.AppConstant;
 import org.group1.coffeeshopapi.common.enums.TableStatus;
 import org.group1.coffeeshopapi.common.response.ApiResponse;
+import org.group1.coffeeshopapi.common.security.CustomUserDetails;
 import org.group1.coffeeshopapi.table.dto.request.UpdateTableStatusRequest;
 import org.group1.coffeeshopapi.table.dto.response.TableActivityResponse;
 import org.group1.coffeeshopapi.table.dto.response.TableResponse;
 import org.group1.coffeeshopapi.table.service.DiningTableService;
 import org.group1.coffeeshopapi.table.service.TableActivityService;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -40,8 +42,10 @@ public class BaristaTableController {
 
     @PatchMapping("/{id}/status")
     public ApiResponse<TableResponse> updateStatus(
-            @PathVariable UUID id, @Valid @RequestBody UpdateTableStatusRequest request) {
+            @PathVariable UUID id, @Valid @RequestBody UpdateTableStatusRequest request,
+            @AuthenticationPrincipal CustomUserDetails currentUser) {
+        // Baristas follow the table rules; only an admin can override them.
         return ApiResponse.of(HttpStatus.OK, "Table status updated successfully.",
-                diningTableService.updateStatus(id, request));
+                diningTableService.updateStatus(id, request, currentUser.getId(), false));
     }
 }

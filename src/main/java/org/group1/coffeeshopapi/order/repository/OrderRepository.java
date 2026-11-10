@@ -123,6 +123,9 @@ public interface OrderRepository extends JpaRepository<Order, UUID>, JpaSpecific
             + "and o.status not in :finished order by o.createdAt asc")
     List<Order> findActiveDineIn(@Param("finished") List<OrderStatus> finished);
 
+    @Query("select count(o) from Order o where o.diningTable.id = :tableId and o.status not in :finished")
+    long countActiveByTableId(@Param("tableId") UUID tableId, @Param("finished") List<OrderStatus> finished);
+
     @Modifying
     @Query("update Order o set o.diningTable = null where o.diningTable.id = :tableId")
     void detachDiningTable(@Param("tableId") UUID tableId);
